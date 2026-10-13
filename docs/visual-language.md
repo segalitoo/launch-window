@@ -38,7 +38,7 @@ Each element has one job. No two elements do the same job.
 
 ## 6b. Units at night (Session 2 test)
 - At 44 px under the environment's night grade, every Yoav concept almost vanished into the ground. Camouflage works too well.
-- Rule: units get a lighter grade than the environment, (0.62, 0.68, 0.82) against (0.36, 0.43, 0.60). Test: `assets/raw/gen/CH_unit_grade_test.png`.
+- Rule (approved by Ran): units get a lighter grade than the environment, (0.62, 0.68, 0.82) against (0.36, 0.43, 0.60). Test: `assets/raw/gen/CH_unit_grade_test.png`.
 - Add a subtle cool rim light from the top left in the character render. A painted rim at full strength looked like a white outline.
 - Keep one light value on each operator (tan trousers did this job in the test), so the figure separates from the blue ground.
 
@@ -47,6 +47,7 @@ Each element has one job. No two elements do the same job.
 - Kit: high-cut olive helmet with a night vision mount and headset, or a knit cap with headset for the stealth role; olive balaclava; slim olive plate carrier or chest rig.
 - Coyote tan accents only: gloves, a few pouches, the carbine, boots. These are the figure's light values at night.
 - No flags, unit patches or insignia. The unit is fictional.
+- Decided: Yoav = CH-03 #1 (`assets/raw/gen/CH-03_yoav_idf_helmet_1.jpg`). Every operator wears a helmet (Ran: Israeli soldiers always do), so the three must differ by other means. See "Telling the squad apart".
 - Real photos are mood references only and are never attached to an image prompt (CLAUDE.md content rules). Prompts: `assets/raw/prompts/batch-02.md`.
 
 ## 7. Lamp light (varies, says "this spot is lit")
