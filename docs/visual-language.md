@@ -1,6 +1,6 @@
 # Visual language (draft for Gate A)
 
-Status: draft, Session 2. The palette waits for Ran's pick of look A, B or C.
+Status: draft, Session 2. Look B (Moonlit steel) chosen by Ran. Walls 2.0 m.
 Compare sheet: `assets/raw/blockout/yard_looks_compare.png`.
 
 Each element has one job. No two elements do the same job.
@@ -12,8 +12,8 @@ Each element has one job. No two elements do the same job.
 ## 2. Scale (fixed)
 - One sim tile = 1.6 m.
 - A 1.8 m figure is about 44 px tall at 100% zoom (target 40 to 48).
-- Walls 2.4 m (about 59 px). Doors 2.2 m. Crates 1.2 m.
-- To check: does a 2.4 m wall hide too much floor behind it? See "Open questions".
+- Walls 2.0 m (about 49 px), just taller than a standing figure, so they read as cover. Doors 1.9 m. Crates 1.2 m. Buildings 3.2 m.
+- Decided in Session 2: 2.4 m hid too much floor and made cones seem to cross walls.
 
 ## 3. Light (fixed, one direction for everything)
 - Sun from the screen's top left: ground direction west with a little south, 48 degrees up.
@@ -27,7 +27,8 @@ Each element has one job. No two elements do the same job.
 
 ## 5. Structures and props (vary, say "what is this object")
 - 3D blockout from the map data, rendered through the camera, then painted over.
-- Muted earth tones. No saturated colour on structures: saturation belongs to the readability layer.
+- Look B palette: grey-khaki sand and gravel, cool grey concrete, olive machinery, worn wood. Low saturation, neutral daylight.
+- No saturated colour on structures: saturation belongs to the readability layer.
 
 ## 6. Night (one grade for the whole mission)
 - Art is painted in neutral daylight. The engine multiplies it by a night tint, then multiplies in a light layer.
@@ -50,5 +51,5 @@ Each element has one job. No two elements do the same job.
 - **Overlay**: the readability layer (rule 8).
 
 ## Open questions
-1. Which look: A, B or C.
-2. Wall height: 2.4 m hides the floor right behind a wall, and ground-level cones appear to cross walls. Lower walls (1.8 to 2 m) or keep them and rely on the hidden-unit outline.
+1. Does Nano Banana keep the blockout's geometry when painting over it? First test: `assets/raw/prompts/batch-01.md`.
+2. Yoav's silhouette: watch cap (CH-01) or hood and face wrap (CH-02).

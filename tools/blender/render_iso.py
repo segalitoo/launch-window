@@ -35,9 +35,10 @@ from mathutils import Vector
 TILE_M = 1.6  # one sim tile in metres. A 1.8 m figure is then about 44 px tall at 100% zoom.
 TILE_PX_W = 64  # tile diamond width on screen at 100% zoom
 CAM_TILT = math.radians(60)  # from vertical
-WALL_H = 2.4
+WALL_H = 2.0  # Gate A decision, Session 2: shows more floor behind walls than 2.4 m
 WALL_T = 0.7  # wall thickness; walls run through tile centres
-DOOR_H = 2.2
+DOOR_H = 1.9
+BUILDING_H = 3.2
 FIGURE_H = 1.8
 
 # Sun: from the screen's top left. Ground direction toward the sun, in Blender axes
@@ -205,8 +206,9 @@ class MapData:
         return self.deco[y * self.cols + x]
 
 
-def build(md, region, look):
-    x0, y0, x1, y1 = region
+def build(md, region, look, figures=True, margin=8):
+    # build past the camera's region so ground and walls run off the frame edges
+    x0, y0, x1, y1 = region[0] - margin, region[1] - margin, region[2] + margin, region[3] + margin
     L = LOOKS[look]
     T = TILE_M
     mats = {
@@ -341,6 +343,46 @@ def build(md, region, look):
                 add_box(crates, c.x + 0.1, c.y - 0.05, 1.55, 0.9, 0.9, 0.7)
     mesh_object("crates", crates, mats["wood"])
 
+    # buildings: one block per footprint with a parapet roof
+    bld = bmesh.new()
+    roof = bmesh.new()
+    for b in md.d["buildings"]:
+        if b["x1"] < x0 or b["x0"] >= x1 or b["y1"] < y0 or b["y0"] >= y1:
+            continue
+        a = sim_to_world(b["x0"] + 0.1, b["y0"] + 0.1)
+        c = sim_to_world(b["x1"] + 0.9, b["y1"] + 0.9)
+        cx, cy = (a.x + c.x) / 2, (a.y + c.y) / 2
+        sx, sy = abs(c.x - a.x), abs(c.y - a.y)
+        add_box(bld, cx, cy, BUILDING_H / 2, sx, sy, BUILDING_H)
+        add_box(roof, cx, cy, BUILDING_H + 0.01, sx - 0.5, sy - 0.5, 0.04)
+    mesh_object("buildings", bld, mats["concrete"])
+    mesh_object("roofs", roof, mats["steel"])
+
+    # launcher trucks: chassis, cab, missile on a cradle
+    trucks = bmesh.new()
+    missiles = bmesh.new()
+    for l in md.d["launchers"]:
+        if not (x0 <= l["x"] < x1 and y0 <= l["y"] < y1):
+            continue
+        a = sim_to_world(l["x"], l["y"] + 0.5)
+        length = l["w"] * T
+        cy = a.y
+        add_box(trucks, a.x + length / 2, cy, 0.75, length - 0.2, 1.3, 0.7)
+        add_box(trucks, a.x + length - 0.6, cy, 1.4, 0.9, 1.3, 0.8)
+        add_cylinder(missiles, a.x + length / 2 - 0.4, cy, 1.55, 0.28, length - 1.2, axis="X")
+    mesh_object("trucks", trucks, mats["machine"])
+    mesh_object("missiles", missiles, mats["concrete"])
+
+    # searchlight towers: pole and lamp head
+    towers = bmesh.new()
+    for t in md.d["towers"]:
+        if not (x0 <= t["x"] < x1 and y0 <= t["y"] < y1):
+            continue
+        c = sim_to_world(t["x"] + 0.5, t["y"] + 0.5)
+        add_box(towers, c.x, c.y, 2.5, 0.25, 0.25, 5.0)
+        add_box(towers, c.x, c.y, 5.1, 0.6, 0.6, 0.4)
+    mesh_object("towers", towers, mats["steel"])
+
     # a wall lamp inside the yard's north wall, above the generator (the night light source)
     lamp_pos = sim_to_world(16.0, 21.5 + WALL_T / (2 * T) + 0.05, WALL_H - 0.25)
     lamp = bmesh.new()
@@ -348,7 +390,7 @@ def build(md, region, look):
     mesh_object("lamp_fixture", lamp, mats["lamp"])
 
     # scale figures: Yoav outside the gate, the yard guard on his post
-    for name, (sx, sy), body in (("yoav", (16.6, 28.4), mats["fatigue"]), ("guard", (18.5, 23.5), mats["khaki"])):
+    for name, (sx, sy), body in () if not figures else (("yoav", (16.6, 28.4), mats["fatigue"]), ("guard", (18.5, 23.5), mats["khaki"])):
         if not (x0 <= sx < x1 and y0 <= sy < y1):
             continue
         p = sim_to_world(sx, sy)
@@ -453,6 +495,7 @@ def setup_render(look, samples):
 
 
 def main():
+    global WALL_H
     argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
     ap = argparse.ArgumentParser()
     ap.add_argument("--map", required=True)
@@ -463,19 +506,24 @@ def main():
     ap.add_argument("--top", type=int, default=96, help="px of headroom above the region for tall objects")
     ap.add_argument("--supersample", type=int, default=2)
     ap.add_argument("--samples", type=int, default=96)
+    ap.add_argument("--wall-h", type=float, default=WALL_H, help="wall height in metres")
+    ap.add_argument("--no-figures", action="store_true", help="leave out the scale figures (clean plate for painting)")
+    ap.add_argument("--margin", type=int, default=8, help="tiles built beyond the region so the frame is full")
+    ap.add_argument("--suffix", default="", help="added to the output file names")
     a = ap.parse_args(argv)
 
     reset_scene()
     md = MapData(a.map)
     region = tuple(a.region)
     L = LOOKS[a.look]
-    info = build(md, region, a.look)
+    WALL_H = a.wall_h
+    info = build(md, region, a.look, figures=not a.no_figures, margin=a.margin)
     setup_light(L)
     cam = setup_camera(region, a.top, a.supersample)
     setup_render(a.look, a.samples)
 
     os.makedirs(a.out, exist_ok=True)
-    stem = f"{a.name}_{a.look}"
+    stem = f"{a.name}_{a.look}{a.suffix}"
     scene = bpy.context.scene
     scene.render.filepath = os.path.abspath(os.path.join(a.out, f"{stem}_day.png"))
     bpy.ops.render.render(write_still=True)
