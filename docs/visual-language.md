@@ -1,6 +1,7 @@
 # Visual language (draft for Gate A)
 
-Status: draft, Session 2. Look B (Moonlit steel) chosen by Ran. Walls 2.0 m.
+Status: approved at Gate A by Ran, 14 Oct 2026. Look B (Moonlit steel), walls 2.0 m, style frame SF-01 #1 as is.
+Gate A board: `assets/raw/gen/GATE-A_board.png`.
 Compare sheet: `assets/raw/blockout/yard_looks_compare.png`.
 
 Each element has one job. No two elements do the same job.
