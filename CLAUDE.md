@@ -25,6 +25,8 @@ Ran is the owner and art director. He is a senior designer who also builds softw
 | `prototype/NOTES.md` | Every mechanic and tuning value in the prototype, plus verified test scenarios. |
 | `KICKOFF.md` | The first prompt for Session 1. |
 
+Live build (main): https://launch-window-segalitoo-8173s-projects.vercel.app. Every pushed branch gets a Vercel preview link.
+
 The live plan is a Claude doc: https://claude.ai/code/artifact/b1c9e4e6-6e2d-4840-bab3-9c96a695f580
 `PLAN.md` is a snapshot of it. If they differ, ask Ran which one is current.
 
