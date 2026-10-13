@@ -16,3 +16,5 @@ assets/raw/gen/*_day.png
 assets/raw/gen/*_night*.png
 assets/raw/gen/*_hud.png
 assets/raw/gen/*_align.png
+.vercel
+.env*
