@@ -21,11 +21,11 @@ from PIL import Image, ImageChops, ImageDraw, ImageFilter
 # Night tint per look: multiplier per channel for the base, as the engine will use
 NIGHT = {
     "A": (0.30, 0.33, 0.50),
-    "B": (0.24, 0.30, 0.44),
+    "B": (0.36, 0.43, 0.60),  # moonlit; was (0.24, 0.30, 0.44), too dark on painted art
     "C": (0.42, 0.44, 0.52),
 }
 LAMP_COLOR = (1.0, 0.78, 0.50)
-LAMP_RADIUS_TILES = 3.2
+LAMP_RADIUS_TILES = 4.0
 LAMP_GAIN = 1.25
 CONE_COLOR = (255, 181, 71)  # same flat amber as the game overlay
 SQUAD_BLUE = (108, 196, 255)
@@ -134,7 +134,10 @@ def main():
     a = ap.parse_args()
     base = a.day[: -len("_day.png")]
     meta = load(base + ".json")
-    md = load(os.path.join(os.path.dirname(a.day), "map.json"))
+    map_path = os.path.join(os.path.dirname(a.day), "map.json")
+    if not os.path.exists(map_path):
+        map_path = "assets/raw/blockout/map.json"
+    md = load(map_path)
     day = Image.open(a.day).convert("RGB")
     tint = NIGHT[meta["look"]]
     night = ImageChops.multiply(day, light_layer(meta, day.size, tint))

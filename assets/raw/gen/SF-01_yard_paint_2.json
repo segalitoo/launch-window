@@ -1,0 +1,35 @@
+{
+  "look": "B",
+  "label": "Moonlit steel",
+  "region": [
+    11,
+    20,
+    25,
+    30
+  ],
+  "supersample": 2,
+  "size": [
+    1536,
+    864
+  ],
+  "origin_px": [
+    1215.999,
+    -847.999
+  ],
+  "step_x_px": [
+    64.0,
+    32.0
+  ],
+  "lamp_px": [
+    846.8,
+    274.87
+  ],
+  "lamp_ground_px": [
+    766.8,
+    400.6
+  ],
+  "tile_m": 1.6,
+  "figure_h_m": 1.8,
+  "wall_h_m": 2.0,
+  "source": "SF-01_yard_paint_2.jpg"
+}

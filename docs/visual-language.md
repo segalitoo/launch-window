@@ -33,6 +33,8 @@ Each element has one job. No two elements do the same job.
 ## 6. Night (one grade for the whole mission)
 - Art is painted in neutral daylight. The engine multiplies it by a night tint, then multiplies in a light layer.
 - `tools/grade_night.py` previews the same steps.
+- Look B tint: (0.36, 0.43, 0.60), "moonlit". The first, darker tint (0.24, 0.30, 0.44) hid the painted detail. Measured on SF-01 #1: ring 5.3:1, amber cone 6.3:1.
+- Lamp pools: about 4 tiles across.
 
 ## 7. Lamp light (varies, says "this spot is lit")
 - Warm pools from lamps on the light layer. The only warm light at night.

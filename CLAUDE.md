@@ -88,6 +88,8 @@ Keep this list current. Node 22 (`.nvmrc`); Vercel builds with Node 22.
 - `node tools/export-map.mjs` export the sim map to `assets/raw/blockout/map.json` for Blender
 - `/Applications/Blender.app/Contents/MacOS/Blender -b -P tools/blender/render_iso.py -- --map assets/raw/blockout/map.json --out assets/raw/blockout --name yard --region 11 20 25 30 --look B` render a map region through the iso camera (see the file header)
 - `python3 tools/grade_night.py assets/raw/blockout/yard_B_day.png --hud` preview the engine's night grade and the overlay
+- `python3 tools/check_align.py <plate.png> <painted.jpg>` measure how far a painting drifted from its blockout, and write a red-edge overlay
+- `python3 tools/import_paint.py <plate.json> <painted.jpg>` put a painting back on the iso grid (writes `_day.png` and a sidecar)
 - `node tools/proto-check/build.mjs <dir>` build an instrumented prototype copy for timing cross-checks (see the file header)
 
 ## Definition of done for a session
