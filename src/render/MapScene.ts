@@ -1,0 +1,516 @@
+// Flat isometric placeholder view of the sim. Reads sim state every frame and
+// sends commands through the Controller. Never writes sim state itself.
+
+import Phaser from 'phaser';
+import {
+  castRay,
+  coneLength,
+  FOV,
+  Game,
+  type GameState,
+  type Guard,
+  type InteractTarget,
+  LZ,
+  NEAR_FRACTION,
+  type SimEvent,
+  tileAt,
+  type TileCode,
+  TOWER_FOV,
+  TOWER_LEN,
+  type Unit,
+  type Vec,
+} from '@/sim';
+import { Controller, type TapHit } from './controller';
+import { depthOf, footprint, mapBounds, type Point, toScreen, toTile } from './iso';
+import {
+  ALARM_COLOR,
+  BLOCKS,
+  CONE_COLOR,
+  GROUND,
+  GUARD_COLOR,
+  GUARD_DOWN_COLOR,
+  hex,
+  LIGHT_COLOR,
+  LZ_COLOR,
+  shade,
+  UNIT_LIFT,
+  UNIT_RADIUS,
+} from './placeholder';
+
+const CONE_RAYS = 28;
+const TAP_SLOP = 8; // px a pointer may move before a tap becomes a pan
+const MAX_ZOOM = 2.5;
+const OVERLAY_DEPTH = 1e9;
+const MAP_TOP_MARGIN = 80; // room for tall blocks on the back row
+
+function insideConvex(pts: readonly Point[], x: number, y: number): boolean {
+  let sign = 0;
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[i]!;
+    const b = pts[(i + 1) % pts.length]!;
+    const cross = (b.x - a.x) * (y - a.y) - (b.y - a.y) * (x - a.x);
+    if (cross !== 0) {
+      if (sign === 0) sign = Math.sign(cross);
+      else if (Math.sign(cross) !== sign) return false;
+    }
+  }
+  return true;
+}
+
+// Phaser's types ask for Vector2[], but fillPoints and strokePoints only read x and y.
+const poly = (p: readonly Point[]): Phaser.Math.Vector2[] => p as unknown as Phaser.Math.Vector2[];
+
+export interface SceneHooks {
+  onEvents(events: SimEvent[], s: GameState, c: Controller): void;
+  onFrame(s: GameState, c: Controller): void;
+}
+
+interface Gesture {
+  type: 'tap' | 'pan' | 'pinch';
+  x0: number;
+  y0: number;
+  sx0: number;
+  sy0: number;
+  d0: number;
+  z0: number;
+  mid: Point; // world point under the pinch midpoint
+}
+
+export class MapScene extends Phaser.Scene {
+  game$!: Game;
+  ctl!: Controller;
+  private hooks: SceneHooks;
+  private ground!: Phaser.GameObjects.Graphics;
+  private blocks: Phaser.GameObjects.Graphics[] = [];
+  private overlay!: Phaser.GameObjects.Graphics;
+  private bodies = new Map<object, Phaser.GameObjects.Graphics>();
+  private staticVersion = -1;
+  private gesture: Gesture | null = null;
+  private pointers = new Map<number, Point>();
+  private minZoom = 0.3;
+  /** Until the player pans or zooms, every resize refits the whole map. */
+  private userMoved = false;
+
+  constructor(hooks: SceneHooks) {
+    super('map');
+    this.hooks = hooks;
+  }
+
+  create(): void {
+    this.newGame();
+    this.ground = this.add.graphics().setDepth(-OVERLAY_DEPTH);
+    this.overlay = this.add.graphics().setDepth(OVERLAY_DEPTH);
+    this.input.addPointer(1);
+    this.setupInput();
+    this.scale.on('resize', () => this.fitCamera(!this.userMoved));
+    this.fitCamera(true);
+  }
+
+  private newGame(): void {
+    this.game$ = new Game(1);
+    this.ctl = new Controller(this.game$);
+    this.staticVersion = -1;
+    for (const g of this.bodies.values()) g.destroy();
+    this.bodies.clear();
+  }
+
+  // ---------- camera ----------
+
+  private fitCamera(center: boolean): void {
+    const s = this.game$.state;
+    const cam = this.cameras.main;
+    const b = mapBounds(s.grid.cols, s.grid.rows, MAP_TOP_MARGIN);
+    const fit = Math.min(cam.width / b.w, cam.height / b.h);
+    this.minZoom = Math.max(0.15, fit * 0.9);
+    // Pan limits: the map plus a margin, but never smaller than the widest
+    // possible view, or Phaser clamps the scroll and the map sticks to an edge.
+    const bw = Math.max(b.w * 1.5, cam.width / this.minZoom);
+    const bh = Math.max(b.h * 1.5, cam.height / this.minZoom);
+    cam.setBounds(b.x + b.w / 2 - bw / 2, b.y + b.h / 2 - bh / 2, bw, bh);
+    if (center) {
+      cam.setZoom(Math.max(this.minZoom, fit));
+      cam.centerOn(b.x + b.w / 2, b.y + b.h / 2);
+    } else cam.setZoom(Phaser.Math.Clamp(cam.zoom, this.minZoom, MAX_ZOOM));
+  }
+
+  private zoomAt(z: number, sx: number, sy: number): void {
+    const cam = this.cameras.main;
+    const before = cam.getWorldPoint(sx, sy);
+    cam.setZoom(Phaser.Math.Clamp(z, this.minZoom, MAX_ZOOM));
+    cam.preRender();
+    const after = cam.getWorldPoint(sx, sy);
+    cam.scrollX += before.x - after.x;
+    cam.scrollY += before.y - after.y;
+  }
+
+  // ---------- input ----------
+
+  private setupInput(): void {
+    const cam = this.cameras.main;
+    this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
+      this.pointers.set(p.id, { x: p.x, y: p.y });
+      if (p.rightButtonDown()) {
+        this.ctl.throwMode = false;
+        return;
+      }
+      if (this.pointers.size === 1) {
+        this.gesture = { type: 'tap', x0: p.x, y0: p.y, sx0: cam.scrollX, sy0: cam.scrollY, d0: 0, z0: cam.zoom, mid: { x: 0, y: 0 } };
+      } else if (this.pointers.size === 2) {
+        const [a, b] = [...this.pointers.values()] as [Point, Point];
+        const m = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+        const w = cam.getWorldPoint(m.x, m.y);
+        this.gesture = { type: 'pinch', x0: m.x, y0: m.y, sx0: 0, sy0: 0, d0: Math.hypot(a.x - b.x, a.y - b.y), z0: cam.zoom, mid: { x: w.x, y: w.y } };
+      }
+    });
+    this.input.on('pointermove', (p: Phaser.Input.Pointer) => {
+      if (!this.pointers.has(p.id)) return;
+      this.pointers.set(p.id, { x: p.x, y: p.y });
+      const g = this.gesture;
+      if (!g) return;
+      if (g.type === 'tap' && Math.hypot(p.x - g.x0, p.y - g.y0) > TAP_SLOP) g.type = 'pan';
+      if (g.type !== 'tap') this.userMoved = true;
+      if (g.type === 'pan') {
+        cam.scrollX = g.sx0 - (p.x - g.x0) / cam.zoom;
+        cam.scrollY = g.sy0 - (p.y - g.y0) / cam.zoom;
+      } else if (g.type === 'pinch' && this.pointers.size === 2) {
+        const [a, b] = [...this.pointers.values()] as [Point, Point];
+        const m = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+        cam.setZoom(Phaser.Math.Clamp((g.z0 * Math.hypot(a.x - b.x, a.y - b.y)) / Math.max(1, g.d0), this.minZoom, MAX_ZOOM));
+        cam.preRender();
+        const w = cam.getWorldPoint(m.x, m.y);
+        cam.scrollX += g.mid.x - w.x;
+        cam.scrollY += g.mid.y - w.y;
+      }
+    });
+    const end = (p: Phaser.Input.Pointer, released: boolean): void => {
+      const had = this.pointers.has(p.id);
+      this.pointers.delete(p.id);
+      const g = this.gesture;
+      if (!g || !had) return;
+      if (g.type === 'tap' && released) this.handleTap(p.x, p.y);
+      if (this.pointers.size === 1) {
+        const q = [...this.pointers.values()][0]!;
+        this.gesture = { type: 'pan', x0: q.x, y0: q.y, sx0: cam.scrollX, sy0: cam.scrollY, d0: 0, z0: cam.zoom, mid: { x: 0, y: 0 } };
+      } else if (!this.pointers.size) this.gesture = null;
+    };
+    this.input.on('pointerup', (p: Phaser.Input.Pointer) => end(p, true));
+    this.input.on('pointerupoutside', (p: Phaser.Input.Pointer) => end(p, false));
+    this.input.on('gameout', () => {
+      this.pointers.clear();
+      this.gesture = null;
+    });
+    this.input.on('wheel', (p: Phaser.Input.Pointer, _o: unknown, _dx: number, dy: number) => {
+      this.userMoved = true;
+      this.zoomAt(cam.zoom * Math.exp(-dy * 0.0015), p.x, p.y);
+    });
+    this.input.mouse?.disableContextMenu();
+    this.input.keyboard?.on('keydown', (e: KeyboardEvent) => {
+      const k = e.key.toLowerCase();
+      if (k === 'r' && this.game$.state.over) {
+        this.newGame();
+        return;
+      }
+      if (this.ctl.key(k) && k === ' ') e.preventDefault();
+    });
+  }
+
+  /** Screen point of a unit marker (raised off the ground). */
+  private markerOf(e: Vec, lift = UNIT_LIFT): Point {
+    return toScreen(e.x, e.y, lift);
+  }
+
+  private handleTap(sx: number, sy: number): void {
+    const cam = this.cameras.main;
+    const w = cam.getWorldPoint(sx, sy);
+    const s = this.game$.state;
+    // hit radius in world px; grows when zoomed out so small targets stay tappable
+    const r = Math.max(UNIT_RADIUS + 6, 18 / cam.zoom);
+    const near = (e: Vec, lift: number): number => {
+      const m = this.markerOf(e, lift);
+      return Math.hypot(m.x - w.x, m.y - w.y);
+    };
+    const hit: TapHit = { unit: null, guard: null, body: null, object: null };
+    let best = r;
+    s.squad.forEach((u, i) => {
+      if (!u.alive) return;
+      const d = near(u, UNIT_LIFT);
+      if (d < best) {
+        best = d;
+        hit.unit = i;
+      }
+    });
+    if (hit.unit === null) {
+      let bg = r;
+      let bb = r;
+      for (const g of s.guards) {
+        if (g.carried) continue;
+        const down = g.state === 'down';
+        const d = near(g, down ? 2 : UNIT_LIFT);
+        if (!down && d < bg) {
+          bg = d;
+          hit.guard = g;
+        } else if (down && d < bb) {
+          bb = d;
+          hit.body = g;
+        }
+      }
+      if (hit.guard) hit.body = null;
+    }
+    if (hit.unit === null && !hit.guard && !hit.body) hit.object = this.objectUnder(s, w.x, w.y);
+    const t = toTile(w.x, w.y);
+    this.ctl.tap(t.x, t.y, hit);
+  }
+
+  /** The front-most interactable whose raised block covers screen point (wx, wy).
+   *  A click on a block's top face lands on a ground tile behind it, so tiles alone miss. */
+  private objectUnder(s: GameState, wx: number, wy: number): InteractTarget | null {
+    const cands: { t: InteractTarget; x: number; y: number; w: number; h: number; code: TileCode }[] = [];
+    for (const d of s.doors) if (!d.open) cands.push({ t: { kind: 'door', o: d }, x: d.x, y: d.y, w: 1, h: 1, code: 'D' });
+    const g = s.generator;
+    cands.push({ t: { kind: 'generator', o: g }, x: g.x, y: g.y, w: g.w, h: g.h, code: 'G' });
+    for (const l of s.launchers) cands.push({ t: { kind: 'launcher', o: l }, x: l.x, y: l.y, w: l.w, h: l.h, code: 'L' });
+    let best: InteractTarget | null = null;
+    let bestDepth = -Infinity;
+    for (const c of cands) {
+      const height = BLOCKS[c.code]?.height ?? 0;
+      const [back, right, front, left] = footprint(c.x, c.y, c.w, c.h);
+      const lift = (p: Point): Point => ({ x: p.x, y: p.y - height });
+      // outline of the extruded box, clockwise on screen
+      const hull = [lift(back), lift(right), right, front, left, lift(left)];
+      const depth = c.x + c.w + c.y + c.h;
+      if (insideConvex(hull, wx, wy) && depth > bestDepth) {
+        best = c.t;
+        bestDepth = depth;
+      }
+    }
+    return best;
+  }
+
+  // ---------- frame ----------
+
+  override update(_time: number, delta: number): void {
+    const s0 = this.game$.state;
+    if (!this.ctl.paused && !s0.over) this.game$.advance(Math.min(delta, 100) / 1000);
+    const s = this.game$.state;
+    const events = this.game$.drainEvents();
+    if (events.length) this.hooks.onEvents(events, s, this.ctl);
+    if (s.staticVersion !== this.staticVersion) this.drawStatic(s);
+    this.drawDynamic(s);
+    this.hooks.onFrame(s, this.ctl);
+  }
+
+  // ---------- static: ground and blocks ----------
+
+  private drawStatic(s: GameState): void {
+    this.staticVersion = s.staticVersion;
+    const g = this.ground.clear();
+    const { cols, rows, deco } = s.grid;
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < cols; x++) {
+        const pair = GROUND[deco[y * cols + x]!] ?? GROUND[0]!;
+        g.fillStyle(pair[(x + y) & 1]!, 1);
+        g.fillPoints(poly(footprint(x, y)), true);
+      }
+    }
+    // landing zone
+    const lz = footprint(LZ.x0, LZ.y0, LZ.x1 - LZ.x0 + 1, LZ.y1 - LZ.y0 + 1);
+    g.fillStyle(LZ_COLOR, 0.12);
+    g.fillPoints(poly(lz), true);
+    g.lineStyle(2, LZ_COLOR, 0.8);
+    g.strokePoints(poly(lz), true);
+
+    for (const b of this.blocks) b.destroy();
+    this.blocks = [];
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < cols; x++) {
+        const code = tileAt(s.grid, x, y);
+        let style = BLOCKS[code];
+        if (!style) continue;
+        if (code === 'G' && !s.generator.on) style = { ...style, color: shade(style.color, 0.6) };
+        if (code === 'L') {
+          const l = s.launchers.find((l) => x >= l.x && x < l.x + l.w && y === l.y);
+          if (l?.done) style = { ...style, color: 0x5d8a62 };
+        }
+        const gr = this.add.graphics();
+        this.drawBlock(gr, x + style.inset, y + style.inset, 1 - 2 * style.inset, 1 - 2 * style.inset, style.height, style.color);
+        gr.setDepth(depthOf(x + 0.5, y + 0.5, style.height));
+        this.blocks.push(gr);
+      }
+    }
+  }
+
+  private drawBlock(g: Phaser.GameObjects.Graphics, x: number, y: number, w: number, h: number, height: number, color: number): void {
+    const [, right, front, left] = footprint(x, y, w, h);
+    const top = footprint(x, y, w, h, height);
+    // left face (south side, lit), right face (east side, shadow)
+    g.fillStyle(shade(color, 0.78), 1);
+    g.fillPoints(poly([left, front, top[2], top[3]]), true);
+    g.fillStyle(shade(color, 0.58), 1);
+    g.fillPoints(poly([front, right, top[1], top[2]]), true);
+    g.fillStyle(color, 1);
+    g.fillPoints(poly(top), true);
+    g.lineStyle(1, shade(color, 1.15), 0.6);
+    g.strokePoints(poly(top), true);
+  }
+
+  // ---------- dynamic: units, guards, cones ----------
+
+  private bodyGfx(key: object): Phaser.GameObjects.Graphics {
+    let g = this.bodies.get(key);
+    if (!g) {
+      g = this.add.graphics();
+      this.bodies.set(key, g);
+    }
+    return g.clear();
+  }
+
+  private drawDynamic(s: GameState): void {
+    const o = this.overlay.clear();
+    const sel = this.ctl.sel;
+
+    // searchlights
+    if (s.generator.on) {
+      for (const t of s.towers) {
+        const c = { x: t.x + 0.5, y: t.y + 0.5 };
+        this.drawCone(o, s, c, t.ang, TOWER_FOV, TOWER_LEN, null, LIGHT_COLOR, 0.16 + t.susp * 0.3);
+      }
+    }
+    // guard cones
+    for (const g of s.guards) {
+      if (g.state === 'down') continue;
+      const color = s.alarm.active || g.state === 'combat' ? ALARM_COLOR : CONE_COLOR;
+      const len = coneLength(s);
+      this.drawCone(o, s, g, g.ang, FOV, len, len * NEAR_FRACTION, color, 0.1 + g.susp * 0.25);
+    }
+    // selected unit path and ring
+    if (sel.alive) {
+      const col = hex(sel.color);
+      if (sel.path.length) {
+        o.lineStyle(2, col, 0.7);
+        const pts = [sel, ...sel.path].map((p) => toScreen(p.x, p.y));
+        for (let i = 1; i < pts.length; i++) o.lineBetween(pts[i - 1]!.x, pts[i - 1]!.y, pts[i]!.x, pts[i]!.y);
+        const end = pts.at(-1)!;
+        o.strokeEllipse(end.x, end.y, 14, 7);
+      }
+      const p = toScreen(sel.x, sel.y);
+      o.lineStyle(2, col, 1);
+      o.strokeEllipse(p.x, p.y, 34, 17);
+      if (sel.order?.type === 'takedown') {
+        const gp = toScreen(sel.order.guard.x, sel.order.guard.y);
+        o.strokeEllipse(gp.x, gp.y, 30, 15);
+      }
+      if (this.ctl.throwMode) {
+        o.lineStyle(1.5, 0x8ef0d0, 0.7);
+        o.strokeEllipse(p.x, p.y, 8 * 64, 8 * 32); // decoy range, 8 tiles
+      }
+    }
+    // interaction progress
+    for (const u of s.squad) {
+      if (u.order?.type === 'interact' && u.order.started) {
+        const m = this.markerOf(u, UNIT_LIFT + 18);
+        o.fillStyle(0x000000, 0.6);
+        o.fillRect(m.x - 14, m.y - 3, 28, 6);
+        o.fillStyle(0x7fdc95, 1);
+        o.fillRect(m.x - 13, m.y - 2, 26 * (u.order.t / u.order.dur), 4);
+      }
+    }
+    // decoys in flight
+    for (const pr of s.projectiles) {
+      const k = pr.t / pr.dur;
+      const x = pr.x0 + (pr.x1 - pr.x0) * k;
+      const y = pr.y0 + (pr.y1 - pr.y0) * k;
+      const m = toScreen(x, y, Math.sin(k * Math.PI) * 40);
+      o.fillStyle(0x8ef0d0, 1);
+      o.fillCircle(m.x, m.y, 4);
+    }
+
+    for (const g of s.guards) this.drawGuard(g);
+    s.squad.forEach((u) => this.drawUnit(u, u === sel));
+  }
+
+  private drawCone(
+    o: Phaser.GameObjects.Graphics,
+    s: GameState,
+    at: Vec,
+    ang: number,
+    fov: number,
+    len: number,
+    near: number | null,
+    color: number,
+    alpha: number,
+  ): void {
+    const far: Point[] = [toScreen(at.x, at.y)];
+    const inner: Point[] = [toScreen(at.x, at.y)];
+    for (let i = 0; i <= CONE_RAYS; i++) {
+      const a = ang - fov / 2 + (fov * i) / CONE_RAYS;
+      const d = castRay(s.grid, at.x, at.y, a, len);
+      far.push(toScreen(at.x + Math.cos(a) * d, at.y + Math.sin(a) * d));
+      if (near !== null) {
+        const dn = Math.min(d, near);
+        inner.push(toScreen(at.x + Math.cos(a) * dn, at.y + Math.sin(a) * dn));
+      }
+    }
+    o.fillStyle(color, alpha);
+    o.fillPoints(poly(far), true);
+    if (near !== null) {
+      o.fillStyle(color, alpha + 0.1);
+      o.fillPoints(poly(inner), true);
+    }
+  }
+
+  private drawGuard(g: Guard): void {
+    const gr = this.bodyGfx(g);
+    const p = toScreen(g.x, g.y);
+    if (g.state === 'down') {
+      gr.fillStyle(0x000000, 0.3);
+      gr.fillEllipse(p.x, p.y, 24, 12);
+      gr.fillStyle(GUARD_DOWN_COLOR, 1);
+      gr.fillEllipse(p.x, p.y - 2, 20, 9);
+      gr.setDepth(depthOf(g.x, g.y, 1));
+      return;
+    }
+    this.drawMarker(gr, g, GUARD_COLOR, 0x2f2420, false);
+  }
+
+  private drawUnit(u: Unit, selected: boolean): void {
+    const gr = this.bodyGfx(u);
+    if (!u.alive) {
+      const p = toScreen(u.x, u.y);
+      gr.fillStyle(0x333333, 1);
+      gr.fillEllipse(p.x, p.y, 20, 9);
+      gr.setDepth(depthOf(u.x, u.y, 1));
+      return;
+    }
+    const col = hex(u.color);
+    this.drawMarker(gr, u, col, selected ? 0xffffff : 0x1e2a26, u.crawl);
+    if (u.hitT > 0) {
+      const m = this.markerOf(u);
+      gr.lineStyle(3, ALARM_COLOR, Math.min(1, u.hitT * 3));
+      gr.strokeCircle(m.x, m.y, UNIT_RADIUS + 5);
+    }
+  }
+
+  /** A raised circle with a ground shadow and a facing tick. */
+  private drawMarker(gr: Phaser.GameObjects.Graphics, e: Vec & { ang: number }, fill: number, rim: number, low: boolean): void {
+    const lift = low ? 5 : UNIT_LIFT;
+    const r = low ? UNIT_RADIUS - 1 : UNIT_RADIUS;
+    const p = toScreen(e.x, e.y);
+    const m = this.markerOf(e, lift);
+    // shadow falls to the bottom right
+    gr.fillStyle(0x000000, 0.3);
+    gr.fillEllipse(p.x + 3, p.y + 1, r * 2.4, r * 1.2);
+    if (!low) {
+      gr.lineStyle(3, shade(fill, 0.55), 1);
+      gr.lineBetween(p.x, p.y, m.x, m.y);
+    }
+    gr.fillStyle(fill, 1);
+    gr.fillCircle(m.x, m.y, r);
+    gr.lineStyle(1.5, rim, 1);
+    gr.strokeCircle(m.x, m.y, r);
+    // facing tick on the ground plane
+    const f = toScreen(e.x + Math.cos(e.ang) * 0.42, e.y + Math.sin(e.ang) * 0.42, lift);
+    gr.lineStyle(2.5, 0x111111, 1);
+    gr.lineBetween(m.x, m.y, f.x, f.y);
+    gr.setDepth(depthOf(e.x, e.y, lift));
+  }
+}

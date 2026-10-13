@@ -78,11 +78,14 @@ prototype/      the original single-file prototype, read-only
 
 ## Commands
 
-Session 1 creates these. Keep this list current.
+Keep this list current. Node 22 (`.nvmrc`); Vercel builds with Node 22.
 
-- `npm run dev` start the dev server
-- `npm test` run sim tests
-- `npm run build` production build
+- `npm run dev` start the dev server (http://localhost:5173)
+- `npm test` run all tests once (Vitest)
+- `npm run test:watch` run tests in watch mode
+- `npm run build` type-check the app, type-check `src/sim` without DOM types, then build to `dist/`
+- `npm run preview` serve the production build
+- `node tools/proto-check/build.mjs <dir>` build an instrumented prototype copy for timing cross-checks (see the file header)
 
 ## Definition of done for a session
 

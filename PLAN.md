@@ -106,8 +106,8 @@ About 144 hours. Re-plan at each gate.
 
 ### Phase 0. Setup and style frame (8 h)
 
-- [ ] Repo, CLAUDE.md, Vite + Phaser 4 + TypeScript, Vercel preview
-- [ ] Port the prototype's logic into src/sim with unit tests
+- [ ] Repo, CLAUDE.md, Vite + Phaser 4 + TypeScript, Vercel preview (all done except the Vercel link, which Ran sets up)
+- [x] Port the prototype's logic into src/sim with unit tests
 - [ ] Mood board of about 10 references, for mood only
 - [ ] Style frame: one still of the generator yard at final quality
 - [ ] Yoav concept sheet: front, side, back
@@ -115,7 +115,7 @@ About 144 hours. Re-plan at each gate.
 
 ### Phase 1. Engine port (16 h)
 
-- [ ] Iso projection and camera: pan, pinch, zoom
+- [ ] Iso projection and camera: pan, pinch, zoom (placeholder done in Session 1; pinch not yet tested on a real phone)
 - [ ] Mission map rebuilt in Tiled and loaded into the sim grid
 - [ ] Depth sorting for units, props and buildings
 - [ ] Outline for units hidden behind buildings

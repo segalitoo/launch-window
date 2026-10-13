@@ -1,0 +1,79 @@
+// Minimal DOM HUD over the canvas for the Phase 0 placeholder:
+// a status line, toasts from sim events, a key hint, and the end message.
+// The real squad panel, inventory and minimap come in Phase 6.
+
+import type { GameState, SimEvent } from '@/sim';
+import type { Controller } from '@/render/controller';
+
+const fmt = (sec: number): string => {
+  const s = Math.max(0, Math.ceil(sec));
+  return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+};
+
+const END_TEXT = {
+  win: 'Launch aborted. Mission complete.',
+  launch: 'Missiles launched. Mission failed.',
+  down: 'Operator down. Mission failed.',
+} as const;
+
+export class Hud {
+  private status: HTMLElement;
+  private toasts: HTMLElement;
+  private end: HTMLElement;
+  private last = '';
+
+  constructor(root: HTMLElement) {
+    root.insertAdjacentHTML(
+      'beforeend',
+      `<div class="hud">
+        <div class="status" id="status"></div>
+        <div class="toasts" id="toasts" aria-live="polite"></div>
+        <p class="hint">Tap a unit to select (1 2 3). Tap the map to move. Tap a guard: Yoav takes him down.
+        C crawl · T decoy · X drop body · S stop · Space pause · drag to pan, scroll or pinch to zoom.</p>
+        <div class="end" id="end" hidden></div>
+      </div>`,
+    );
+    this.status = root.querySelector('#status')!;
+    this.toasts = root.querySelector('#toasts')!;
+    this.end = root.querySelector('#end')!;
+  }
+
+  onEvents(events: SimEvent[]): void {
+    for (const e of events) {
+      if (e.type === 'message') this.toast(e.msg, e.kind);
+      else if (e.type === 'noise') this.toast(e.heard ? `${e.heard} guard${e.heard > 1 ? 's' : ''} heard it` : 'Nobody heard it', '');
+    }
+  }
+
+  onFrame(s: GameState, c: Controller): void {
+    const sel = c.sel;
+    const rigged = s.launchers.filter((l) => l.done).length;
+    const parts = [
+      s.aborted ? 'LAUNCH ABORTED' : `T-${fmt(s.timeLeft)}`,
+      s.alarm.active ? 'ALARM ×2' : 'quiet',
+      `launchers ${rigged}/3`,
+      `power ${s.generator.on ? 'on' : 'cut'}`,
+      `${sel.name}${sel.crawl ? ' (crawl)' : ''}${sel.carrying ? ' (dragging)' : ''}${sel.id === 'lure' ? ` · decoys ${sel.charges}` : ''}`,
+      c.throwMode ? 'THROW: tap a spot' : '',
+      c.paused ? 'PAUSED' : '',
+    ].filter(Boolean);
+    const text = parts.join('  ·  ');
+    if (text !== this.last) {
+      this.status.textContent = text;
+      this.status.classList.toggle('alarm', s.alarm.active);
+      this.last = text;
+    }
+    const over = s.over;
+    this.end.hidden = !over;
+    if (over) this.end.textContent = `${END_TEXT[over]}  Press R to restart.`;
+  }
+
+  private toast(msg: string, kind: string): void {
+    const el = document.createElement('div');
+    el.className = `toast ${kind}`;
+    el.textContent = msg;
+    this.toasts.appendChild(el);
+    while (this.toasts.children.length > 3) this.toasts.firstChild?.remove();
+    setTimeout(() => el.remove(), 3400);
+  }
+}
