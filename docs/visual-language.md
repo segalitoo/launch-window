@@ -50,6 +50,16 @@ Each element has one job. No two elements do the same job.
 - Decided: Yoav = CH-03 #1 (`assets/raw/gen/CH-03_yoav_idf_helmet_1.jpg`). Every operator wears a helmet (Ran: Israeli soldiers always do), so the three must differ by other means. See "Telling the squad apart".
 - Real photos are mood references only and are never attached to an image prompt (CLAUDE.md content rules). Prompts: `assets/raw/prompts/batch-02.md`.
 
+## 6d. Telling the squad apart (Ran, Session 2)
+- All three wear helmets. They differ by role gear on the silhouette (approach A), checked as flat black shapes at game scale:
+  - Yoav (Shadow): average outline, tan bullpup carbine across the chest.
+  - Noa (Lure), a woman, 168 cm: smallest figure, radio antenna above the head, binoculars, black compact carbine.
+  - Itai (Sapper), 188 cm: widest figure, rucksack with ladder and breaching bar above the shoulders, charge bag on the hip.
+- Plus a strip of tape on the back of each helmet in the squad colour: blue, mint, lavender (same as the UI).
+- Silhouette test: `assets/raw/gen/LU-01_silhouette_test.png`. All three read apart at 44 to 48 px.
+- Known weak point: a 1 px antenna turns grey at 44 px. Make it thicker or add a tip in the 3D model.
+- Proposed picks: Noa `CH-05_noa_3.jpg`, Itai `CH-06_itai_2.jpg` (waiting for Ran).
+
 ## 7. Lamp light (varies, says "this spot is lit")
 - Warm pools from lamps on the light layer. The only warm light at night.
 - The pools are visual only for now. Sight rules do not change (no new mechanics).
