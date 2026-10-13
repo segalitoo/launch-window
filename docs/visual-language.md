@@ -58,7 +58,7 @@ Each element has one job. No two elements do the same job.
 - Plus a strip of tape on the back of each helmet in the squad colour: blue, mint, lavender (same as the UI).
 - Silhouette test: `assets/raw/gen/LU-01_silhouette_test.png`. All three read apart at 44 to 48 px.
 - Known weak point: a 1 px antenna turns grey at 44 px. Make it thicker or add a tip in the 3D model.
-- Proposed picks: Noa `CH-05_noa_3.jpg`, Itai `CH-06_itai_2.jpg` (waiting for Ran).
+- Decided by Ran: Yoav `CH-03_yoav_idf_helmet_1.jpg`, Noa `CH-05_noa_3.jpg`, Itai `CH-06_itai_2.jpg`.
 
 ## 7. Lamp light (varies, says "this spot is lit")
 - Warm pools from lamps on the light layer. The only warm light at night.

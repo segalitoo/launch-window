@@ -109,8 +109,8 @@ About 144 hours. Re-plan at each gate.
 - [ ] Repo, CLAUDE.md, Vite + Phaser 4 + TypeScript, Vercel preview (all done except the Vercel link, which Ran sets up)
 - [x] Port the prototype's logic into src/sim with unit tests
 - [ ] Mood board of about 10 references, for mood only
-- [ ] Style frame: one still of the generator yard at final quality
-- [ ] Yoav concept sheet: front, side, back
+- [ ] Style frame: one still of the generator yard at final quality (SF-01 #1 chosen, waiting for Ran's paint-over; Gate A board: assets/raw/gen/GATE-A_board.png)
+- [x] Yoav concept sheet: front, side, back (CH-03 #1; Noa CH-05 #3 and Itai CH-06 #2 too)
 - [ ] Gate A: Ran approves palette, light direction and character scale
 
 ### Phase 1. Engine port (16 h)
