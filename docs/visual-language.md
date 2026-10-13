@@ -36,6 +36,12 @@ Each element has one job. No two elements do the same job.
 - Look B tint: (0.36, 0.43, 0.60), "moonlit". The first, darker tint (0.24, 0.30, 0.44) hid the painted detail. Measured on SF-01 #1: ring 5.3:1, amber cone 6.3:1.
 - Lamp pools: about 4 tiles across.
 
+## 6b. Units at night (Session 2 test)
+- At 44 px under the environment's night grade, every Yoav concept almost vanished into the ground. Camouflage works too well.
+- Rule: units get a lighter grade than the environment, (0.62, 0.68, 0.82) against (0.36, 0.43, 0.60). Test: `assets/raw/gen/CH_unit_grade_test.png`.
+- Add a subtle cool rim light from the top left in the character render. A painted rim at full strength looked like a white outline.
+- Keep one light value on each operator (tan trousers did this job in the test), so the figure separates from the blue ground.
+
 ## 7. Lamp light (varies, says "this spot is lit")
 - Warm pools from lamps on the light layer. The only warm light at night.
 - The pools are visual only for now. Sight rules do not change (no new mechanics).
