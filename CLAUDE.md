@@ -85,6 +85,9 @@ Keep this list current. Node 22 (`.nvmrc`); Vercel builds with Node 22.
 - `npm run test:watch` run tests in watch mode
 - `npm run build` type-check the app, type-check `src/sim` without DOM types, then build to `dist/`
 - `npm run preview` serve the production build
+- `node tools/export-map.mjs` export the sim map to `assets/raw/blockout/map.json` for Blender
+- `/Applications/Blender.app/Contents/MacOS/Blender -b -P tools/blender/render_iso.py -- --map assets/raw/blockout/map.json --out assets/raw/blockout --name yard --region 11 20 25 30 --look B` render a map region through the iso camera (see the file header)
+- `python3 tools/grade_night.py assets/raw/blockout/yard_B_day.png --hud` preview the engine's night grade and the overlay
 - `node tools/proto-check/build.mjs <dir>` build an instrumented prototype copy for timing cross-checks (see the file header)
 
 ## Definition of done for a session

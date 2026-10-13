@@ -1,0 +1,34 @@
+{
+  "look": "C",
+  "label": "Field map",
+  "region": [
+    11,
+    20,
+    25,
+    30
+  ],
+  "supersample": 2,
+  "size": [
+    1536,
+    960
+  ],
+  "origin_px": [
+    1215.999,
+    -799.999
+  ],
+  "step_x_px": [
+    64.0,
+    32.0
+  ],
+  "lamp_px": [
+    846.8,
+    303.27
+  ],
+  "lamp_ground_px": [
+    766.8,
+    448.6
+  ],
+  "tile_m": 1.6,
+  "figure_h_m": 1.8,
+  "wall_h_m": 2.4
+}

@@ -199,7 +199,7 @@ Every area passes five layers in order: ground, structures, props, night light, 
 Ran prepares:
 
 - [x] Create the GitHub repo `launch-window`
-- [ ] Install Claude Code (desktop app Code tab, or the terminal CLI), Blender, Tiled and Node 22
+- [ ] Install Claude Code (desktop app Code tab, or the terminal CLI), Blender, Tiled and Node 22 (all installed except Node 22; Node 24 works locally)
 - [ ] Make sure Higgsfield has credits for about 40 image generations and 5 3D models
 - [ ] Collect about 10 mood references: night desert bases, isometric strategy games, military gear
 
