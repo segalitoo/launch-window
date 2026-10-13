@@ -42,6 +42,13 @@ Each element has one job. No two elements do the same job.
 - Add a subtle cool rim light from the top left in the character render. A painted rim at full strength looked like a white outline.
 - Keep one light value on each operator (tan trousers did this job in the test), so the figure separates from the blue ground.
 
+## 6c. Squad look (Ran, Session 2)
+- The squad reads as Israeli soldiers: solid olive drab uniform, top and trousers the same olive. Knee pads.
+- Kit: high-cut olive helmet with a night vision mount and headset, or a knit cap with headset for the stealth role; olive balaclava; slim olive plate carrier or chest rig.
+- Coyote tan accents only: gloves, a few pouches, the carbine, boots. These are the figure's light values at night.
+- No flags, unit patches or insignia. The unit is fictional.
+- Real photos are mood references only and are never attached to an image prompt (CLAUDE.md content rules). Prompts: `assets/raw/prompts/batch-02.md`.
+
 ## 7. Lamp light (varies, says "this spot is lit")
 - Warm pools from lamps on the light layer. The only warm light at night.
 - The pools are visual only for now. Sight rules do not change (no new mechanics).

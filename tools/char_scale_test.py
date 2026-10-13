@@ -12,10 +12,11 @@ import sys
 
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
-from scipy import ndimage  # noqa: F401  (imported lazily below if present)
+from scipy import ndimage
 
 HEIGHT_PX = 44  # 1.8 m at 100% zoom (docs/visual-language.md)
-NIGHT = (0.36, 0.43, 0.60)
+NIGHT = (0.36, 0.43, 0.60)  # environment grade
+UNIT_NIGHT = (0.62, 0.68, 0.82)  # lighter unit grade (docs/visual-language.md, 6b)
 
 
 def cut_figures(path):
@@ -44,11 +45,11 @@ def cut_figures(path):
     return fig.crop((x0, y0, x1, y1))
 
 
-def grade(fig):
+def grade(fig, t=UNIT_NIGHT):
     r, g, b, a = fig.split()
-    r = r.point(lambda v: v * NIGHT[0])
-    g = g.point(lambda v: v * NIGHT[1])
-    b = b.point(lambda v: v * NIGHT[2])
+    r = r.point(lambda v: v * t[0])
+    g = g.point(lambda v: v * t[1])
+    b = b.point(lambda v: v * t[2])
     return Image.merge("RGBA", (r, g, b, a))
 
 
