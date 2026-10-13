@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.vercel/
+.DS_Store
+*.log
+# large art sources: keep out of git until Git LFS is set up
+assets/raw/**/*.blend
+assets/raw/**/*.blend1
+assets/raw/**/*.psd
