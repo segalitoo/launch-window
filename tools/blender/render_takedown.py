@@ -184,6 +184,7 @@ def main():
     ap.add_argument("--supersample", type=int, default=2)
     ap.add_argument("--samples", type=int, default=48)
     ap.add_argument("--dirs", default="0,1,2,3,4,5,6,7")
+    ap.add_argument("--look", default="render", help="drawn look (tools/blender/looks.py)")
     a = ap.parse_args(argv)
 
     ru.iso.reset_scene()
@@ -196,6 +197,7 @@ def main():
     ru.setup_lights()
     ru.setup_camera(a.supersample)
     ru.setup_render(a.samples)
+    ru.looks.setup_look(bpy.context.scene, a.look)
 
     pivot = bpy.data.objects.new("pivot", None)
     bpy.context.scene.collection.objects.link(pivot)

@@ -29,6 +29,9 @@ BANDS = [(0.0, (0.30, 0.31, 0.35)), (0.33, (0.63, 0.63, 0.64)), (0.78, (1.17, 1.
 EDGE_DEPTH = 0.12  # Sobel of the depth pass, metres
 INK_BLACK = (0.012, 0.012, 0.014, 1.0)
 INK_TONE = 0.28  # tone ink = surface colour x this
+# The squad tape on the helmet back is the squad colour (visual language 6c): too small to
+# survive the ink, so it gets its own index and is painted back on top, unshaded.
+TAPE_INDEX = 99
 KUWAHARA_SIZE = 6  # px at 2x supersample
 
 
@@ -60,6 +63,8 @@ def setup_look(scene, look):
     for ob in scene.objects:
         if ob.type == "MESH":
             ob.pass_index = bones.index(ob.parent_bone) + 1 if ob.parent_bone in bones else len(bones) + 1
+            if ob.name.startswith("tape"):
+                ob.pass_index = TAPE_INDEX
 
     ng = bpy.data.node_groups.new(f"look_{look}", "CompositorNodeTree")
     scene.compositing_node_group = ng
@@ -140,6 +145,9 @@ def setup_look(scene, look):
         # dark that the light guard and the olive squad nearly merged (measured)
         image = mix("MIX", image, tone, inner)
         image = mix("MIX", image, INK_BLACK if look == "cel_black" else tone, a_edge)
+        tape = math("COMPARE", index, TAPE_INDEX)
+        tape_col = mix("MULTIPLY", col, (1.15, 1.15, 1.15, 1.0))
+        image = mix("MIX", image, tape_col, tape)
         alpha = rl.outputs["Alpha"]
         sa = N.new("CompositorNodeSetAlpha")
         _menu(sa.inputs["Type"], "Replace Alpha", "REPLACE_ALPHA")

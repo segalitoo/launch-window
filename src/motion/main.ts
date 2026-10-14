@@ -254,6 +254,15 @@ async function main(): Promise<void> {
   const [yoav, noa, itai, guard, day] = await Promise.all([
     loadAtlas('yoav'), loadAtlas('noa'), loadAtlas('itai'), loadAtlas('guard'), loadImage('yard/yard_day.jpg'),
   ]);
+  // Phase 2 look test: Yoav in look A (tools/blender/looks.py, cel_black), right under the
+  // current Yoav, with his interactions, to judge the drawn look in motion
+  const yoavA = await loadAtlas('yoav_a');
+  const all = cards(yoav, noa, itai, guard);
+  const lookA = cards(yoavA, noa, itai, guard)
+    .filter((c) => c.group === 'Yoav' || c.group === 'Interactions')
+    .map((c) => ({ ...c, group: `${c.group}, look A (test)` }));
+  const lastYoav = all.map((c) => c.group).lastIndexOf('Yoav');
+  const list = [...all.slice(0, lastYoav + 1), ...lookA, ...all.slice(lastYoav + 1)];
   const ground = graded(day, NIGHT, false);
   const grid = document.getElementById('grid')!;
   const sel = (id: string): HTMLSelectElement => document.getElementById(id) as HTMLSelectElement;
@@ -262,7 +271,7 @@ async function main(): Promise<void> {
 
   const views: { card: Card; canvas: HTMLCanvasElement }[] = [];
   let group = '';
-  for (const card of cards(yoav, noa, itai, guard)) {
+  for (const card of list) {
     if (card.group !== group) {
       group = card.group;
       grid.insertAdjacentHTML('beforeend', `<h2 class="group">${group}</h2>`);
