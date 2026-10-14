@@ -20,5 +20,7 @@ Credit CMU in the game's credits.
 | 111_28 | Standing still | idle, frames 100 to 308 (a slow sway and breath; the loop with the closest start and end pose) |
 | 16_15 | walk | guard patrol walk, frames 62 to 200 (one stride, 1.16 m in 1.15 s) |
 | 26_09 | bend, pick up | grab, frames 100 to 240 (squat and reach down) |
+| 113_24 | Throw | Noa's decoy throw, frames 340 to 396 (right arm cocked, whipped through, follow-through; turned 20 degrees so the hand travels along the aim) |
+| 77_08 | investigating thing on ground with two hands | Itai's work loop, frames 324 to 374 (deep squat, hands at the ground); work_in is frames 420 back to 376 (the stand-up, played backwards) |
 
 Used by `tools/blender/render_unit.py` through `tools/blender/mocap.py`.

@@ -8,7 +8,7 @@ import { depthOf, toScreen, type Point } from './iso';
 import { draggedFrameName, frameName, guardFrameName } from './unitAnim';
 
 /** Units that have rendered art: unit id → atlas name in assets/build/units/. */
-export const UNIT_ART: Partial<Record<UnitId, string>> = { shadow: 'yoav' };
+export const UNIT_ART: Partial<Record<UnitId, string>> = { shadow: 'yoav', lure: 'noa', sapper: 'itai' };
 
 /** Heights (px at 100% zoom) sampled for the hidden-unit test: boots, belt, helmet.
  *  Prone, everything is close to the ground. */
@@ -100,6 +100,8 @@ export class UnitSprites {
         takedownAt: e.takedownAt,
         grabAt: e.grabAt,
         hitT: u.alive ? u.hitT : 0,
+        busy: u.busy,
+        workT: u.order?.type === 'interact' && u.order.started ? u.order.t : null,
       },
       e.meta.anims,
     );

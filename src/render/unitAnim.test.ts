@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { HIT_FLASH } from '@/sim';
+import { HIT_FLASH, THROW_BUSY } from '@/sim';
 import {
   type AnimState,
   CYCLE_TILES,
@@ -11,6 +11,8 @@ import {
   IDLE_LOOP,
   ONE_SHOT,
   TAKEDOWN_IMPACT,
+  WORK_IN,
+  WORK_LOOP,
 } from './unitAnim';
 
 const anims = { idle: 1, walk: 8, run: 8, crawl_idle: 1, crawl: 8, takedown: 6, grab: 4, drag: 8, death: 6, hit: 3 };
@@ -29,6 +31,32 @@ const base: AnimState = {
   hitT: 0,
 };
 const f = (s: Partial<AnimState>): string => frameName({ ...base, ...s }, anims);
+
+describe('Noa and Itai frames', () => {
+  const noa = { ...anims, throw: 8 };
+  const itai = { ...anims, work_in: 5, work: 8 };
+  test('a throw plays over the busy window, from the cocked arm to the follow-through', () => {
+    expect(frameName({ ...base, busy: THROW_BUSY }, noa)).toBe('throw_d0_f0');
+    expect(frameName({ ...base, busy: THROW_BUSY * 0.5 }, noa)).toBe('throw_d0_f4');
+    expect(frameName({ ...base, busy: 0.001 }, noa)).toBe('throw_d0_f7');
+    expect(frameName({ ...base, busy: 0 }, noa)).toBe('idle_d0_f0');
+  });
+  test('a unit without a throw animation ignores busy', () => {
+    expect(f({ busy: 0.2 })).toBe('idle_d0_f0');
+  });
+  test('work squats down, then loops', () => {
+    expect(frameName({ ...base, workT: 0 }, itai)).toBe('work_in_d0_f0');
+    expect(frameName({ ...base, workT: WORK_IN * 0.99 }, itai)).toBe('work_in_d0_f4');
+    expect(frameName({ ...base, workT: WORK_IN }, itai)).toBe('work_d0_f0');
+    expect(frameName({ ...base, workT: WORK_IN + WORK_LOOP * 0.55 }, itai)).toBe('work_d0_f4');
+    expect(frameName({ ...base, workT: WORK_IN + WORK_LOOP * 2.05 }, itai)).toBe('work_d0_f0');
+    expect(frameName({ ...base, workT: null }, itai)).toBe('idle_d0_f0');
+  });
+  test('work and throw face the way the sim turned the unit', () => {
+    expect(frameName({ ...base, ang: Math.PI / 2, workT: 1 }, itai)).toMatch(/^work_d2_/);
+    expect(frameName({ ...base, ang: Math.PI, busy: 0.2 }, noa)).toMatch(/^throw_d4_/);
+  });
+});
 
 describe('unit animation frames', () => {
   test('sim angles map to the 8 rendered directions', () => {

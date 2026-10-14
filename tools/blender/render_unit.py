@@ -41,8 +41,9 @@ class Mocap:
     root_xy: keep the clip's horizontal travel (a fall); cycles stay in place, since the
     sim moves the unit. face: source frames to measure the facing from (default a..b)."""
 
-    def __init__(self, clip, a, b, n, loop, arms="hold", root_xy=False, face=None, weapon="chest"):
+    def __init__(self, clip, a, b, n, loop, arms="hold", root_xy=False, face=None, weapon="chest", turn=0):
         self.clip, self.a, self.b, self.n, self.loop = clip, a, b, n, loop
+        self.turn = turn  # degrees added to the measured facing (a throw aims off the hips)
         self.arms, self.root_xy, self.face = arms, root_xy, face or (a, b)
         self.weapon = weapon  # "chest" (slung), "hands" (both, e.g. a strike) or "right" (carried)
 
@@ -68,22 +69,36 @@ KHAKI = (0.34, 0.28, 0.16)
 # Every unit is the same rig and body plan; a spec changes the kit.
 #   cloth / cloth_dark: uniform and webbing; cloth2 = second camouflage colour (noise mix)
 #   accent: boots, gloves, pouches; weapon: rifle body; face: None = balaclava in cloth colour
-#   head: helmet_nvg | helmet | cap | beret; tape = squad colour on the helmet back (None = no tape)
+#   head: helmet_nvg | helmet | helmet_headset | cap | beret; tape = squad colour on the helmet back
+#   pack: None | "pack" (small assault pack) | "ruck" (tall rucksack); antenna: whip height in m (0 = none)
+#   gun: "carbine" (bullpup) | "shotgun" (long, thin, pump); kit: extra gear by name (see build_operator)
 OPERATOR = {
     "height": 1.80, "width": 1.15, "cloth": OLIVE, "cloth_dark": OLIVE_DARK, "cloth2": None,
     "accent": TAN, "gloves": TAN, "weapon": TAN, "face": None, "head": "helmet_nvg",
-    "tape": None, "carrier": True, "pack": True, "antenna": True, "kneepads": True,
+    "tape": None, "carrier": True, "pack": "pack", "antenna": 0.48, "kneepads": True,
+    "gun": "carbine", "kit": (),
     "anims": ["idle", "run", "crawl_idle", "crawl", "takedown", "grab", "drag", "death", "hit"],
 }
+SQUAD_ANIMS = ["idle", "run", "crawl_idle", "crawl", "death", "hit"]
 UNITS = {
     # Visual language 6c/6d. tape = squad colour on the back of the helmet (UI colour, linear).
     "yoav": {**OPERATOR, "tape": (0.15, 0.55, 1.0)},
+    # Noa, the lure (concept CH-05): helmet with a headset and no NVG, hair bun, radio pack
+    # with a tall whip antenna, binoculars on the chest, black carbine. Shortest of the three.
+    "noa": {**OPERATOR, "height": 1.68, "width": 1.05, "head": "helmet_headset", "tape": (0.27, 0.87, 0.63),
+            "antenna": 0.70, "weapon": BLACK, "kit": ("bun", "binos"), "anims": SQUAD_ANIMS + ["throw"]},
+    # Itai, the sapper (concept CH-06): helmet with NVG, a tall rucksack with a ladder on the
+    # left and a breaching bar on the right, a charge bag on the left hip, black shotgun.
+    # Tallest and widest, so he reads as the heavy one.
+    "itai": {**OPERATOR, "height": 1.88, "width": 1.25, "tape": (0.58, 0.48, 1.0), "pack": "ruck",
+             "antenna": 0, "weapon": BLACK, "gun": "shotgun", "kit": ("ladder", "bar", "charge_bag"),
+             "anims": SQUAD_ANIMS + ["work_in", "work"]},
     # Guard: option A, picked by Ran (Phase 2). Khaki, soft cap, bare face and hands, black
     # boots, dark rifle, belt webbing: lightest figure at night and unlike the olive squad.
     # Fictional: no flags, insignia or unit marks.
     "guard": {**OPERATOR, "height": 1.76, "width": 1.05, "cloth": KHAKI, "cloth_dark": (0.20, 0.17, 0.10),
               "accent": BLACK, "gloves": SKIN, "weapon": (0.05, 0.045, 0.04), "face": SKIN, "head": "cap",
-              "carrier": False, "pack": False, "antenna": False, "kneepads": False,
+              "carrier": False, "pack": None, "antenna": 0, "kneepads": False,
               "anims": ["idle", "walk", "run", "death", "knockout", "dragged"]},
 }
 
@@ -202,6 +217,8 @@ def build_operator(spec):
         "face": iso.material("face", spec["face"] or cloth, rough=0.7),
         "black": iso.material("black", BLACK, rough=0.5),
         "tape": iso.material("tape", spec["tape"] or BLACK, rough=0.6),
+        "metal": iso.material("metal", (0.30, 0.30, 0.28), rough=0.45),
+        "hair": iso.material("hair", (0.05, 0.035, 0.02), rough=0.8),
     }
     bones = bones_for(h)
     rig = build_rig(bones)
@@ -235,12 +252,35 @@ def build_operator(spec):
         on("spine", "strap", lambda bm: box(bm, (0.13 * w, 0, sh - 0.20 * s), (0.04, 0.06, 0.42 * s), rot_x=math.radians(30)), "dark")
         for i, py in enumerate((-0.09, 0.09)):
             on("hips", f"pouch_{i}", lambda bm, py=py: box(bm, (0.12 * w, py * w, hip_z + 0.13), (0.06, 0.08, 0.09)), "dark")
-    if spec["pack"]:
+    kit = spec["kit"]
+    if spec["pack"] == "pack":
         on("spine", "pack", lambda bm: box(bm, (-0.22 * w, 0, sh - 0.17 * s), (0.17, 0.30 * w, 0.38 * s)), "dark")
+    if spec["pack"] == "ruck":  # tall rucksack, top above the shoulders, with a lid
+        on("spine", "pack", lambda bm: box(bm, (-0.25 * w, 0, sh - 0.12 * s), (0.22, 0.34 * w, 0.54 * s)), "dark")
+        on("spine", "pack_lid", lambda bm: box(bm, (-0.25 * w, 0, sh + 0.16 * s), (0.20, 0.32 * w, 0.06)), "olive")
+    if "ladder" in kit:  # short assault ladder strapped up the left side of the ruck
+        def ladder(bm):
+            x, z0, z1 = -0.33 * w, sh - 0.40 * s, sh + 0.42 * s
+            for ry in (0.13, 0.23):
+                limb(bm, (x, ry * w, z0), (x, ry * w, z1), 0.016, 0.016, segs=6)
+            z = z0 + 0.06
+            while z < z1:
+                limb(bm, (x, 0.13 * w, z), (x, 0.23 * w, z), 0.011, 0.011, segs=5)
+                z += 0.13
+        on("spine", "ladder", ladder, "metal")
+    if "bar" in kit:  # breaching bar up the right side, the hooked end above the shoulder
+        bar_top = Vector((-0.30 * w, -0.21 * w, sh + 0.38 * s))
+        on("spine", "bar", lambda bm: limb(bm, (-0.30 * w, -0.21 * w, sh - 0.42 * s), bar_top, 0.018, 0.018, segs=6), "black")
+        on("spine", "bar_hook", lambda bm: limb(bm, bar_top, bar_top + Vector((0.08, 0, 0.04)), 0.018, 0.014, segs=6), "black")
+    if "charge_bag" in kit:  # demolition charges in a bag on the left hip
+        on("hips", "charge_bag", lambda bm: box(bm, (0.0, 0.22 * w, hip_z - 0.03), (0.16, 0.08, 0.18)), "tan")
+    if "binos" in kit:  # binoculars hung on the chest, two short barrels
+        for by in (0.035, -0.035):
+            on("spine", f"binos_{by}", lambda bm, by=by: limb(bm, (0.20 * w, by, sh - 0.07 * s), (0.20 * w, by, sh - 0.20 * s), 0.028, 0.032, segs=8), "black")
     if spec["antenna"]:
         # thick enough to survive 44 px (visual language 6d), with a tip bead
         ant_base = Vector((-0.27 * w, 0.11 * w, sh + 0.0))
-        ant_top = ant_base + Vector((-0.04, 0.0, 0.48 * s))
+        ant_top = ant_base + Vector((-0.04, 0.0, spec["antenna"] * s))
         on("spine", "antenna", lambda bm: limb(bm, ant_base, ant_top, 0.014, 0.010, segs=6), "black")
         on("spine", "antenna_tip", lambda bm: ball(bm, ant_top, 0.024, segs=6), "black")
 
@@ -249,10 +289,13 @@ def build_operator(spec):
     on("head", "neck", lambda bm: limb(bm, (0, 0, sh + 0.0), head_c - Vector((0, 0, 0.06)), 0.07, 0.065, segs=8), "olive")
     on("head", "face", lambda bm: ball(bm, head_c, 0.105 * s, sz=1.15), "face")
     head = spec["head"]
-    if head in ("helmet_nvg", "helmet"):
-        on("head", "helmet", lambda bm: ball(bm, head_c + Vector((-0.01, 0, 0.045 * s)), 0.138 * s, sz=0.95, top_only=True), "olive" if head == "helmet_nvg" else "dark")
+    if head in ("helmet_nvg", "helmet", "helmet_headset"):
+        on("head", "helmet", lambda bm: ball(bm, head_c + Vector((-0.01, 0, 0.045 * s)), 0.138 * s, sz=0.95, top_only=True), "dark" if head == "helmet" else "olive")
     if head == "helmet_nvg":
         on("head", "nvg", lambda bm: box(bm, head_c + Vector((0.13 * s, 0, 0.10 * s)), (0.06, 0.07, 0.07)), "black")
+    if head == "helmet_headset":  # a boom mic in front of the mouth instead of the NVG
+        on("head", "mic", lambda bm: limb(bm, head_c + Vector((0, 0.14 * s, -0.02)), head_c + Vector((0.11 * s, 0.07 * s, -0.07 * s)), 0.012, 0.012, segs=5), "black")
+    if head in ("helmet_nvg", "helmet_headset"):
         for cy in (0.12, -0.12):
             on("head", f"cup_{cy}", lambda bm, cy=cy: limb(bm, head_c + Vector((0, cy * s, 0)), head_c + Vector((0, cy * s * 1.25, 0)), 0.045, 0.045, segs=8), "dark")
     if head == "cap":  # soft patrol cap with a short brim
@@ -260,6 +303,8 @@ def build_operator(spec):
         on("head", "brim", lambda bm: box(bm, head_c + Vector((0.12 * s, 0, 0.05 * s)), (0.09, 0.17 * s, 0.015)), "olive")
     if head == "beret":  # soft, pulled down to one side
         on("head", "beret", lambda bm: ball(bm, head_c + Vector((-0.01, -0.03, 0.08 * s)), 0.125 * s, sz=0.45), "dark")
+    if "bun" in kit:  # hair bun under the back rim of the helmet
+        on("head", "bun", lambda bm: ball(bm, head_c + Vector((-0.13 * s, 0, -0.03 * s)), 0.05, segs=8), "hair")
     if spec["tape"]:
         on("head", "tape", lambda bm: box(bm, head_c + Vector((-0.135 * s, 0, 0.07 * s)), (0.02, 0.15 * s, 0.035 * s)), "tape")
 
@@ -271,26 +316,28 @@ def build_operator(spec):
         on(f"fore.{side}", f"fore_{side}", lambda bm: limb(bm, a1, f1, 0.054 * w, 0.046 * w), "olive")
         on(f"fore.{side}", f"glove_{side}", lambda bm: ball(bm, f1 + Vector((0, 0, -0.03)), 0.05), "gloves")
 
-    # carbine: a tan bullpup carried across the chest (visual language 6d)
-    def carbine(bm):
-        c = Vector((0.21 * w, 0.0, sh - 0.33 * s))
-        tilt = math.radians(-25)  # muzzle low and to the right, stock up at the left shoulder
-        box(bm, c, (0.06, 0.52, 0.085), rot_x=tilt)
-        box(bm, c + Vector((0.0, 0.0, -0.07)), (0.04, 0.05, 0.08), rot_x=tilt)  # grip and magazine
+    # carbine: a bullpup carried across the chest (visual language 6d). The shotgun is
+    # longer and thinner, with a pump under the barrel, so it reads apart at 44 px.
+    # Shapes in the gun's own frame: muzzle along -Y, top +Z.
+    if spec["gun"] == "shotgun":
+        body, grip, barrel = ((0, 0.10, 0), (0.055, 0.46, 0.075)), ((0, 0.05, -0.065), (0.04, 0.05, 0.07)), ((0, -0.30, 0), (0.03, 0.36, 0.03))
+        extra = ((0, -0.24, -0.035), (0.045, 0.14, 0.04))  # pump
+    else:
+        body, grip, barrel = ((0, 0, 0), (0.06, 0.52, 0.085)), ((0, 0, -0.07), (0.04, 0.05, 0.08)), ((0, -0.33, 0), (0.035, 0.14, 0.035))
+        extra = None
 
-    def muzzle(bm):
-        tilt = math.radians(-25)
-        c = Vector((0.21 * w, -0.33 * math.cos(tilt), sh - 0.33 * s + 0.33 * math.sin(tilt)))
-        box(bm, c, (0.035, 0.14, 0.035), rot_x=tilt)
-    on("spine", "carbine", carbine, "weapon")
-    on("spine", "muzzle", muzzle, "black")
+    def gun(bm, pieces, at=Vector(), tilt=0.0):
+        for c, size in pieces:
+            R = Matrix.Rotation(tilt, 3, "X")
+            box(bm, at + R @ Vector(c), size, rot_x=tilt)
+    slung_at, slung_tilt = Vector((0.21 * w, 0.0, sh - 0.33 * s)), math.radians(25)  # muzzle low right, stock at the left shoulder
+    on("spine", "carbine", lambda bm: gun(bm, [body, grip] + ([extra] if extra else []), slung_at, slung_tilt), "weapon")
+    on("spine", "muzzle", lambda bm: gun(bm, [barrel], slung_at, slung_tilt), "black")
 
-    # a second carbine for moves where the hands swing the weapon (the takedown strike):
-    # hidden until hands_weapon() places it between the hands, with the chest one hidden
+    # a second gun for moves where the hands carry it (the run): hidden until
+    # hands_weapon() places it in the hands, with the chest one hidden
     def loose(bm):
-        box(bm, (0, 0, 0), (0.06, 0.52, 0.085))
-        box(bm, (0, 0.0, -0.07), (0.04, 0.05, 0.08))
-        box(bm, (0, -0.33, 0), (0.035, 0.14, 0.035))
+        gun(bm, [body, grip, barrel] + ([extra] if extra else []))
     held = part("carbine_held", loose, mat["weapon"])
     held.parent = rig
     held.hide_render = True
@@ -596,6 +643,14 @@ ANIMS = {
     "hit": (hit_pose, 3),
     "dragged": (dragged_pose, 2),
     "knockout": ("pair", 12),
+    # Noa's decoy throw (113_24): right arm cocked behind the head, whipped through and
+    # followed through; feet planted, carbine slung. Played over the sim's throw window.
+    # The hand travels 20 degrees left of the hips (measured), so turn the take to aim it.
+    "throw": (Mocap("113_24", 340, 396, 8, loop=False, arms="mocap", turn=-20), 8),
+    # Itai at a door, generator or launcher (77_08): deep squat, both hands working at the
+    # ground. work_in is the same take's stand-up played backwards, so it lands on the loop.
+    "work_in": (Mocap("77_08", 420, 376, 5, loop=False, arms="mocap", face=(324, 374)), 5),
+    "work": (Mocap("77_08", 324, 374, 8, loop=True, arms="mocap", face=(324, 374)), 8),
 }
 
 
@@ -685,6 +740,7 @@ def main():
                 clips[fn.clip] = mocap.Clip(os.path.join(MOCAP_DIR, fn.clip + ".bvh"), hip_h)
             clip = clips[fn.clip]
             clip.face_x(*fn.face)
+            clip.yaw += math.radians(fn.turn)
             clip.origin = clip.raw(fn.a)["Hips"].copy()
             times = fn.times()
         for f in range(n):

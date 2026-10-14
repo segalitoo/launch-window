@@ -6,12 +6,16 @@ import {
   CARRY_OFFSET,
   CRAWL_MULT,
   DRAG_MULT,
+  DUR_DOOR,
   HIT_FLASH,
   SPEED_COMBAT,
+  SPEED_LURE,
   SPEED_PATROL,
+  SPEED_SAPPER,
   SPEED_SHADOW,
   TAKEDOWN_REACH,
   TAKEDOWN_SIDE,
+  THROW_BUSY,
 } from '@/sim';
 import { toScreen } from '@/render/iso';
 import { type AnimState, draggedFrameName, frameName, guardFrameName, ONE_SHOT, TAKEDOWN_IMPACT } from '@/render/unitAnim';
@@ -127,7 +131,7 @@ function drawCard(ctx: CanvasRenderingContext2D, ground: HTMLCanvasElement, card
 /** Movement pace: 1 = the sim's speeds; 0.6 = closer to real walking and running at our art scale. */
 let pace = 1;
 
-function cards(yoav: Atlas, guard: Atlas): Card[] {
+function cards(yoav: Atlas, noa: Atlas, itai: Atlas, guard: Atlas): Card[] {
   const base: AnimState = {
     ang: 0, alive: true, crawl: false, moving: false, carrying: false, walked: 0,
     t: 0, diedAt: null, takedownAt: null, grabAt: null, hitT: 0,
@@ -142,6 +146,24 @@ function cards(yoav: Atlas, guard: Atlas): Card[] {
     guardFrameName({ ang: 0, down: false, moving: false, running: false, walked: 0, t: 0, downAt: null, ...s }, guard.anims);
 
   const run = SPEED_SHADOW;
+  /** The moves every operator has: idle, run, crawl, death. */
+  const squad = (group: string, a: Atlas, speed: number, kit: string): Card[] => {
+    const f = (st: Partial<AnimState>): string => frameName({ ...base, ...st }, a.anims);
+    return [
+      { group, name: 'Idle', note: kit, shows: [[a, 'idle']], sprites: (t, d) => [unit(a, f({ ang: ang(d), t }))] },
+      { group, name: 'Run', note: `Normal move, ${speed.toFixed(1)} tiles/s.`, shows: [[a, 'run']],
+        sprites: (t, d) => [unit(a, f({ ang: ang(d), moving: true, walked: t * speed * pace }))] },
+      { group, name: 'Crawl', note: `C, ${(speed * CRAWL_MULT).toFixed(1)} tiles/s.`, shows: [[a, 'crawl']],
+        sprites: (t, d) => [unit(a, f({ ang: ang(d), crawl: true, moving: true, walked: t * speed * CRAWL_MULT * pace }), 0, 0, false)] },
+      { group, name: 'Death', note: 'Operator down.', shows: [[a, 'death']],
+        sprites: (t, d) => {
+          const k = loop(t, ONE_SHOT.death);
+          return [unit(a, f({ ang: ang(d), t: k, alive: k < 0.5, diedAt: k < 0.5 ? null : 0.5 }), 0, 0, k < 0.5)];
+        } },
+    ];
+  };
+  const nf = (st: Partial<AnimState>): string => frameName({ ...base, ...st }, noa.anims);
+  const itf = (st: Partial<AnimState>): string => frameName({ ...base, ...st }, itai.anims);
   return [
     { group: 'Yoav', name: 'Idle', note: 'Standing, carbine at low ready, breathing.', shows: [[yoav, 'idle']],
       sprites: (t, d) => [unit(yoav, y({ ang: ang(d), t }))] },
@@ -160,6 +182,19 @@ function cards(yoav: Atlas, guard: Atlas): Card[] {
       sprites: (t, d) => {
         const k = loop(t, ONE_SHOT.death);
         return [unit(yoav, y({ ang: ang(d), t: k, alive: k < 0.5, diedAt: k < 0.5 ? null : 0.5 }), 0, 0, k < 0.5)];
+      } },
+
+    ...squad('Noa', noa, SPEED_LURE, 'Helmet with headset, radio with a tall antenna, binoculars, black carbine.'),
+    { group: 'Noa', name: 'Throw', note: `Decoy throw, over the ${THROW_BUSY} s she stops for it.`, shows: [[noa, 'throw']],
+      sprites: (t, d) => {
+        const k = loop(t, THROW_BUSY) - 0.5;
+        return [unit(noa, nf({ ang: ang(d), t, busy: k >= 0 && k < THROW_BUSY ? THROW_BUSY - k : 0 }))];
+      } },
+    ...squad('Itai', itai, SPEED_SAPPER, 'Rucksack with a ladder and a breaching bar, charge bag, black shotgun.'),
+    { group: 'Itai', name: 'Work', note: `Squats and works with both hands: a door takes ${DUR_DOOR} s.`, shows: [[itai, 'work_in'], [itai, 'work']],
+      sprites: (t, d) => {
+        const k = loop(t, DUR_DOOR) - 0.5;
+        return [unit(itai, itf({ ang: ang(d), t, workT: k >= 0 && k < DUR_DOOR ? k : null }))];
       } },
 
     { group: 'Interactions', name: 'Takedown', note: 'From the back-right: hand over the mouth, knife raised, thrust into the side, lowered to the ground.', shows: [[yoav, 'takedown'], [guard, 'knockout']],
@@ -219,7 +254,9 @@ function grip(bx: number, by: number): [number, number] {
 // ---------- page ----------
 
 async function main(): Promise<void> {
-  const [yoav, guard, day] = await Promise.all([loadAtlas('yoav'), loadAtlas('guard'), loadImage('yard/yard_day.jpg')]);
+  const [yoav, noa, itai, guard, day] = await Promise.all([
+    loadAtlas('yoav'), loadAtlas('noa'), loadAtlas('itai'), loadAtlas('guard'), loadImage('yard/yard_day.jpg'),
+  ]);
   const ground = graded(day, NIGHT, false);
   const grid = document.getElementById('grid')!;
   const sel = (id: string): HTMLSelectElement => document.getElementById(id) as HTMLSelectElement;
@@ -228,7 +265,7 @@ async function main(): Promise<void> {
 
   const views: { card: Card; canvas: HTMLCanvasElement }[] = [];
   let group = '';
-  for (const card of cards(yoav, guard)) {
+  for (const card of cards(yoav, noa, itai, guard)) {
     if (card.group !== group) {
       group = card.group;
       grid.insertAdjacentHTML('beforeend', `<h2 class="group">${group}</h2>`);

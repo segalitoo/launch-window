@@ -1,7 +1,7 @@
 // Which frame a rendered unit shows. Pure, no Phaser, so it is tested in Node.
 // Animations come from tools/blender/render_unit.py.
 
-import { HIT_FLASH } from '@/sim';
+import { HIT_FLASH, THROW_BUSY } from '@/sim';
 
 /** Ground covered by one cycle, in tiles. Run and walk match the strides in
  *  render_unit.py, so the feet do not slide. The sim's normal move is a run
@@ -15,6 +15,12 @@ export const IDLE_LOOP = 1.73;
 /** One-shot lengths in seconds of sim time. The sim makes takedowns and grabs instant,
  *  so these play over the moment without holding the unit. */
 export const ONE_SHOT = { takedown: 0.8, grab: 0.6, death: 0.75, knockout: 0.8 } as const;
+
+/** Itai's work at a door, generator or launcher (CMU 77_08): the squat down, then the
+ *  loop of both hands at the ground, in seconds of sim time. The take's loop is 0.42 s of
+ *  quick small hand moves; played slower it reads as careful work, not fidgeting. */
+export const WORK_IN = 0.35;
+export const WORK_LOOP = 0.7;
 
 /** Seconds into the takedown before the guard's own animation starts. The knife takedown is
  *  one hand-keyed pair (tools/blender/render_takedown.py), so both start together. */
@@ -42,6 +48,10 @@ export interface AnimState {
   grabAt: number | null;
   /** Seconds left of the hit flash (Unit.hitT). */
   hitT: number;
+  /** Seconds left of a throw (Unit.busy; only Noa's decoy throw sets it). Optional: 0. */
+  busy?: number;
+  /** Seconds into an interaction that has started (null or missing = not working). */
+  workT?: number | null;
 }
 
 export function frameName(s: AnimState, anims: Readonly<Record<string, number>>): string {
@@ -61,6 +71,13 @@ export function frameName(s: AnimState, anims: Readonly<Record<string, number>>)
   if (active('takedown', s.takedownAt)) return shot('takedown', s.takedownAt);
   if (active('grab', s.grabAt)) return shot('grab', s.grabAt);
   if (s.hitT > 0) return name('hit', Math.min(n('hit') - 1, Math.floor((1 - s.hitT / HIT_FLASH) * n('hit'))));
+  if ((s.busy ?? 0) > 0 && anims['throw']) {
+    return name('throw', Math.min(n('throw') - 1, Math.floor((1 - (s.busy ?? 0) / THROW_BUSY) * n('throw'))));
+  }
+  if (s.workT != null && anims['work']) {
+    if (s.workT < WORK_IN) return name('work_in', Math.min(n('work_in') - 1, Math.floor((s.workT / WORK_IN) * n('work_in'))));
+    return name('work', Math.floor((((s.workT - WORK_IN) % WORK_LOOP) / WORK_LOOP) * n('work')) % n('work'));
+  }
   if (s.crawl) return s.moving ? cycle('crawl') : name('crawl_idle', 0);
   if (s.carrying) return s.moving ? cycle('drag') : name('drag', 0);
   if (s.moving) return cycle('run');
