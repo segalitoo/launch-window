@@ -8,7 +8,11 @@ import { depthOf, toScreen, type Point } from './iso';
 import { draggedFrameName, frameName, guardFrameName } from './unitAnim';
 
 /** Units that have rendered art: unit id → atlas name in assets/build/units/. */
-export const UNIT_ART: Partial<Record<UnitId, string>> = { shadow: 'yoav', lure: 'noa', sapper: 'itai' };
+/** Phase 2 look test (Ran): `?look=a` in the address swaps Yoav and the guards for their
+ *  look A atlases (tools/blender/looks.py, cel_black), to judge the drawn look in play. */
+const LOOK_A = typeof location !== 'undefined' && new URLSearchParams(location.search).get('look') === 'a';
+
+export const UNIT_ART: Partial<Record<UnitId, string>> = { shadow: LOOK_A ? 'yoav_a' : 'yoav', lure: 'noa', sapper: 'itai' };
 
 /** Heights (px at 100% zoom) sampled for the hidden-unit test: boots, belt, helmet.
  *  Prone, everything is close to the ground. */
@@ -158,7 +162,7 @@ export class UnitSprites {
 const GRIP_REACH = 0.25;
 
 /** Atlas for every guard (option A, picked by Ran in Phase 2). */
-export const GUARD_ART = 'guard';
+export const GUARD_ART = LOOK_A ? 'guard_a' : 'guard';
 
 interface GuardEntry {
   guard: Guard;

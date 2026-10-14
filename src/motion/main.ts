@@ -256,10 +256,10 @@ async function main(): Promise<void> {
   ]);
   // Phase 2 look test: Yoav in look A (tools/blender/looks.py, cel_black), right under the
   // current Yoav, with his interactions, to judge the drawn look in motion
-  const yoavA = await loadAtlas('yoav_a');
+  const [yoavA, guardA] = await Promise.all([loadAtlas('yoav_a'), loadAtlas('guard_a')]);
   const all = cards(yoav, noa, itai, guard);
-  const lookA = cards(yoavA, noa, itai, guard)
-    .filter((c) => c.group === 'Yoav' || c.group === 'Interactions')
+  const lookA = cards(yoavA, noa, itai, guardA)
+    .filter((c) => c.group === 'Yoav' || c.group === 'Interactions' || c.group === 'Guard')
     .map((c) => ({ ...c, group: `${c.group}, look A (test)` }));
   const lastYoav = all.map((c) => c.group).lastIndexOf('Yoav');
   const list = [...all.slice(0, lastYoav + 1), ...lookA, ...all.slice(lastYoav + 1)];

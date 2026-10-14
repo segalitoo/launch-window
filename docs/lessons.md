@@ -27,3 +27,5 @@ Project-specific lessons. General rules go to `~/.claude/lessons/creative-projec
 - **Measure contact, don't eyeball it.** Printing hand-to-target distances and foot heights per frame found the floating legs and the overlapping bodies at once; stills hid them.
 - **The art scale makes the prototype's speeds look fast.** At 1.6 m per tile, Yoav's run is 5.6 m/s and a patrol walk 2.7 m/s, about twice real life, so feet-locked cycles play twice as fast. Decide speeds with the motion library's pace switch.
 - **Ran's direction on the takedown:** a commando knife, not a swung weapon. Left hand over the mouth from behind, knife into the side at the waist, lowered to the ground.
+
+- Blender 5.2 headless sometimes crashes on its first launch while compiling GPU (Metal) kernels, and writes no frames and no error you would grep for (an NSException at the end of the log). Hit three times in Phase 2. After every render, check that `meta.json` exists and the frame count is right; on a miss, run it again (a loop of up to 3 tries is enough).
