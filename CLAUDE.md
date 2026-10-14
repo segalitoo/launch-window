@@ -98,6 +98,7 @@ Keep this list current. Node 22 (`.nvmrc`); Vercel builds with Node 22.
 - `/Applications/Blender.app/Contents/MacOS/Blender -b -P tools/blender/render_takedown.py -- --yoav assets/raw/units/yoav --guard assets/raw/units/guard` render the knife takedown pair (both units in one scene, IK contact); run after render_unit.py for both units
 - `python3 tools/pack_unit.py yoav` trim and pack the rendered frames into `assets/build/units/yoav-N.png` pages and `yoav.json` (Phaser multi-atlas)
 - `python3 tools/grade_night.py assets/raw/blockout/yard_B_day.png --hud` preview the engine's night grade and the overlay
+- `python3 tools/door_patch.py yard 16 27 231 300 791 615 <crop.png> <edited.jpg>` turn an image-model edit of a door (opened) into an RGBA patch the engine paints in when the sim opens that door (see the file header and `assets/raw/prompts/gate-open.md`)
 - `python3 tools/check_align.py <plate.png> <painted.jpg>` measure how far a painting drifted from its blockout, and write a red-edge overlay
 - `python3 tools/import_paint.py <plate.json> <painted.jpg>` put a painting back on the iso grid (writes `_day.png` and a sidecar)
 - `node tools/proto-check/build.mjs <dir>` build an instrumented prototype copy for timing cross-checks (see the file header)

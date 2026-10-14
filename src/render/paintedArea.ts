@@ -67,18 +67,39 @@ function alphaBox(img: HTMLImageElement, k: number): { x: number; y: number; w: 
   return { x: X0, y: Y0, w: Math.min(c.width * k, Math.ceil((x1 + 2) * k)) - X0, h: Math.min(c.height * k, Math.ceil((y1 + 2) * k)) - Y0 };
 }
 
+/** An "open" patch for a door in the painting (tools/door_patch.py, `<name>_doors.json`). */
+interface DoorPatch {
+  x: number; // sim tile of the door
+  y: number;
+  image: string;
+  px: number; // where the patch goes in the painting, px
+  py: number;
+}
+
 export class PaintedArea {
   readonly manifest: Manifest;
-  readonly occluders: Occluder[] = [];
+  private readonly allOccluders: { key: string; occ: Occluder }[] = [];
+  /** Occluder sprites by tile ("x,y"), hidden when that tile's door is open. */
+  private readonly tileImages = new Map<string, Phaser.GameObjects.Image[]>();
+  private readonly doors: DoorPatch[];
+  /** Doors whose open patch is painted in now ("x,y"). */
+  private openDoors = new Set<string>();
+  /** Redraws the graded painting and occluder atlases from the daylight painting. */
+  private readonly repaint: () => void;
   /** Tiles whose structure comes from the painting (no placeholder block). */
   readonly paintedTiles = new Set<string>();
   /** The lit version over the lamp pools (ground and wall pieces), faded by setLamps. */
-  private readonly lamps: Phaser.GameObjects.Image[] = [];
+  private readonly lamps: { im: Phaser.GameObjects.Image; tile: string | null }[] = [];
   /** World-space rectangle covered by the painting. */
   readonly rect: { x: number; y: number; w: number; h: number };
 
   static preload(scene: Phaser.Scene, name: string): void {
     scene.load.json(`${name}_meta`, `${name}/${name}.json`);
+    // door patches: the list says which images to load
+    scene.load.once(`filecomplete-json-${name}_doors`, (_k: string, _t: string, doors: DoorPatch[]) => {
+      for (const d of doors) scene.load.image(`${name}_door_${d.x}_${d.y}`, `${name}/${d.image}`);
+    });
+    scene.load.json(`${name}_doors`, `${name}/${name}_doors.json`);
     scene.load.image(`${name}_day`, `${name}/${name}_day.jpg`);
     scene.load.image(`${name}_light`, `${name}/${name}_light.png`);
     scene.load.image(`${name}_occmask`, `${name}/${name}_occ.png`);
@@ -93,6 +114,7 @@ export class PaintedArea {
     const ox = -m.origin_px[0] / ss;
     const oy = -m.origin_px[1] / ss;
     this.rect = { x: ox, y: oy, w: W / ss, h: H / ss };
+    this.doors = (scene.cache.json.get(`${name}_doors`) as DoorPatch[] | undefined) ?? [];
 
     // 1. light canvases: night tint everywhere; the lit one has the warm lamp pools on top.
     //    The lamps run on the generator, so the area is built both ways (setLamps fades).
@@ -110,10 +132,15 @@ export class PaintedArea {
     };
 
     // 2. graded painting = daylight painting x light canvas, faded and clipped to the map
-    const grade = (key: string, light: HTMLCanvasElement): Phaser.Textures.CanvasTexture => {
-      const tex = scene.textures.createCanvas(key, W, H)!;
+    //    Open doors are painted over the daylight painting first, so they take the same grade.
+    const grade = (tex: Phaser.Textures.CanvasTexture, light: HTMLCanvasElement): void => {
       const bc = tex.context;
+      bc.clearRect(0, 0, W, H);
       bc.drawImage(day, 0, 0);
+      for (const d of this.doors) {
+        if (!this.openDoors.has(`${d.x},${d.y}`)) continue;
+        bc.drawImage(scene.textures.get(`${name}_door_${d.x}_${d.y}`).getSourceImage() as HTMLImageElement, d.px, d.py);
+      }
       bc.globalCompositeOperation = 'multiply';
       bc.drawImage(light, 0, 0);
       // fade the painting's rectangle into the placeholder map around it
@@ -140,37 +167,46 @@ export class PaintedArea {
       bc.fill();
       bc.globalCompositeOperation = 'source-over';
       tex.refresh();
-      return tex;
     };
-    const darkTex = grade(`${name}_bg`, lightCanvas(false));
-    const litTex = grade(`${name}_bg_lit`, lightCanvas(true));
+    const darkLight = lightCanvas(false);
+    const litLight = lightCanvas(true);
+    const darkTex = scene.textures.createCanvas(`${name}_bg`, W, H)!;
+    const litTex = scene.textures.createCanvas(`${name}_bg_lit`, W, H)!;
     scene.add.image(ox, oy, `${name}_bg`).setOrigin(0).setScale(1 / ss).setDepth(groundDepth);
 
     // where the lamp pools reach, in painting px: only there does the lit version differ
     const pool = alphaBox(lightImg, W / lightImg.width);
     if (pool) {
       litTex.add('pool', 0, pool.x, pool.y, pool.w, pool.h);
-      this.lamps.push(
-        scene.add.image(ox + pool.x / ss, oy + pool.y / ss, `${name}_bg_lit`, 'pool').setOrigin(0).setScale(1 / ss).setDepth(groundDepth + 0.5),
-      );
+      this.lamps.push({
+        im: scene.add.image(ox + pool.x / ss, oy + pool.y / ss, `${name}_bg_lit`, 'pool').setOrigin(0).setScale(1 / ss).setDepth(groundDepth + 0.5),
+        tile: null,
+      });
     }
 
     // 3. occluder atlases (dark and lit): graded pixels, alpha from the mask atlas
     const maskImg = scene.textures.get(`${name}_occmask`).getSourceImage() as HTMLImageElement;
     const AW = maskImg.width;
     const AH = maskImg.height;
-    const cut = (key: string, src: Phaser.Textures.CanvasTexture): void => {
-      const occTex = scene.textures.createCanvas(key, AW, AH)!;
+    const darkOcc = scene.textures.createCanvas(`${name}_occ`, AW, AH)!;
+    const litOcc = scene.textures.createCanvas(`${name}_occ_lit`, AW, AH)!;
+    for (const tex of [darkOcc, litOcc]) for (const f of m.frames) tex.add(`t${f.x}_${f.y}`, 0, f.ax, f.ay, f.w, f.h);
+    const cut = (occTex: Phaser.Textures.CanvasTexture, src: Phaser.Textures.CanvasTexture): void => {
       const oc = occTex.context;
+      oc.clearRect(0, 0, AW, AH);
       for (const f of m.frames) oc.drawImage(src.canvas, f.sx, f.sy, f.w, f.h, f.ax, f.ay, f.w, f.h);
       oc.globalCompositeOperation = 'destination-in';
       oc.drawImage(maskImg, 0, 0);
       oc.globalCompositeOperation = 'source-over';
-      for (const f of m.frames) occTex.add(`t${f.x}_${f.y}`, 0, f.ax, f.ay, f.w, f.h);
       occTex.refresh();
     };
-    cut(`${name}_occ`, darkTex);
-    cut(`${name}_occ_lit`, litTex);
+    this.repaint = (): void => {
+      grade(darkTex, darkLight);
+      grade(litTex, litLight);
+      cut(darkOcc, darkTex);
+      cut(litOcc, litTex);
+    };
+    this.repaint();
     const inPool = (f: Frame): boolean =>
       !!pool && f.sx < pool.x + pool.w && f.sx + f.w > pool.x && f.sy < pool.y + pool.h && f.sy + f.h > pool.y;
 
@@ -188,20 +224,44 @@ export class PaintedArea {
       const wx = ox + f.sx / ss;
       const wy = oy + f.sy / ss;
       const depth = depthOf(f.x + 0.5, f.y + 0.5, 0);
-      scene.add.image(wx, wy, `${name}_occ`, `t${f.x}_${f.y}`).setOrigin(0).setScale(1 / ss).setDepth(depth);
+      const key = `${f.x},${f.y}`;
+      const images = [scene.add.image(wx, wy, `${name}_occ`, `t${f.x}_${f.y}`).setOrigin(0).setScale(1 / ss).setDepth(depth)];
       if (inPool(f)) {
-        this.lamps.push(scene.add.image(wx, wy, `${name}_occ_lit`, `t${f.x}_${f.y}`).setOrigin(0).setScale(1 / ss).setDepth(depth + 0.5));
+        const lit = scene.add.image(wx, wy, `${name}_occ_lit`, `t${f.x}_${f.y}`).setOrigin(0).setScale(1 / ss).setDepth(depth + 0.5);
+        this.lamps.push({ im: lit, tile: key });
+        images.push(lit);
       }
-      this.occluders.push(
-        maskOccluder(f.x, f.y, 0, wx, wy, f.w, f.h, ss, (sx, sy) => alpha[((f.ay + sy) * AW + f.ax + sx) * 4 + 3]!),
-      );
+      this.tileImages.set(key, images);
+      this.allOccluders.push({
+        key,
+        occ: maskOccluder(f.x, f.y, 0, wx, wy, f.w, f.h, ss, (sx, sy) => alpha[((f.ay + sy) * AW + f.ax + sx) * 4 + 3]!),
+      });
       this.paintedTiles.add(`${f.x},${f.y}`);
     }
   }
 
+  /** Occluders for the hidden-unit test. An open door's tile no longer hides anyone: its
+   *  mask is the closed door's shape. */
+  get occluders(): Occluder[] {
+    return this.allOccluders.filter((o) => !this.openDoors.has(o.key)).map((o) => o.occ);
+  }
+
   /** Lamp brightness, 0 (off) to 1 (on). The lamps run on the generator. */
   setLamps(level: number): void {
-    for (const im of this.lamps) im.setAlpha(level).setVisible(level > 0);
+    for (const { im, tile } of this.lamps) im.setAlpha(level).setVisible(level > 0 && !(tile && this.openDoors.has(tile)));
+  }
+
+  /** Paints doors open or closed to match the sim (`isOpen` for a door tile). Repaints only
+   *  when something changed. */
+  syncDoors(isOpen: (x: number, y: number) => boolean): void {
+    const open = new Set(this.doors.filter((d) => isOpen(d.x, d.y)).map((d) => `${d.x},${d.y}`));
+    if (open.size === this.openDoors.size && [...open].every((k) => this.openDoors.has(k))) return;
+    this.openDoors = open;
+    this.repaint();
+    for (const [key, images] of this.tileImages) {
+      if (!this.doors.some((d) => `${d.x},${d.y}` === key)) continue;
+      for (const im of images) im.setVisible(!open.has(key));
+    }
   }
 
   /** True when a tile's ground diamond lies fully inside the painting's unfaded part. */

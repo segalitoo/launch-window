@@ -352,6 +352,7 @@ export class MapScene extends Phaser.Scene {
 
     for (const b of this.blocks) b.destroy();
     this.blocks = [];
+    for (const p of this.painted) p.syncDoors((x, y) => s.doors.some((d) => d.x === x && d.y === y && d.open));
     this.occluders = this.painted.flatMap((p) => p.occluders);
     for (let y = 0; y < rows; y++) {
       for (let x = 0; x < cols; x++) {
