@@ -1,6 +1,15 @@
 import { describe, expect, test } from 'vitest';
 import { HIT_FLASH } from '@/sim';
-import { type AnimState, CYCLE_TILES, dirOf, frameName, type GuardAnimState, guardFrameName, ONE_SHOT } from './unitAnim';
+import {
+  type AnimState,
+  CYCLE_TILES,
+  dirOf,
+  draggedFrameName,
+  frameName,
+  type GuardAnimState,
+  guardFrameName,
+  ONE_SHOT,
+} from './unitAnim';
 
 const anims = { idle: 1, walk: 8, run: 8, crawl_idle: 1, crawl: 8, takedown: 6, grab: 4, drag: 8, death: 6, hit: 3 };
 const D = Math.PI / 180;
@@ -34,7 +43,8 @@ describe('unit animation frames', () => {
 
   test('moving runs, with a body drags, crawling crawls', () => {
     expect(f({ moving: true })).toBe('run_d0_f0');
-    expect(f({ moving: true, carrying: true })).toBe('drag_d0_f0');
+    expect(f({ moving: true, carrying: true })).toBe('drag_d4_f0'); // backwards, facing the body
+    expect(f({ carrying: true })).toBe('drag_d4_f0'); // holding the body, standing
     expect(f({ moving: true, crawl: true })).toBe('crawl_d0_f0');
     expect(f({ crawl: true })).toBe('crawl_idle_d0_f0');
   });
@@ -65,8 +75,8 @@ describe('unit animation frames', () => {
   });
 
   test('a grab plays while picking up, then the drag takes over', () => {
-    expect(f({ grabAt: 10, carrying: true })).toBe('grab_d0_f0');
-    expect(f({ grabAt: 10 - ONE_SHOT.grab - 0.01, carrying: true, moving: true })).toBe('drag_d0_f0');
+    expect(f({ grabAt: 10, carrying: true })).toBe('grab_d0_f0'); // still facing the body he reached
+    expect(f({ grabAt: 10 - ONE_SHOT.grab - 0.01, carrying: true, moving: true })).toBe('drag_d4_f0');
   });
 });
 
@@ -85,5 +95,13 @@ describe('guard animation frames', () => {
     expect(g({ down: true, downAt: 5 })).toBe('death_d0_f0');
     expect(g({ down: true, downAt: 0 })).toBe('death_d0_f5');
     expect(g({ down: true })).toBe('death_d0_f5');
+  });
+});
+
+describe('dragged body', () => {
+  test('its head points at the dragger', () => {
+    // dragger to the sim +x of the body: the render (head along -X) turns half a circle
+    expect(draggedFrameName(0, 0, { dragged: 2 })).toBe('dragged_d4_f0');
+    expect(draggedFrameName(Math.PI / 2, 0.6, { dragged: 2 })).toBe('dragged_d6_f1');
   });
 });

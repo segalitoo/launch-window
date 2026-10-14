@@ -12,8 +12,9 @@
   "anims": {
     "idle": 1,
     "walk": 8,
-    "run": 8,
-    "death": 6
+    "run": 12,
+    "death": 10,
+    "dragged": 2
   },
   "dirs": 8,
   "dir_rule": "direction d = sim angle d * 45 degrees, 0 = sim +x"

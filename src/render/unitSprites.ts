@@ -5,7 +5,7 @@
 import Phaser from 'phaser';
 import type { Guard, SimEvent, Unit, UnitId } from '@/sim';
 import { depthOf, toScreen, type Point } from './iso';
-import { frameName, guardFrameName } from './unitAnim';
+import { draggedFrameName, frameName, guardFrameName } from './unitAnim';
 
 /** Units that have rendered art: unit id → atlas name in assets/build/units/. */
 export const UNIT_ART: Partial<Record<UnitId, string>> = { shadow: 'yoav' };
@@ -152,6 +152,9 @@ export class UnitSprites {
   }
 }
 
+/** How far in front of the dragger his hands hold the collar, in tiles. */
+const GRIP_REACH = 0.25;
+
 /** Atlas for every guard (option A, picked by Ran in Phase 2). */
 export const GUARD_ART = 'guard';
 
@@ -163,6 +166,7 @@ interface GuardEntry {
   lastT: number;
   moving: boolean;
   downAt: number | null;
+  carrierLast?: { x: number; y: number };
 }
 
 /** Rendered guards: idle, walk, run and death in 8 directions. */
@@ -188,9 +192,14 @@ export class GuardSprites {
     return !!this.meta;
   }
 
-  /** Draws guard `g` at sim time `t`. */
-  draw(g: Guard, t: number): void {
+  /** Draws guard `g` at sim time `t`. `carrier` is the unit dragging him, if any. */
+  draw(g: Guard, t: number, carrier?: Unit): void {
     const e = this.entry(g, t);
+    if (g.carried && carrier) {
+      e.last = { x: g.x, y: g.y };
+      this.drawDragged(e, g, carrier);
+      return;
+    }
     const moved = Math.hypot(g.x - e.last.x, g.y - e.last.y);
     e.last = { x: g.x, y: g.y };
     // paused: keep the pose; otherwise moving means he moved since the last frame
@@ -215,9 +224,24 @@ export class GuardSprites {
     e.img.setFrame(frame).setPosition(p.x, p.y).setDepth(depthOf(g.x, g.y, down ? 2 : 13));
   }
 
+  /** A dragged body: neck at the dragger's hands, body stretched away from him. */
+  private drawDragged(e: GuardEntry, g: Guard, c: Unit): void {
+    const dx = g.x - c.x;
+    const dy = g.y - c.y;
+    const len = Math.hypot(dx, dy) || 1;
+    const grip = { x: c.x + (dx / len) * GRIP_REACH, y: c.y + (dy / len) * GRIP_REACH };
+    e.walked += Math.hypot(c.x - (e.carrierLast?.x ?? c.x), c.y - (e.carrierLast?.y ?? c.y));
+    e.carrierLast = { x: c.x, y: c.y };
+    const frame = draggedFrameName(Math.atan2(-dy, -dx), e.walked, this.meta.anims);
+    const p = toScreen(grip.x, grip.y);
+    // sort by the middle of the body, half a body length beyond the grip
+    const mid = { x: grip.x + (dx / len) * 0.5, y: grip.y + (dy / len) * 0.5 };
+    e.img.setFrame(frame).setPosition(p.x, p.y).setDepth(depthOf(mid.x, mid.y, 2));
+  }
+
   private entry(g: Guard, t: number): GuardEntry {
     let e = this.entries[g.i];
-    const fresh = { guard: g, walked: 0, last: { x: g.x, y: g.y }, lastT: t, moving: false, downAt: null };
+    const fresh = { guard: g, walked: 0, last: { x: g.x, y: g.y }, lastT: t, moving: false, downAt: null, carrierLast: undefined };
     if (e && e.guard !== g) Object.assign(e, fresh); // new game
     if (!e) {
       const m = this.meta;

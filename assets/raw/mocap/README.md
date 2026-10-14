@@ -13,5 +13,6 @@ Credit CMU in the game's credits.
 | --- | --- | --- |
 | 09_01 | run | run cycle, frames 45 to 137 (one stride, 2.55 m, 0.77 s) |
 | 90_18 | RugPullFall | death, frames 75 to 165 (0.75 s, standing to lying still) |
+| 81_08 | drag heavy object | drag, frames 992 to 1212 (backward steps, hands low in front; the loop with the closest start and end pose) |
 
 Used by `tools/blender/render_unit.py` through `tools/blender/mocap.py`.

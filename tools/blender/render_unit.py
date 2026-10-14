@@ -72,6 +72,7 @@ OPERATOR = {
     "height": 1.80, "width": 1.15, "cloth": OLIVE, "cloth_dark": OLIVE_DARK, "cloth2": None,
     "accent": TAN, "gloves": TAN, "weapon": TAN, "face": None, "head": "helmet_nvg",
     "tape": None, "carrier": True, "pack": True, "antenna": True, "kneepads": True,
+    "anims": ["idle", "walk", "run", "crawl_idle", "crawl", "takedown", "grab", "drag", "death", "hit"],
 }
 UNITS = {
     # Visual language 6c/6d. tape = squad colour on the back of the helmet (UI colour, linear).
@@ -82,7 +83,7 @@ UNITS = {
     "guard": {**OPERATOR, "height": 1.76, "width": 1.05, "cloth": KHAKI, "cloth_dark": (0.20, 0.17, 0.10),
               "accent": BLACK, "gloves": SKIN, "weapon": (0.05, 0.045, 0.04), "face": SKIN, "head": "cap",
               "carrier": False, "pack": False, "antenna": False, "kneepads": False,
-              "anims": ["idle", "walk", "run", "death"]},
+              "anims": ["idle", "walk", "run", "death", "dragged"]},
 }
 
 
@@ -290,13 +291,14 @@ def build_operator(spec):
 D = math.radians
 
 
-def pose(rig, angles, lift=0.0):
+def pose(rig, angles, lift=0.0, shift=0.0):
     """angles: bone -> degrees about local X (forward swing), or (x, y, z) degrees.
     Local Z is the figure's forward axis, so a Z rotation swings a limb sideways."""
     for name, r in angles.items():
         rx, ry, rz = r if isinstance(r, tuple) else (r, 0, 0)
         rig.pose.bones[name].rotation_euler = (D(rx), D(ry), D(rz))
-    rig.pose.bones["hips"].location = (0, lift, 0)  # hips bone points up: local Y = world Z
+    # hips bone points up: local Y = world Z, local Z = world +X (forward)
+    rig.pose.bones["hips"].location = (0, lift, shift)
 
 
 # Arms in rest hang straight; these bend them so the hands hold the carbine.
@@ -445,6 +447,28 @@ def death_pose(f, n):
     return a, -0.76 * t
 
 
+def dragged_pose(f, n):
+    """A body dragged by the collar: on its back, shoulders raised about 0.3 m, legs along
+    the ground, arms trailing. The neck sits over the origin, so the game draws it at the
+    dragger's hands; the head points -X (toward the dragger), the feet +X."""
+    sway = [0.0, 3.0][f % 2]
+    a = {
+        "hips": -70,
+        "head": 12,
+        "thigh.L": 21 + sway,
+        "thigh.R": 23 - sway,
+        "shin.L": -4,
+        "shin.R": -8,
+        "foot.L": 40,
+        "foot.R": 35,
+        "arm.L": (-8, 0, 12),
+        "arm.R": (-8, 0, -12),
+        "fore.L": -10,
+        "fore.R": -15,
+    }
+    return a, -0.75, 0.57
+
+
 def hit_pose(f, n):
     """Flinch back, then recover."""
     k = [1.0, 0.6, 0.25][f]
@@ -456,6 +480,8 @@ def hit_pose(f, n):
 # Motion capture, CMU clips (assets/raw/mocap/README.md). Ran, Phase 2: movement must feel natural.
 #   run: 09_01, one stride 2.55 m (1.6 tiles) in 0.77 s, foot plant to foot plant
 #   death: 90_18, a backward fall, 0.75 s from standing to lying still
+#   drag: 81_08, walking backwards bent over, both hands low in front, pulling; the
+#         loop 992-1212 starts and ends on the closest matching pose (1.8 s, 0.6 m)
 ANIMS = {
     "idle": (idle_pose, 1),
     "walk": (walk_pose, 8),
@@ -464,9 +490,10 @@ ANIMS = {
     "crawl": (crawl_pose, 8),
     "takedown": (takedown_pose, 6),
     "grab": (grab_pose, 4),
-    "drag": (drag_pose, 8),
+    "drag": (Mocap("81_08", 992, 1212, 16, loop=True, arms="mocap"), 16),
     "death": (Mocap("90_18", 75, 165, 10, loop=False, arms="mocap", root_xy=True, face=(1, 75)), 10),
     "hit": (hit_pose, 3),
+    "dragged": (dragged_pose, 2),
 }
 
 
@@ -543,7 +570,7 @@ def main():
 
     dirs = [int(d) for d in a.dirs.split(",")]
     spec = UNITS[a.unit]
-    unit_anims = {k: v for k, v in ANIMS.items() if k in spec.get("anims", ANIMS)}
+    unit_anims = {k: v for k, v in ANIMS.items() if k in spec["anims"]}
     anims = {k: v for k, v in unit_anims.items() if not a.only or k in a.only.split(",")}
     scene = bpy.context.scene
     clips = {}
@@ -564,8 +591,7 @@ def main():
                 for pb in rig.pose.bones:
                     pb.rotation_euler = (0, 0, 0)
                     pb.location = (0, 0, 0)
-                angles, lift = fn(f, n)
-                pose(rig, angles, lift)
+                pose(rig, *fn(f, n))
             for d in dirs:
                 rig.rotation_euler = (0, 0, -math.radians(45 * d))
                 bpy.context.view_layer.update()

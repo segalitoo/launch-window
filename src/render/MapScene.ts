@@ -456,7 +456,7 @@ export class MapScene extends Phaser.Scene {
       o.fillCircle(m.x, m.y, 4);
     }
 
-    for (const g of s.guards) this.drawGuard(g, s.t);
+    for (const g of s.guards) this.drawGuard(g, s.t, s.squad.find((u) => u.carrying === g));
     s.squad.forEach((u) => this.drawUnit(u, u === sel, s.t));
   }
 
@@ -493,7 +493,7 @@ export class MapScene extends Phaser.Scene {
     o.strokePoints(poly(far), true);
   }
 
-  private drawGuard(g: Guard, t: number): void {
+  private drawGuard(g: Guard, t: number, carrier?: Unit): void {
     const gr = this.bodyGfx(g);
     const p = toScreen(g.x, g.y);
     if (this.guardArt.ready) {
@@ -502,7 +502,7 @@ export class MapScene extends Phaser.Scene {
         this.shadows.fillEllipse(p.x + 1, p.y + 0.5, 22, 10);
         this.shadows.fillEllipse(p.x + 1, p.y + 0.5, 14, 6);
       }
-      this.guardArt.draw(g, t);
+      this.guardArt.draw(g, t, carrier);
       return;
     }
     if (g.state === 'down') {
