@@ -1,0 +1,152 @@
+// A painted area of the map (Phase 1: the generator yard). Loads the daylight
+// painting, grades it to night in the engine, and cuts it into one occluder sprite
+// per blocking tile so units can walk behind painted walls.
+// Built by tools/cut_occluders.py; files live in assets/build/<name>/.
+
+import Phaser from 'phaser';
+import { depthOf } from './iso';
+import { type Occluder, maskOccluder } from './occlusion';
+
+interface Frame {
+  x: number; // sim tile
+  y: number;
+  sx: number; // source rect in the painting, px
+  sy: number;
+  w: number;
+  h: number;
+  ax: number; // position in the mask atlas, px
+  ay: number;
+}
+
+interface Manifest {
+  name: string;
+  size: [number, number];
+  supersample: number;
+  origin_px: [number, number];
+  light_scale: number;
+  night_tint: [number, number, number];
+  unit_tint: [number, number, number];
+  frames: Frame[];
+}
+
+const toCss = (t: readonly number[]): string =>
+  `rgb(${t.map((v) => Math.round(Math.min(1, v) * 255)).join(',')})`;
+
+/** Width of the faded border, in painting px. Structures crossing it use placeholder blocks. */
+const FEATHER = 48;
+
+export const toTintHex = (t: readonly number[]): number =>
+  (Math.round(t[0]! * 255) << 16) | (Math.round(t[1]! * 255) << 8) | Math.round(t[2]! * 255);
+
+export class PaintedArea {
+  readonly manifest: Manifest;
+  readonly occluders: Occluder[] = [];
+  /** Tiles whose structure comes from the painting (no placeholder block). */
+  readonly paintedTiles = new Set<string>();
+  /** World-space rectangle covered by the painting. */
+  readonly rect: { x: number; y: number; w: number; h: number };
+
+  static preload(scene: Phaser.Scene, name: string): void {
+    scene.load.json(`${name}_meta`, `${name}/${name}.json`);
+    scene.load.image(`${name}_day`, `${name}/${name}_day.jpg`);
+    scene.load.image(`${name}_light`, `${name}/${name}_light.png`);
+    scene.load.image(`${name}_occmask`, `${name}/${name}_occ.png`);
+  }
+
+  constructor(scene: Phaser.Scene, name: string, groundDepth: number) {
+    const m = scene.cache.json.get(`${name}_meta`) as Manifest;
+    this.manifest = m;
+    const [W, H] = m.size;
+    const ss = m.supersample;
+    const ox = -m.origin_px[0] / ss;
+    const oy = -m.origin_px[1] / ss;
+    this.rect = { x: ox, y: oy, w: W / ss, h: H / ss };
+
+    // 1. light canvas: night tint everywhere, warm lamp pools on top
+    const day = scene.textures.get(`${name}_day`).getSourceImage() as HTMLImageElement;
+    const lightImg = scene.textures.get(`${name}_light`).getSourceImage() as HTMLImageElement;
+    const light = document.createElement('canvas');
+    light.width = W;
+    light.height = H;
+    const lc = light.getContext('2d')!;
+    lc.fillStyle = toCss(m.night_tint);
+    lc.fillRect(0, 0, W, H);
+    lc.drawImage(lightImg, 0, 0, W, H);
+
+    // 2. graded painting = daylight painting x light canvas
+    const bgTex = scene.textures.createCanvas(`${name}_bg`, W, H)!;
+    const bc = bgTex.context;
+    bc.drawImage(day, 0, 0);
+    bc.globalCompositeOperation = 'multiply';
+    bc.drawImage(light, 0, 0);
+    // fade the painting's rectangle into the placeholder map around it
+    bc.globalCompositeOperation = 'destination-out';
+    const sides: [number, number, number, number][] = [
+      [0, 0, FEATHER, 0], // left: gradient from x=0 to x=FEATHER
+      [W, 0, W - FEATHER, 0],
+      [0, 0, 0, FEATHER],
+      [0, H, 0, H - FEATHER],
+    ];
+    for (const [x0, y0, x1, y1] of sides) {
+      const g = bc.createLinearGradient(x0, y0, x1, y1);
+      g.addColorStop(0, 'rgba(0,0,0,1)');
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+      bc.fillStyle = g;
+      bc.fillRect(0, 0, W, H);
+    }
+    bc.globalCompositeOperation = 'source-over';
+    bgTex.refresh();
+    scene.add.image(ox, oy, `${name}_bg`).setOrigin(0).setScale(1 / ss).setDepth(groundDepth);
+
+    // 3. occluder atlas: graded pixels, alpha from the mask atlas
+    const maskImg = scene.textures.get(`${name}_occmask`).getSourceImage() as HTMLImageElement;
+    const AW = maskImg.width;
+    const AH = maskImg.height;
+    const occTex = scene.textures.createCanvas(`${name}_occ`, AW, AH)!;
+    const oc = occTex.context;
+    for (const f of m.frames) oc.drawImage(bgTex.canvas, f.sx, f.sy, f.w, f.h, f.ax, f.ay, f.w, f.h);
+    oc.globalCompositeOperation = 'destination-in';
+    oc.drawImage(maskImg, 0, 0);
+    oc.globalCompositeOperation = 'source-over';
+    for (const f of m.frames) occTex.add(`t${f.x}_${f.y}`, 0, f.ax, f.ay, f.w, f.h);
+    occTex.refresh();
+
+    // mask alpha on the CPU, for the hidden-unit test
+    const probe = document.createElement('canvas');
+    probe.width = AW;
+    probe.height = AH;
+    const pc = probe.getContext('2d', { willReadFrequently: true })!;
+    pc.drawImage(maskImg, 0, 0);
+    const alpha = pc.getImageData(0, 0, AW, AH).data;
+
+    const inside = (f: Frame): boolean => f.sx >= FEATHER && f.sy >= FEATHER && f.sx + f.w <= W - FEATHER && f.sy + f.h <= H - FEATHER;
+    for (const f of m.frames) {
+      if (!inside(f)) continue;
+      const wx = ox + f.sx / ss;
+      const wy = oy + f.sy / ss;
+      const depth = depthOf(f.x + 0.5, f.y + 0.5, 0);
+      scene.add.image(wx, wy, `${name}_occ`, `t${f.x}_${f.y}`).setOrigin(0).setScale(1 / ss).setDepth(depth);
+      this.occluders.push(
+        maskOccluder(f.x, f.y, 0, wx, wy, f.w, f.h, ss, (sx, sy) => alpha[((f.ay + sy) * AW + f.ax + sx) * 4 + 3]!),
+      );
+      this.paintedTiles.add(`${f.x},${f.y}`);
+    }
+  }
+
+  /** True when a tile's ground diamond lies fully inside the painting's unfaded part. */
+  coversTile(tx: number, ty: number): boolean {
+    const f = FEATHER / this.manifest.supersample;
+    const r = { x: this.rect.x + f, y: this.rect.y + f, w: this.rect.w - 2 * f, h: this.rect.h - 2 * f };
+    const corners = [
+      [tx, ty],
+      [tx + 1, ty],
+      [tx + 1, ty + 1],
+      [tx, ty + 1],
+    ] as const;
+    return corners.every(([x, y]) => {
+      const sx = (x - y) * 32;
+      const sy = (x + y) * 16;
+      return sx >= r.x && sx <= r.x + r.w && sy >= r.y && sy <= r.y + r.h;
+    });
+  }
+}

@@ -494,6 +494,79 @@ def setup_render(look, samples):
         ls.select_crease = True
 
 
+def tile_id_material():
+    """Emission colour = the sim tile that owns the surface: R = x / 255, G = y / 255, B = 1.
+    The sample point is pushed 1 cm inside the solid along the normal, so faces that lie
+    exactly on a tile edge still pick the tile their volume is in."""
+    mat = bpy.data.materials.new("tile_id")
+    mat.use_nodes = True
+    nt = mat.node_tree
+    for n in list(nt.nodes):
+        nt.nodes.remove(n)
+    out = nt.nodes.new("ShaderNodeOutputMaterial")
+    emit = nt.nodes.new("ShaderNodeEmission")
+    geo = nt.nodes.new("ShaderNodeNewGeometry")
+    inward = nt.nodes.new("ShaderNodeVectorMath")
+    inward.operation = "SCALE"
+    inward.inputs["Scale"].default_value = -0.01
+    nt.links.new(geo.outputs["Normal"], inward.inputs[0])
+    pos = nt.nodes.new("ShaderNodeVectorMath")
+    pos.operation = "ADD"
+    nt.links.new(geo.outputs["Position"], pos.inputs[0])
+    nt.links.new(inward.outputs["Vector"], pos.inputs[1])
+    sep = nt.nodes.new("ShaderNodeSeparateXYZ")
+    nt.links.new(pos.outputs["Vector"], sep.inputs["Vector"])
+
+    def tile_channel(axis_out, sign):
+        m1 = nt.nodes.new("ShaderNodeMath")
+        m1.operation = "MULTIPLY"
+        m1.inputs[1].default_value = sign / TILE_M
+        nt.links.new(axis_out, m1.inputs[0])
+        fl = nt.nodes.new("ShaderNodeMath")
+        fl.operation = "FLOOR"
+        nt.links.new(m1.outputs[0], fl.inputs[0])
+        sc = nt.nodes.new("ShaderNodeMath")
+        sc.operation = "DIVIDE"
+        sc.inputs[1].default_value = 255.0
+        nt.links.new(fl.outputs[0], sc.inputs[0])
+        return sc.outputs[0]
+
+    comb = nt.nodes.new("ShaderNodeCombineXYZ")
+    nt.links.new(tile_channel(sep.outputs["X"], 1.0), comb.inputs["X"])
+    nt.links.new(tile_channel(sep.outputs["Y"], -1.0), comb.inputs["Y"])
+    comb.inputs["Z"].default_value = 1.0
+    nt.links.new(comb.outputs["Vector"], emit.inputs["Color"])
+    emit.inputs["Strength"].default_value = 1.0
+    nt.links.new(emit.outputs["Emission"], out.inputs["Surface"])
+    return mat
+
+
+def setup_id_pass():
+    """Flat, unlit, unfiltered render of tile IDs. Ground is black (not an occluder)."""
+    scene = bpy.context.scene
+    tid = tile_id_material()
+    black = bpy.data.materials.new("id_black")
+    black.use_nodes = True
+    bsdf = black.node_tree.nodes["Principled BSDF"]
+    bsdf.inputs["Base Color"].default_value = (0, 0, 0, 1)
+    for ob in scene.objects:
+        if ob.type != "MESH":
+            continue
+        ob.data.materials.clear()
+        ob.data.materials.append(black if ob.name.startswith("ground") else tid)
+    for ob in list(scene.objects):
+        if ob.type == "LIGHT":
+            bpy.data.objects.remove(ob)
+    scene.world.node_tree.nodes["Background"].inputs["Strength"].default_value = 0.0
+    scene.cycles.samples = 1
+    scene.cycles.use_denoising = False
+    scene.cycles.filter_width = 0.01
+    scene.render.use_freestyle = False
+    scene.render.dither_intensity = 0.0
+    scene.view_settings.view_transform = "Raw"
+    scene.render.image_settings.color_depth = "8"
+
+
 def main():
     global WALL_H
     argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
@@ -510,6 +583,7 @@ def main():
     ap.add_argument("--no-figures", action="store_true", help="leave out the scale figures (clean plate for painting)")
     ap.add_argument("--margin", type=int, default=8, help="tiles built beyond the region so the frame is full")
     ap.add_argument("--suffix", default="", help="added to the output file names")
+    ap.add_argument("--id-pass", action="store_true", help="render tile IDs instead of the lit image (occluder masks)")
     a = ap.parse_args(argv)
 
     reset_scene()
@@ -521,11 +595,13 @@ def main():
     setup_light(L)
     cam = setup_camera(region, a.top, a.supersample)
     setup_render(a.look, a.samples)
+    if a.id_pass:
+        setup_id_pass()
 
     os.makedirs(a.out, exist_ok=True)
     stem = f"{a.name}_{a.look}{a.suffix}"
     scene = bpy.context.scene
-    scene.render.filepath = os.path.abspath(os.path.join(a.out, f"{stem}_day.png"))
+    scene.render.filepath = os.path.abspath(os.path.join(a.out, f"{stem}_{'id' if a.id_pass else 'day'}.png"))
     bpy.ops.render.render(write_still=True)
 
     ss = a.supersample
@@ -547,8 +623,9 @@ def main():
         "figure_h_m": FIGURE_H,
         "wall_h_m": WALL_H,
     }
-    with open(os.path.join(a.out, f"{stem}.json"), "w") as f:
-        json.dump(meta, f, indent=2)
+    if not a.id_pass:  # an ID pass shares the lit render's camera; keep its sidecar untouched
+        with open(os.path.join(a.out, f"{stem}.json"), "w") as f:
+            json.dump(meta, f, indent=2)
     print("META", json.dumps(meta))
 
 

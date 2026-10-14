@@ -44,7 +44,8 @@ The live plan is a Claude doc: https://claude.ai/code/artifact/b1c9e4e6-6e2d-484
 - The sim uses a fixed timestep `update(dt)` and a seeded RNG. Same inputs give the same result.
 - The sim works on a top-down tile grid. Isometric exists only in `src/render/`.
 - Projection for 64 x 32 tiles: `screenX = (x - y) * 32`, `screenY = (x + y) * 16`, where x and y are in tiles.
-- Depth order: sort by the front corner of each object's footprint (`x + y`), then by height.
+- Depth order: split structures into 1-tile pieces and sort every object by its centre (`x + y`), then by height. For 1-tile pieces and small units this matches what the eye expects wherever sprites overlap. (Changed in Phase 1: the old front-corner rule hid a unit standing just south of a wall's corner.)
+- Painted areas: the painting is one ground image; each blocking tile's part of it is cut out as an occluder sprite (mask from the Blender ID pass) and depth-sorted with the units.
 - A unit hidden behind a structure is drawn as a colored outline. The player must never lose a unit.
 - `src/render/` reads sim state and sends commands. It never changes sim state directly.
 - `src/ui/` is DOM over the canvas: squad panel, inventory, minimap, briefing.

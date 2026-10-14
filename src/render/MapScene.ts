@@ -22,6 +22,8 @@ import {
 } from '@/sim';
 import { Controller, type TapHit } from './controller';
 import { depthOf, footprint, mapBounds, type Point, toScreen, toTile } from './iso';
+import { blockOccluder, insideConvex, isHidden, type Occluder } from './occlusion';
+import { PaintedArea } from './paintedArea';
 import {
   ALARM_COLOR,
   BLOCKS,
@@ -42,20 +44,14 @@ const TAP_SLOP = 8; // px a pointer may move before a tap becomes a pan
 const MAX_ZOOM = 2.5;
 const OVERLAY_DEPTH = 1e9;
 const MAP_TOP_MARGIN = 80; // room for tall blocks on the back row
+const PAINTED_AREAS = ['yard'];
 
-function insideConvex(pts: readonly Point[], x: number, y: number): boolean {
-  let sign = 0;
-  for (let i = 0; i < pts.length; i++) {
-    const a = pts[i]!;
-    const b = pts[(i + 1) % pts.length]!;
-    const cross = (b.x - a.x) * (y - a.y) - (b.y - a.y) * (x - a.x);
-    if (cross !== 0) {
-      if (sign === 0) sign = Math.sign(cross);
-      else if (Math.sign(cross) !== sign) return false;
-    }
-  }
-  return true;
-}
+/** Placeholder colours get the same night tint as the painted art (docs/visual-language.md, 6). */
+const NIGHT = [0.36, 0.43, 0.6] as const;
+const night = (c: number): number =>
+  (Math.round(((c >> 16) & 0xff) * NIGHT[0]) << 16) |
+  (Math.round(((c >> 8) & 0xff) * NIGHT[1]) << 8) |
+  Math.round((c & 0xff) * NIGHT[2]);
 
 // Phaser's types ask for Vector2[], but fillPoints and strokePoints only read x and y.
 const poly = (p: readonly Point[]): Phaser.Math.Vector2[] => p as unknown as Phaser.Math.Vector2[];
@@ -90,15 +86,22 @@ export class MapScene extends Phaser.Scene {
   private minZoom = 0.3;
   /** Until the player pans or zooms, every resize refits the whole map. */
   private userMoved = false;
+  private painted: PaintedArea[] = [];
+  private occluders: Occluder[] = [];
 
   constructor(hooks: SceneHooks) {
     super('map');
     this.hooks = hooks;
   }
 
+  preload(): void {
+    for (const name of PAINTED_AREAS) PaintedArea.preload(this, name);
+  }
+
   create(): void {
     this.newGame();
     this.ground = this.add.graphics().setDepth(-OVERLAY_DEPTH);
+    this.painted = PAINTED_AREAS.map((name) => new PaintedArea(this, name, -OVERLAY_DEPTH + 1));
     this.overlay = this.add.graphics().setDepth(OVERLAY_DEPTH);
     this.input.addPointer(1);
     this.setupInput();
@@ -205,13 +208,17 @@ export class MapScene extends Phaser.Scene {
     });
     this.input.mouse?.disableContextMenu();
     this.input.keyboard?.on('keydown', (e: KeyboardEvent) => {
-      const k = e.key.toLowerCase();
-      if (k === 'r' && this.game$.state.over) {
-        this.newGame();
-        return;
-      }
-      if (this.ctl.key(k) && k === ' ') e.preventDefault();
+      if (this.press(e.key.toLowerCase()) && e.key === ' ') e.preventDefault();
     });
+  }
+
+  /** A key press from the keyboard or the touch bar. Returns true when it was used. */
+  press(k: string): boolean {
+    if (k === 'r' && this.game$.state.over) {
+      this.newGame();
+      return true;
+    }
+    return this.ctl.key(k);
   }
 
   /** Screen point of a unit marker (raised off the ground). */
@@ -308,7 +315,7 @@ export class MapScene extends Phaser.Scene {
     for (let y = 0; y < rows; y++) {
       for (let x = 0; x < cols; x++) {
         const pair = GROUND[deco[y * cols + x]!] ?? GROUND[0]!;
-        g.fillStyle(pair[(x + y) & 1]!, 1);
+        g.fillStyle(night(pair[(x + y) & 1]!), 1);
         g.fillPoints(poly(footprint(x, y)), true);
       }
     }
@@ -321,20 +328,24 @@ export class MapScene extends Phaser.Scene {
 
     for (const b of this.blocks) b.destroy();
     this.blocks = [];
+    this.occluders = this.painted.flatMap((p) => p.occluders);
     for (let y = 0; y < rows; y++) {
       for (let x = 0; x < cols; x++) {
         const code = tileAt(s.grid, x, y);
         let style = BLOCKS[code];
         if (!style) continue;
+        // the painting already shows this structure; its occluder sprite stands in for the block
+        if (this.painted.some((p) => p.paintedTiles.has(`${x},${y}`) || p.coversTile(x, y))) continue;
         if (code === 'G' && !s.generator.on) style = { ...style, color: shade(style.color, 0.6) };
         if (code === 'L') {
           const l = s.launchers.find((l) => x >= l.x && x < l.x + l.w && y === l.y);
           if (l?.done) style = { ...style, color: 0x5d8a62 };
         }
         const gr = this.add.graphics();
-        this.drawBlock(gr, x + style.inset, y + style.inset, 1 - 2 * style.inset, 1 - 2 * style.inset, style.height, style.color);
+        this.drawBlock(gr, x + style.inset, y + style.inset, 1 - 2 * style.inset, 1 - 2 * style.inset, style.height, night(style.color));
         gr.setDepth(depthOf(x + 0.5, y + 0.5, style.height));
         this.blocks.push(gr);
+        this.occluders.push(blockOccluder(x, y, style.inset, style.height));
       }
     }
   }
@@ -372,7 +383,7 @@ export class MapScene extends Phaser.Scene {
     if (s.generator.on) {
       for (const t of s.towers) {
         const c = { x: t.x + 0.5, y: t.y + 0.5 };
-        this.drawCone(o, s, c, t.ang, TOWER_FOV, TOWER_LEN, null, LIGHT_COLOR, 0.16 + t.susp * 0.3);
+        this.drawCone(o, s, c, t.ang, TOWER_FOV, TOWER_LEN, null, LIGHT_COLOR, 0.22 + t.susp * 0.3);
       }
     }
     // guard cones
@@ -380,7 +391,7 @@ export class MapScene extends Phaser.Scene {
       if (g.state === 'down') continue;
       const color = s.alarm.active || g.state === 'combat' ? ALARM_COLOR : CONE_COLOR;
       const len = coneLength(s);
-      this.drawCone(o, s, g, g.ang, FOV, len, len * NEAR_FRACTION, color, 0.1 + g.susp * 0.25);
+      this.drawCone(o, s, g, g.ang, FOV, len, len * NEAR_FRACTION, color, 0.2 + g.susp * 0.25);
     }
     // selected unit path and ring
     if (sel.alive) {
@@ -453,9 +464,12 @@ export class MapScene extends Phaser.Scene {
     o.fillStyle(color, alpha);
     o.fillPoints(poly(far), true);
     if (near !== null) {
-      o.fillStyle(color, alpha + 0.1);
+      o.fillStyle(color, alpha + 0.12);
       o.fillPoints(poly(inner), true);
     }
+    // a crisp edge keeps the cone readable on the dark night ground
+    o.lineStyle(1.5, color, 0.85);
+    o.strokePoints(poly(far), true);
   }
 
   private drawGuard(g: Guard): void {
@@ -483,6 +497,18 @@ export class MapScene extends Phaser.Scene {
     }
     const col = hex(u.color);
     this.drawMarker(gr, u, col, selected ? 0xffffff : 0x1e2a26, u.crawl);
+    // never lose a unit: behind a structure it shows as an outline in its squad colour
+    const lift = u.crawl ? 5 : UNIT_LIFT;
+    const samples = [toScreen(u.x, u.y, 2), toScreen(u.x, u.y, lift), toScreen(u.x, u.y, lift + UNIT_RADIUS - 2)];
+    if (isHidden(samples, depthOf(u.x, u.y, lift), this.occluders)) {
+      const m = this.markerOf(u, lift);
+      const p = toScreen(u.x, u.y);
+      const o = this.overlay;
+      o.lineStyle(2, col, 0.95);
+      o.strokeCircle(m.x, m.y, UNIT_RADIUS);
+      o.lineBetween(p.x, p.y, m.x, m.y + UNIT_RADIUS);
+      o.strokeEllipse(p.x, p.y, 18, 9);
+    }
     if (u.hitT > 0) {
       const m = this.markerOf(u);
       gr.lineStyle(3, ALARM_COLOR, Math.min(1, u.hitT * 3));
