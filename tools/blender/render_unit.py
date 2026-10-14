@@ -28,7 +28,27 @@ import bpy
 from mathutils import Matrix, Vector
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import mocap  # noqa: E402  (motion capture onto our rig)
 import render_iso as iso  # noqa: E402  (camera, sun and material helpers)
+
+MOCAP_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "assets", "raw", "mocap")
+
+
+class Mocap:
+    """An animation taken from a motion capture clip (tools/blender/mocap.py).
+    a, b: source frames (120 fps). loop: a cycle (b excluded, it equals a); otherwise a
+    one-shot that ends on b. arms: 'hold' keeps the carbine hold, 'mocap' follows the clip.
+    root_xy: keep the clip's horizontal travel (a fall); cycles stay in place, since the
+    sim moves the unit. face: source frames to measure the facing from (default a..b)."""
+
+    def __init__(self, clip, a, b, n, loop, arms="hold", root_xy=False, face=None):
+        self.clip, self.a, self.b, self.n, self.loop = clip, a, b, n, loop
+        self.arms, self.root_xy, self.face = arms, root_xy, face or (a, b)
+
+    def times(self):
+        step = (self.b - self.a) / (self.n if self.loop else max(1, self.n - 1))
+        return [self.a + step * f for f in range(self.n)]
+
 
 # ---------- frame layout (1x = 100% zoom) ----------
 FRAME_W = 96  # wide enough for a prone figure in any direction; pack_unit.py trims the empty space
@@ -433,16 +453,19 @@ def hit_pose(f, n):
     return a, -0.01
 
 
+# Motion capture, CMU clips (assets/raw/mocap/README.md). Ran, Phase 2: movement must feel natural.
+#   run: 09_01, one stride 2.55 m (1.6 tiles) in 0.77 s, foot plant to foot plant
+#   death: 90_18, a backward fall, 0.75 s from standing to lying still
 ANIMS = {
     "idle": (idle_pose, 1),
     "walk": (walk_pose, 8),
-    "run": (run_pose, 8),
+    "run": (Mocap("09_01", 45, 137, 12, loop=True), 12),
     "crawl_idle": (crawl_idle_pose, 1),
     "crawl": (crawl_pose, 8),
     "takedown": (takedown_pose, 6),
     "grab": (grab_pose, 4),
     "drag": (drag_pose, 8),
-    "death": (death_pose, 6),
+    "death": (Mocap("90_18", 75, 165, 10, loop=False, arms="mocap", root_xy=True, face=(1, 75)), 10),
     "hit": (hit_pose, 3),
 }
 
@@ -523,12 +546,26 @@ def main():
     unit_anims = {k: v for k, v in ANIMS.items() if k in spec.get("anims", ANIMS)}
     anims = {k: v for k, v in unit_anims.items() if not a.only or k in a.only.split(",")}
     scene = bpy.context.scene
+    clips = {}
+    hip_h = rig.data.bones["thigh.L"].head_local.z
     for name, (fn, n) in anims.items():
+        if isinstance(fn, Mocap):
+            if fn.clip not in clips:
+                clips[fn.clip] = mocap.Clip(os.path.join(MOCAP_DIR, fn.clip + ".bvh"), hip_h)
+            clip = clips[fn.clip]
+            clip.face_x(*fn.face)
+            clip.origin = clip.raw(fn.a)["Hips"].copy()
+            times = fn.times()
         for f in range(n):
-            angles, lift = fn(f, n)
-            for pb in rig.pose.bones:
-                pb.rotation_euler = (0, 0, 0)
-            pose(rig, angles, lift)
+            rig.rotation_euler = (0, 0, 0)
+            if isinstance(fn, Mocap):
+                mocap.apply(rig, clip.at(times[f]), arms=fn.arms, root_xy=fn.root_xy, hold=ARMS_HOLD)
+            else:
+                for pb in rig.pose.bones:
+                    pb.rotation_euler = (0, 0, 0)
+                    pb.location = (0, 0, 0)
+                angles, lift = fn(f, n)
+                pose(rig, angles, lift)
             for d in dirs:
                 rig.rotation_euler = (0, 0, -math.radians(45 * d))
                 bpy.context.view_layer.update()
