@@ -604,6 +604,8 @@ def main():
         "anchor": list(ANCHOR),
         "supersample": a.supersample,
         "anims": {k: n for k, (_, n) in unit_anims.items()},
+        # where each animation comes from, shown in the motion library page
+        "sources": {k: (f"motion capture, CMU {fn.clip}" if isinstance(fn, Mocap) else "formula pose") for k, (fn, _) in unit_anims.items()},
         "dirs": 8,
         "dir_rule": "direction d = sim angle d * 45 degrees, 0 = sim +x",
     }

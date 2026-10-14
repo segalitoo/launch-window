@@ -22,5 +22,17 @@
     "hit": 3
   },
   "dirs": 8,
-  "dir_rule": "direction d = sim angle d * 45 degrees, 0 = sim +x"
+  "dir_rule": "direction d = sim angle d * 45 degrees, 0 = sim +x",
+  "sources": {
+    "idle": "formula pose",
+    "walk": "formula pose",
+    "run": "motion capture, CMU 09_01",
+    "crawl_idle": "formula pose",
+    "crawl": "formula pose",
+    "takedown": "formula pose",
+    "grab": "formula pose",
+    "drag": "motion capture, CMU 81_08",
+    "death": "motion capture, CMU 90_18",
+    "hit": "formula pose"
+  }
 }

@@ -85,7 +85,8 @@ for i, page in enumerate(pages):
 
 doc = {
     "textures": textures,
-    "meta": {"unit": {"anchor": meta["anchor"], "frame": meta["frame"], "supersample": ss, "anims": anims, "dirs": dirs}},
+    "meta": {"unit": {"anchor": meta["anchor"], "frame": meta["frame"], "supersample": ss, "anims": anims, "dirs": dirs,
+                      "sources": meta.get("sources", {})}},
 }
 with open(os.path.join(out, f"{unit}.json"), "w") as fh_:
     json.dump(doc, fh_, separators=(",", ":"))
