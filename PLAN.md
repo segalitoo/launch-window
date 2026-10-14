@@ -117,10 +117,10 @@ About 144 hours. Re-plan at each gate.
 
 - [ ] Iso projection and camera: pan, pinch, zoom (placeholder done in Session 1; pinch not yet tested on a real phone)
 - [ ] Mission map rebuilt in Tiled and loaded into the sim grid
-- [ ] Depth sorting for units, props and buildings
-- [ ] Outline for units hidden behind buildings
-- [ ] Sight cones and searchlights drawn in iso
-- [ ] All prototype mechanics work with placeholder art
+- [x] Depth sorting for units, props and buildings (centre-sum rule, 1-tile pieces, painted occluders)
+- [x] Outline for units hidden behind buildings
+- [x] Sight cones and searchlights drawn in iso
+- [ ] All prototype mechanics work with placeholder art (touch bar added for the phone; full play-through still to do)
 - [ ] Preview plays on iPhone
 
 ### Phase 2. Vertical slice (16 h)
