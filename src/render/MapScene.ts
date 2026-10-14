@@ -22,7 +22,8 @@ import {
 import { Controller, type TapHit } from './controller';
 import { depthOf, footprint, mapBounds, type Point, toScreen, toTile } from './iso';
 import { blockOccluder, insideConvex, isHidden, type Occluder } from './occlusion';
-import { PaintedArea } from './paintedArea';
+import { PaintedArea, toTintHex } from './paintedArea';
+import { UnitSprites } from './unitSprites';
 import {
   ALARM_COLOR,
   BLOCKS,
@@ -42,6 +43,8 @@ const CONE_RAYS = 28;
 const TAP_SLOP = 8; // px a pointer may move before a tap becomes a pan
 const MAX_ZOOM = 2.5;
 const OVERLAY_DEPTH = 1e9;
+/** Night grade for units, lighter than the environment's (visual language 6b). */
+const UNIT_GRADE = [0.62, 0.68, 0.82] as const;
 const MAP_TOP_MARGIN = 80; // room for tall blocks on the back row
 const PAINTED_AREAS = ['yard'];
 
@@ -87,6 +90,9 @@ export class MapScene extends Phaser.Scene {
   private userMoved = false;
   private painted: PaintedArea[] = [];
   private occluders: Occluder[] = [];
+  private unitArt!: UnitSprites;
+  /** Soft contact shadows under rendered units, above the ground, below every structure. */
+  private shadows!: Phaser.GameObjects.Graphics;
 
   constructor(hooks: SceneHooks) {
     super('map');
@@ -95,6 +101,7 @@ export class MapScene extends Phaser.Scene {
 
   preload(): void {
     for (const name of PAINTED_AREAS) PaintedArea.preload(this, name);
+    UnitSprites.preload(this);
   }
 
   create(): void {
@@ -103,6 +110,8 @@ export class MapScene extends Phaser.Scene {
     const { cols, rows } = this.game$.state.grid;
     this.painted = PAINTED_AREAS.map((name) => new PaintedArea(this, name, -OVERLAY_DEPTH + 1, cols, rows));
     this.overlay = this.add.graphics().setDepth(OVERLAY_DEPTH);
+    this.unitArt = new UnitSprites(this, toTintHex(UNIT_GRADE), OVERLAY_DEPTH - 1);
+    this.shadows = this.add.graphics().setDepth(-OVERLAY_DEPTH + 2);
     this.input.addPointer(1);
     this.setupInput();
     this.scale.on('resize', () => this.fitCamera(!this.userMoved));
@@ -378,6 +387,7 @@ export class MapScene extends Phaser.Scene {
 
   private drawDynamic(s: GameState): void {
     const o = this.overlay.clear();
+    this.shadows.clear();
     const sel = this.ctl.sel;
 
     // searchlights
@@ -497,6 +507,36 @@ export class MapScene extends Phaser.Scene {
       return;
     }
     const col = hex(u.color);
+    if (this.unitArt.covers(u)) {
+      // rendered art: a contact shadow, a ring at the feet, and a squad-colour silhouette when hidden
+      const p = toScreen(u.x, u.y);
+      this.shadows.fillStyle(0x000000, 0.22);
+      this.shadows.fillEllipse(p.x + 1, p.y + 0.5, 22, 10);
+      this.shadows.fillStyle(0x000000, 0.22);
+      this.shadows.fillEllipse(p.x + 1, p.y + 0.5, 14, 6);
+      const o = this.overlay;
+      if (selected) {
+        o.lineStyle(3, 0xffffff, 0.9);
+        o.strokeEllipse(p.x, p.y, 26, 13);
+      }
+      o.lineStyle(1.5, col, 0.9);
+      o.strokeEllipse(p.x, p.y, 24, 12);
+      // silhouette only when most of him is covered: a low wall over the boots leaves him readable
+      const depth = depthOf(u.x, u.y, 13);
+      const covered = this.unitArt.samples(u).filter((p) => isHidden([p], depth, this.occluders)).length;
+      this.unitArt.draw(u, covered >= 2, col);
+    } else {
+      this.unitArt.draw(u, false, col);
+      this.drawPlaceholderUnit(gr, u, col, selected);
+    }
+    if (u.hitT > 0) {
+      const m = this.markerOf(u);
+      gr.lineStyle(3, ALARM_COLOR, Math.min(1, u.hitT * 3));
+      gr.strokeCircle(m.x, m.y, UNIT_RADIUS + 5);
+    }
+  }
+
+  private drawPlaceholderUnit(gr: Phaser.GameObjects.Graphics, u: Unit, col: number, selected: boolean): void {
     this.drawMarker(gr, u, col, selected ? 0xffffff : 0x1e2a26, u.crawl);
     // never lose a unit: behind a structure it shows as an outline in its squad colour
     const lift = u.crawl ? 5 : UNIT_LIFT;
@@ -509,11 +549,6 @@ export class MapScene extends Phaser.Scene {
       o.strokeCircle(m.x, m.y, UNIT_RADIUS);
       o.lineBetween(p.x, p.y, m.x, m.y + UNIT_RADIUS);
       o.strokeEllipse(p.x, p.y, 18, 9);
-    }
-    if (u.hitT > 0) {
-      const m = this.markerOf(u);
-      gr.lineStyle(3, ALARM_COLOR, Math.min(1, u.hitT * 3));
-      gr.strokeCircle(m.x, m.y, UNIT_RADIUS + 5);
     }
   }
 
