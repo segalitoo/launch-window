@@ -68,6 +68,14 @@ Each element has one job. No two elements do the same job.
 - Rejected: B (dark grey-green, helmet) nearly vanished at night; C (desert camouflage, beret) looked like A at 44 px, the pattern and beret do not survive game size.
 - Fictional: no flags, insignia or unit marks. Same unit night grade as the squad.
 
+## 6f. Final unit look (Ran, Phase 2)
+- **D3** (`tools/blender/looks.py`, `outline_pop`, the default of both renderers): the Cycles render with its own shading, highlights on the faces lit from the top left, a 30% gain, and a 1 px black outline inside the silhouette.
+- Why: the outline makes figures crisp on the painted ground like drawn sprites, and the render's shading keeps the gear readable (pouches, carbine, NVG, antenna, squad tape).
+- Rejected: **A**, cel bands plus ink. It erased the form ("a silhouette of a soldier without details"): most of the figure fell into one shadow band, and the inner lines used up the few pixels the gear has. Also rejected: A2, C and the paint filter alone (B), which was invisible at 44 px.
+- Measured: D3 keeps today's brightness, and the guard stays the lighter figure (visual language 6e).
+- Limit: the model is low-poly with plain cloth. More detail means modelling it (straps, folds), not changing the look.
+- Review sheets: `assets/raw/gen/LOOK-01_character_looks.png`, `LOOK-02_motion_compare.gif`, `LOOK-03_outline_looks.png`.
+
 ## 7. Lamp light (varies, says "this spot is lit")
 - Warm pools from lamps on the light layer. The only warm light at night.
 - The pools are visual only for now. Sight rules do not change (no new mechanics).

@@ -254,15 +254,7 @@ async function main(): Promise<void> {
   const [yoav, noa, itai, guard, day] = await Promise.all([
     loadAtlas('yoav'), loadAtlas('noa'), loadAtlas('itai'), loadAtlas('guard'), loadImage('yard/yard_day.jpg'),
   ]);
-  // Phase 2 look test: Yoav and the guard in the test look (yoav_a, guard_a; now D3,
-  // tools/blender/looks.py outline_pop), right under the current Yoav, to judge it in motion
-  const [yoavA, guardA] = await Promise.all([loadAtlas('yoav_a'), loadAtlas('guard_a')]);
-  const all = cards(yoav, noa, itai, guard);
-  const lookA = cards(yoavA, noa, itai, guardA)
-    .filter((c) => c.group === 'Yoav' || c.group === 'Interactions' || c.group === 'Guard')
-    .map((c) => ({ ...c, group: `${c.group}, new look D3 (test)` }));
-  const lastYoav = all.map((c) => c.group).lastIndexOf('Yoav');
-  const list = [...all.slice(0, lastYoav + 1), ...lookA, ...all.slice(lastYoav + 1)];
+  const list = cards(yoav, noa, itai, guard);
   const ground = graded(day, NIGHT, false);
   const grid = document.getElementById('grid')!;
   const sel = (id: string): HTMLSelectElement => document.getElementById(id) as HTMLSelectElement;

@@ -723,7 +723,7 @@ def main():
     ap.add_argument("--samples", type=int, default=48)
     ap.add_argument("--only", default="", help="render only these anims, comma separated")
     ap.add_argument("--dirs", default="0,1,2,3,4,5,6,7")
-    ap.add_argument("--look", default="render", choices=looks.LOOKS, help="drawn look (tools/blender/looks.py)")
+    ap.add_argument("--look", default="outline_pop", choices=looks.LOOKS, help="drawn look (tools/blender/looks.py)")
     a = ap.parse_args(argv)
 
     iso.reset_scene()

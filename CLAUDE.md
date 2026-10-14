@@ -94,7 +94,7 @@ Keep this list current. Node 22 (`.nvmrc`); Vercel builds with Node 22.
 - `python3 tools/editor_tiles.py` rebuild `maps/editor-tiles.png`, the colour squares Tiled shows (never used in the game)
 - `node tools/export-map.mjs` export the sim map to `assets/raw/blockout/map.json` for Blender
 - `/Applications/Blender.app/Contents/MacOS/Blender -b -P tools/blender/render_iso.py -- --map assets/raw/blockout/map.json --out assets/raw/blockout --name yard --region 11 20 25 30 --look B` render a map region through the iso camera (see the file header)
-- `/Applications/Blender.app/Contents/MacOS/Blender -b -P tools/blender/render_unit.py -- --unit yoav --out assets/raw/units/yoav` build, rig and render a unit (10 animations in 8 directions, 424 frames; about 3 min)
+- `/Applications/Blender.app/Contents/MacOS/Blender -b -P tools/blender/render_unit.py -- --unit yoav --out assets/raw/units/yoav` build, rig and render a unit (10 animations in 8 directions, 424 frames; about 3 min). The final drawn look (D3, `--look outline_pop`) is the default; `--look render` gives the plain render. After a run, check that `meta.json` is new: Blender sometimes crashes on launch without writing anything (docs/lessons.md)
 - `/Applications/Blender.app/Contents/MacOS/Blender -b -P tools/blender/render_takedown.py -- --yoav assets/raw/units/yoav --guard assets/raw/units/guard` render the knife takedown pair (both units in one scene, IK contact); run after render_unit.py for both units
 - `python3 tools/pack_unit.py yoav` trim and pack the rendered frames into `assets/build/units/yoav-N.png` pages and `yoav.json` (Phaser multi-atlas)
 - `python3 tools/grade_night.py assets/raw/blockout/yard_B_day.png --hud` preview the engine's night grade and the overlay

@@ -2,6 +2,9 @@
 compositor from the render's own passes, so every frame and direction gets the same
 treatment and lines keep one pixel width.
 
+The final look is outline_pop ("D3", Ran, Phase 2): the default in render_unit.py and
+render_takedown.py. The others stay for comparison.
+
 Looks (render_unit.py --look):
   render     the plain Cycles render (the low-poly look, as before)
   cel_black  cel shading: three light bands (cool shadow, mid, warm lit) over the surface
