@@ -4,7 +4,7 @@ import { Hud } from '@/ui/hud';
 import './style.css';
 
 const root = document.getElementById('app')!;
-const hud = new Hud(root);
+const hud = new Hud(root, (key) => scene.press(key));
 
 const scene = new MapScene({
   onEvents: (events) => hud.onEvents(events),

@@ -5,6 +5,8 @@ export default defineConfig({
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },
+  // assets/build holds what the game loads (CLAUDE.md folder layout); served at the site root
+  publicDir: 'assets/build',
   build: {
     target: 'es2022',
     chunkSizeWarningLimit: 2000,

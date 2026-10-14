@@ -106,9 +106,9 @@ About 144 hours. Re-plan at each gate.
 
 ### Phase 0. Setup and style frame (8 h)
 
-- [ ] Repo, CLAUDE.md, Vite + Phaser 4 + TypeScript, Vercel preview (all done except the Vercel link, which Ran sets up)
+- [x] Repo, CLAUDE.md, Vite + Phaser 4 + TypeScript, Vercel preview (https://launch-window-segalitoo-8173s-projects.vercel.app)
 - [x] Port the prototype's logic into src/sim with unit tests
-- [ ] Mood board of about 10 references, for mood only
+- [x] Mood board of about 10 references, for mood only (original generated tiles: assets/raw/moodboard/MOODBOARD.png)
 - [x] Style frame: one still of the generator yard at final quality (SF-01 #1, approved as is; board: assets/raw/gen/GATE-A_board.png)
 - [x] Yoav concept sheet: front, side, back (CH-03 #1; Noa CH-05 #3 and Itai CH-06 #2 too)
 - [x] Gate A: Ran approves palette, light direction and character scale (approved 14 Oct 2026)
@@ -117,10 +117,10 @@ About 144 hours. Re-plan at each gate.
 
 - [ ] Iso projection and camera: pan, pinch, zoom (placeholder done in Session 1; pinch not yet tested on a real phone)
 - [ ] Mission map rebuilt in Tiled and loaded into the sim grid
-- [ ] Depth sorting for units, props and buildings
-- [ ] Outline for units hidden behind buildings
-- [ ] Sight cones and searchlights drawn in iso
-- [ ] All prototype mechanics work with placeholder art
+- [x] Depth sorting for units, props and buildings (centre-sum rule, 1-tile pieces, painted occluders)
+- [x] Outline for units hidden behind buildings
+- [x] Sight cones and searchlights drawn in iso
+- [ ] All prototype mechanics work with placeholder art (touch bar added for the phone; full play-through still to do)
 - [ ] Preview plays on iPhone
 
 ### Phase 2. Vertical slice (16 h)
