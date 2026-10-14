@@ -8,6 +8,7 @@ import {
   frameName,
   type GuardAnimState,
   guardFrameName,
+  IDLE_LOOP,
   ONE_SHOT,
   TAKEDOWN_IMPACT,
 } from './unitAnim';
@@ -89,6 +90,7 @@ describe('guard animation frames', () => {
   test('posted guards idle, patrols walk, investigating and combat run', () => {
     expect(g({ ang: Math.PI })).toBe('idle_d4_f0');
     expect(g({ moving: true, walked: CYCLE_TILES.walk / 2 + 0.01 })).toBe('walk_d0_f4');
+    expect(guardFrameName({ ...g0, t: IDLE_LOOP * 0.55 }, { ...ga, idle: 12 })).toBe('idle_d0_f6'); // breathing loop
     expect(g({ moving: true, running: true })).toBe('run_d0_f0');
   });
 

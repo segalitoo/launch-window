@@ -10,16 +10,16 @@
   ],
   "supersample": 2,
   "anims": {
-    "idle": 1,
-    "walk": 8,
+    "idle": 12,
+    "walk": 12,
     "run": 12,
     "death": 10,
     "dragged": 2,
     "knockout": 12
   },
   "sources": {
-    "idle": "formula pose",
-    "walk": "formula pose",
+    "idle": "motion capture, CMU 111_28",
+    "walk": "motion capture, CMU 16_15",
     "run": "motion capture, CMU 09_01",
     "death": "motion capture, CMU 90_18",
     "dragged": "formula pose",

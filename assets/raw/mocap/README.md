@@ -17,5 +17,8 @@ Credit CMU in the game's credits.
 
 | 02_07 | swordplay | takedown strike, frames 55 to 205 (both hands overhead, hard downward blow; the carbine is placed in the hands) |
 | 77_16 | laying down, getting up, careful ready pose | guard knocked out from behind: frames 460 back to 220, played backwards (knees give, kneel, face down) |
+| 111_28 | Standing still | idle, frames 100 to 308 (a slow sway and breath; the loop with the closest start and end pose) |
+| 16_15 | walk | guard patrol walk, frames 62 to 200 (one stride, 1.16 m in 1.15 s) |
+| 26_09 | bend, pick up | grab, frames 100 to 240 (squat and reach down) |
 
 Used by `tools/blender/render_unit.py` through `tools/blender/mocap.py`.

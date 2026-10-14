@@ -73,7 +73,7 @@ OPERATOR = {
     "height": 1.80, "width": 1.15, "cloth": OLIVE, "cloth_dark": OLIVE_DARK, "cloth2": None,
     "accent": TAN, "gloves": TAN, "weapon": TAN, "face": None, "head": "helmet_nvg",
     "tape": None, "carrier": True, "pack": True, "antenna": True, "kneepads": True,
-    "anims": ["idle", "walk", "run", "crawl_idle", "crawl", "takedown", "grab", "drag", "death", "hit"],
+    "anims": ["idle", "run", "crawl_idle", "crawl", "takedown", "grab", "drag", "death", "hit"],
 }
 UNITS = {
     # Visual language 6c/6d. tape = squad colour on the back of the helmet (UI colour, linear).
@@ -518,13 +518,16 @@ def hit_pose(f, n):
 #   drag: 81_08, walking backwards bent over, both hands low in front, pulling; the
 #         loop 992-1212 starts and ends on the closest matching pose (1.8 s, 0.6 m)
 ANIMS = {
-    "idle": (idle_pose, 1),
-    "walk": (walk_pose, 8),
+    # standing still, a slow sway and breath (111_28), carbine held; loops over 1.7 s
+    "idle": (Mocap("111_28", 100, 308, 12, loop=True), 12),
+    # patrol walk (16_15): one stride, 1.16 m in 1.15 s
+    "walk": (Mocap("16_15", 62, 200, 12, loop=True), 12),
     "run": (Mocap("09_01", 45, 137, 12, loop=True), 12),
     "crawl_idle": (crawl_idle_pose, 1),
     "crawl": (crawl_pose, 8),
     "takedown": (Mocap("02_07", 55, 205, 12, loop=False, arms="mocap", face=(85, 120), weapon="hands"), 12),
-    "grab": (grab_pose, 4),
+    # squat and reach down for the body (26_09, the way down)
+    "grab": (Mocap("26_09", 100, 240, 8, loop=False, arms="mocap", face=(60, 100)), 8),
     "drag": (Mocap("81_08", 992, 1212, 16, loop=True, arms="mocap"), 16),
     "death": (Mocap("90_18", 75, 165, 10, loop=False, arms="mocap", root_xy=True, face=(1, 75)), 10),
     "hit": (hit_pose, 3),

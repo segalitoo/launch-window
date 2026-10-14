@@ -7,17 +7,23 @@ import { HIT_FLASH } from '@/sim';
  *  render_unit.py, so the feet do not slide. The sim's normal move is a run
  *  (Yoav 3.5 tiles/s). The drag (CMU 81_08) covers only 0.6 m in its 1.8 s loop, a real
  *  heavy drag; at the sim's 1.9 tiles/s it plays about once a second and the feet slide. */
-export const CYCLE_TILES = { run: 1.6, walk: 0.85, drag: 1.9, crawl: 0.7 } as const;
+export const CYCLE_TILES = { run: 1.6, walk: 0.725, drag: 1.9, crawl: 0.7 } as const;
+
+/** Length of the idle loop (CMU 111_28: a slow sway and breath), in seconds of sim time. */
+export const IDLE_LOOP = 1.73;
 
 /** One-shot lengths in seconds of sim time. The sim makes takedowns and grabs instant,
  *  so these play over the moment without holding the unit. */
-export const ONE_SHOT = { takedown: 0.8, grab: 0.35, death: 0.75, knockout: 0.8 } as const;
+export const ONE_SHOT = { takedown: 0.8, grab: 0.6, death: 0.75, knockout: 0.8 } as const;
 
 /** Seconds into the takedown when Yoav's blow lands; the guard stands until then. */
 export const TAKEDOWN_IMPACT = 0.55;
 
 /** Direction index 0..7 for a sim angle: d * 45 degrees, 0 = sim +x. */
 export const dirOf = (ang: number): number => ((Math.round(ang / (Math.PI / 4)) % 8) + 8) % 8;
+
+/** Idle frame at sim time t: the breathing loop. */
+const idleFrame = (t: number, n: number): number => Math.floor(((((t % IDLE_LOOP) + IDLE_LOOP) % IDLE_LOOP) / IDLE_LOOP) * n) % n;
 
 export interface AnimState {
   ang: number;
@@ -57,7 +63,7 @@ export function frameName(s: AnimState, anims: Readonly<Record<string, number>>)
   if (s.crawl) return s.moving ? cycle('crawl') : name('crawl_idle', 0);
   if (s.carrying) return s.moving ? cycle('drag') : name('drag', 0);
   if (s.moving) return cycle('run');
-  return name('idle', 0);
+  return name('idle', idleFrame(s.t, n('idle')));
 }
 
 export interface GuardAnimState {
@@ -84,13 +90,13 @@ export function guardFrameName(s: GuardAnimState, anims: Readonly<Record<string,
     if (s.onBack) return `death_d${d}_f${n('death') - 1}`;
     if (s.koAt != null) {
       const k = s.t - s.koAt - TAKEDOWN_IMPACT;
-      if (k < 0) return `idle_d${d}_f0`;
+      if (k < 0) return `idle_d${d}_f${idleFrame(s.t, n('idle'))}`;
       return `knockout_d${d}_f${Math.min(n('knockout') - 1, Math.floor((k / ONE_SHOT.knockout) * n('knockout')))}`;
     }
     const f = s.downAt === null ? n('death') - 1 : Math.floor(((s.t - s.downAt) / ONE_SHOT.death) * n('death'));
     return `death_d${d}_f${Math.min(n('death') - 1, f)}`;
   }
-  if (!s.moving) return `idle_d${d}_f0`;
+  if (!s.moving) return `idle_d${d}_f${idleFrame(s.t, n('idle'))}`;
   const anim = s.running ? 'run' : 'walk';
   return `${anim}_d${d}_f${Math.floor((s.walked / CYCLE_TILES[anim]) * n(anim)) % n(anim)}`;
 }
