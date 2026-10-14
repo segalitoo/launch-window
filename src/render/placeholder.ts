@@ -34,6 +34,9 @@ export const GUARD_DOWN_COLOR = 0x6b4a40;
 export const CONE_COLOR = 0xffb547;
 export const ALARM_COLOR = 0xff5148;
 export const LIGHT_COLOR = 0xfff2b0;
+/** Searchlight beams: cold white-blue (Ran, Phase 2), so they read apart from the warm
+ *  lamps, the only warm light at night (visual language 7). */
+export const BEAM_COLOR = 0xd2e4ff;
 export const SHADOW_COLOR = 0x000000;
 
 /** Unit marker size at 100% zoom. */
