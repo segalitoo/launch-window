@@ -15,24 +15,24 @@
     "run": 12,
     "crawl_idle": 1,
     "crawl": 8,
-    "takedown": 6,
+    "takedown": 12,
     "grab": 4,
     "drag": 16,
     "death": 10,
     "hit": 3
   },
-  "dirs": 8,
-  "dir_rule": "direction d = sim angle d * 45 degrees, 0 = sim +x",
   "sources": {
     "idle": "formula pose",
     "walk": "formula pose",
     "run": "motion capture, CMU 09_01",
     "crawl_idle": "formula pose",
     "crawl": "formula pose",
-    "takedown": "formula pose",
+    "takedown": "motion capture, CMU 02_07",
     "grab": "formula pose",
     "drag": "motion capture, CMU 81_08",
     "death": "motion capture, CMU 90_18",
     "hit": "formula pose"
-  }
+  },
+  "dirs": 8,
+  "dir_rule": "direction d = sim angle d * 45 degrees, 0 = sim +x"
 }

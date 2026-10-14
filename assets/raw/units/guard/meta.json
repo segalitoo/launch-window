@@ -14,15 +14,17 @@
     "walk": 8,
     "run": 12,
     "death": 10,
-    "dragged": 2
+    "dragged": 2,
+    "knockout": 12
   },
-  "dirs": 8,
-  "dir_rule": "direction d = sim angle d * 45 degrees, 0 = sim +x",
   "sources": {
     "idle": "formula pose",
     "walk": "formula pose",
     "run": "motion capture, CMU 09_01",
     "death": "motion capture, CMU 90_18",
-    "dragged": "formula pose"
-  }
+    "dragged": "formula pose",
+    "knockout": "motion capture, CMU 77_16"
+  },
+  "dirs": 8,
+  "dir_rule": "direction d = sim angle d * 45 degrees, 0 = sim +x"
 }

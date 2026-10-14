@@ -52,7 +52,8 @@ class Clip:
         # floor: lowest toe over the clip; scale: standing hip height to ours
         lows = [min(self.raw(f)["LeftToeBase.tail"].z, self.raw(f)["RightToeBase.tail"].z) for f in range(self.f0, self.f1 + 1, 4)]
         self.floor = min(lows)
-        stand = self.raw(self.f0)["Hips"].z - self.floor
+        # standing hip height = the highest the hips get (a clip may start lying down)
+        stand = max(self.raw(f)["Hips"].z for f in range(self.f0, self.f1 + 1, 4)) - self.floor
         self.scale = hip_height / stand
         self.yaw = 0.0
         self.origin = Vector((0, 0, 0))

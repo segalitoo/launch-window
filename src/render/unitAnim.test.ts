@@ -9,6 +9,7 @@ import {
   type GuardAnimState,
   guardFrameName,
   ONE_SHOT,
+  TAKEDOWN_IMPACT,
 } from './unitAnim';
 
 const anims = { idle: 1, walk: 8, run: 8, crawl_idle: 1, crawl: 8, takedown: 6, grab: 4, drag: 8, death: 6, hit: 3 };
@@ -89,6 +90,15 @@ describe('guard animation frames', () => {
     expect(g({ ang: Math.PI })).toBe('idle_d4_f0');
     expect(g({ moving: true, walked: CYCLE_TILES.walk / 2 + 0.01 })).toBe('walk_d0_f4');
     expect(g({ moving: true, running: true })).toBe('run_d0_f0');
+  });
+
+  test('struck from behind he stands until the blow lands, then collapses forward', () => {
+    const ga2 = { ...ga, knockout: 12 };
+    const k = (s: Partial<GuardAnimState>): string => guardFrameName({ ...g0, down: true, ...s }, ga2);
+    expect(k({ koAt: 5 })).toBe('idle_d0_f0');
+    expect(k({ koAt: 5 - TAKEDOWN_IMPACT - 0.01 })).toBe('knockout_d0_f0');
+    expect(k({ koAt: 0 })).toBe('knockout_d0_f11'); // holds face down
+    expect(k({ koAt: 0, onBack: true })).toBe('death_d0_f5'); // dragged and dropped: on his back
   });
 
   test('a guard who goes down plays the fall and stays down', () => {

@@ -11,7 +11,10 @@ export const CYCLE_TILES = { run: 1.6, walk: 0.85, drag: 1.9, crawl: 0.7 } as co
 
 /** One-shot lengths in seconds of sim time. The sim makes takedowns and grabs instant,
  *  so these play over the moment without holding the unit. */
-export const ONE_SHOT = { takedown: 0.5, grab: 0.35, death: 0.75 } as const;
+export const ONE_SHOT = { takedown: 0.8, grab: 0.35, death: 0.75, knockout: 0.8 } as const;
+
+/** Seconds into the takedown when Yoav's blow lands; the guard stands until then. */
+export const TAKEDOWN_IMPACT = 0.55;
 
 /** Direction index 0..7 for a sim angle: d * 45 degrees, 0 = sim +x. */
 export const dirOf = (ang: number): number => ((Math.round(ang / (Math.PI / 4)) % 8) + 8) % 8;
@@ -67,12 +70,23 @@ export interface GuardAnimState {
   t: number;
   /** When he went down (null = already down when first seen). */
   downAt: number | null;
+  /** When he was taken down from behind (null = shot, or not taken down). He stands until
+   *  the blow lands, then collapses forward. */
+  koAt?: number | null;
+  /** Dragged and dropped: he lies on his back, as he was dragged. */
+  onBack?: boolean;
 }
 
 export function guardFrameName(s: GuardAnimState, anims: Readonly<Record<string, number>>): string {
   const d = dirOf(s.ang);
   const n = (anim: string): number => anims[anim] ?? 1;
   if (s.down) {
+    if (s.onBack) return `death_d${d}_f${n('death') - 1}`;
+    if (s.koAt != null) {
+      const k = s.t - s.koAt - TAKEDOWN_IMPACT;
+      if (k < 0) return `idle_d${d}_f0`;
+      return `knockout_d${d}_f${Math.min(n('knockout') - 1, Math.floor((k / ONE_SHOT.knockout) * n('knockout')))}`;
+    }
     const f = s.downAt === null ? n('death') - 1 : Math.floor(((s.t - s.downAt) / ONE_SHOT.death) * n('death'));
     return `death_d${d}_f${Math.min(n('death') - 1, f)}`;
   }

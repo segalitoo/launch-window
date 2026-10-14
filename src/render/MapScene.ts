@@ -314,6 +314,7 @@ export class MapScene extends Phaser.Scene {
     const events = this.game$.drainEvents();
     if (events.length) {
       this.unitArt.onEvents(events, s.t);
+      this.guardArt.onEvents(events, s.t);
       this.hooks.onEvents(events, s, this.ctl);
     }
     if (s.staticVersion !== this.staticVersion) this.drawStatic(s);

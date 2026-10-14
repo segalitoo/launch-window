@@ -12,7 +12,7 @@ import {
   SPEED_SHADOW,
 } from '@/sim';
 import { toScreen } from '@/render/iso';
-import { type AnimState, draggedFrameName, frameName, guardFrameName, ONE_SHOT } from '@/render/unitAnim';
+import { type AnimState, draggedFrameName, frameName, guardFrameName, ONE_SHOT, TAKEDOWN_IMPACT } from '@/render/unitAnim';
 import './motion.css';
 
 const NIGHT = [0.36, 0.43, 0.6];
@@ -157,14 +157,14 @@ function cards(yoav: Atlas, guard: Atlas): Card[] {
         return [unit(yoav, y({ ang: ang(d), t: k, alive: k < 0.5, diedAt: k < 0.5 ? null : 0.5 }), 0, 0, k < 0.5)];
       } },
 
-    { group: 'Interactions', name: 'Takedown', note: 'Yoav strikes a guard from behind; the guard falls.', shows: [[yoav, 'takedown'], [guard, 'death']],
+    { group: 'Interactions', name: 'Takedown', note: 'Yoav strikes a guard from behind with the carbine; the guard collapses forward.', shows: [[yoav, 'takedown'], [guard, 'knockout']],
       sprites: (t, d) => {
-        const k = loop(t, ONE_SHOT.death);
+        const k = loop(t, TAKEDOWN_IMPACT + ONE_SHOT.knockout);
         const [gx, gy] = ahead(d, 0.9);
         const down = k >= 0.5;
         return [
           unit(yoav, y({ ang: ang(d), t: k, takedownAt: 0.5 })),
-          unit(guard, gf({ ang: ang(d), down, t: k, downAt: down ? 0.5 : null }), gx, gy, !down),
+          unit(guard, gf({ ang: ang(d), down, t: k, downAt: down ? 0.5 : null, koAt: down ? 0.5 : null }), gx, gy, k < 0.5 + TAKEDOWN_IMPACT),
         ];
       } },
     { group: 'Interactions', name: 'Grab', note: 'Yoav picks up a body, then holds it.', shows: [[yoav, 'grab'], [guard, 'dragged']],
@@ -194,7 +194,7 @@ function cards(yoav: Atlas, guard: Atlas): Card[] {
       sprites: (t, d) => [unit(guard, gf({ ang: ang(d), moving: true, walked: t * SPEED_PATROL }))] },
     { group: 'Guard', name: 'Run', note: `Investigate and combat, up to ${SPEED_COMBAT.toFixed(1)} tiles/s.`, shows: [[guard, 'run']],
       sprites: (t, d) => [unit(guard, gf({ ang: ang(d), moving: true, running: true, walked: t * SPEED_COMBAT }))] },
-    { group: 'Guard', name: 'Death', note: 'Taken down or shot.', shows: [[guard, 'death']],
+    { group: 'Guard', name: 'Death', note: 'Shot: falls backward.', shows: [[guard, 'death']],
       sprites: (t, d) => {
         const k = loop(t, ONE_SHOT.death);
         const down = k >= 0.5;

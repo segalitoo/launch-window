@@ -167,11 +167,21 @@ interface GuardEntry {
   moving: boolean;
   downAt: number | null;
   carrierLast?: { x: number; y: number };
+  koAt: number | null;
+  onBack: boolean;
 }
 
-/** Rendered guards: idle, walk, run and death in 8 directions. */
+/** Rendered guards: idle, walk, run, death (shot), knockout (struck from behind) and
+ *  dragged, in 8 directions. */
 export class GuardSprites {
   private entries: GuardEntry[] = [];
+  /** Takedowns from sim events by guard index, waiting for that guard's next draw. */
+  private takedowns = new Map<number, number>();
+
+  /** Sim events that start one-shots. `t` is the sim time. */
+  onEvents(events: readonly SimEvent[], t: number): void {
+    for (const ev of events) if (ev.type === 'takedown') this.takedowns.set(ev.guard, t);
+  }
   private meta!: UnitMeta;
 
   static preload(scene: Phaser.Scene): void {
@@ -197,8 +207,14 @@ export class GuardSprites {
     const e = this.entry(g, t);
     if (g.carried && carrier) {
       e.last = { x: g.x, y: g.y };
+      e.onBack = true;
       this.drawDragged(e, g, carrier);
       return;
+    }
+    const ko = this.takedowns.get(g.i);
+    if (ko !== undefined) {
+      e.koAt = ko;
+      this.takedowns.delete(g.i);
     }
     const moved = Math.hypot(g.x - e.last.x, g.y - e.last.y);
     e.last = { x: g.x, y: g.y };
@@ -217,6 +233,8 @@ export class GuardSprites {
         walked: e.walked,
         t,
         downAt: e.downAt,
+        koAt: e.koAt,
+        onBack: e.onBack,
       },
       this.meta.anims,
     );
@@ -241,7 +259,10 @@ export class GuardSprites {
 
   private entry(g: Guard, t: number): GuardEntry {
     let e = this.entries[g.i];
-    const fresh = { guard: g, walked: 0, last: { x: g.x, y: g.y }, lastT: t, moving: false, downAt: null, carrierLast: undefined };
+    const fresh = {
+      guard: g, walked: 0, last: { x: g.x, y: g.y }, lastT: t, moving: false, downAt: null,
+      carrierLast: undefined, koAt: null, onBack: false,
+    };
     if (e && e.guard !== g) Object.assign(e, fresh); // new game
     if (!e) {
       const m = this.meta;
