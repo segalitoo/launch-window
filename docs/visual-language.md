@@ -61,6 +61,13 @@ Each element has one job. No two elements do the same job.
 - Known weak point: a 1 px antenna turns grey at 44 px. Make it thicker or add a tip in the 3D model.
 - Decided by Ran: Yoav `CH-03_yoav_idf_helmet_1.jpg`, Noa `CH-05_noa_3.jpg`, Itai `CH-06_itai_2.jpg`.
 
+## 6e. Guards (Ran, Session 5)
+- Picked option A of three, shown side by side with Yoav on the night-graded yard (`tools/blender/render_unit.py`, unit `guard`).
+- Khaki uniform, soft patrol cap, bare face and hands, black boots, dark rifle, belt webbing. No plate carrier, pack or radio.
+- Why: the lightest figure at night and the most unlike the olive squad, so friend and foe read apart at a glance. Bare skin also sets guards apart from the masked, gloved squad.
+- Rejected: B (dark grey-green, helmet) nearly vanished at night; C (desert camouflage, beret) looked like A at 44 px, the pattern and beret do not survive game size.
+- Fictional: no flags, insignia or unit marks. Same unit night grade as the squad.
+
 ## 7. Lamp light (varies, says "this spot is lit")
 - Warm pools from lamps on the light layer. The only warm light at night.
 - The pools are visual only for now. Sight rules do not change (no new mechanics).

@@ -23,7 +23,7 @@ import { Controller, type TapHit } from './controller';
 import { depthOf, footprint, mapBounds, type Point, toScreen, toTile } from './iso';
 import { blockOccluder, insideConvex, isHidden, type Occluder } from './occlusion';
 import { PaintedArea, toTintHex } from './paintedArea';
-import { UnitSprites } from './unitSprites';
+import { GuardSprites, UnitSprites } from './unitSprites';
 import {
   ALARM_COLOR,
   BLOCKS,
@@ -91,6 +91,7 @@ export class MapScene extends Phaser.Scene {
   private painted: PaintedArea[] = [];
   private occluders: Occluder[] = [];
   private unitArt!: UnitSprites;
+  private guardArt!: GuardSprites;
   /** Soft contact shadows under rendered units, above the ground, below every structure. */
   private shadows!: Phaser.GameObjects.Graphics;
 
@@ -102,6 +103,7 @@ export class MapScene extends Phaser.Scene {
   preload(): void {
     for (const name of PAINTED_AREAS) PaintedArea.preload(this, name);
     UnitSprites.preload(this);
+    GuardSprites.preload(this);
   }
 
   create(): void {
@@ -111,6 +113,7 @@ export class MapScene extends Phaser.Scene {
     this.painted = PAINTED_AREAS.map((name) => new PaintedArea(this, name, -OVERLAY_DEPTH + 1, cols, rows));
     this.overlay = this.add.graphics().setDepth(OVERLAY_DEPTH);
     this.unitArt = new UnitSprites(this, toTintHex(UNIT_GRADE), OVERLAY_DEPTH - 1);
+    this.guardArt = new GuardSprites(this, toTintHex(UNIT_GRADE));
     this.shadows = this.add.graphics().setDepth(-OVERLAY_DEPTH + 2);
     this.input.addPointer(1);
     this.setupInput();
@@ -453,7 +456,7 @@ export class MapScene extends Phaser.Scene {
       o.fillCircle(m.x, m.y, 4);
     }
 
-    for (const g of s.guards) this.drawGuard(g);
+    for (const g of s.guards) this.drawGuard(g, s.t);
     s.squad.forEach((u) => this.drawUnit(u, u === sel, s.t));
   }
 
@@ -490,9 +493,18 @@ export class MapScene extends Phaser.Scene {
     o.strokePoints(poly(far), true);
   }
 
-  private drawGuard(g: Guard): void {
+  private drawGuard(g: Guard, t: number): void {
     const gr = this.bodyGfx(g);
     const p = toScreen(g.x, g.y);
+    if (this.guardArt.ready) {
+      if (g.state !== 'down') {
+        this.shadows.fillStyle(0x000000, 0.22);
+        this.shadows.fillEllipse(p.x + 1, p.y + 0.5, 22, 10);
+        this.shadows.fillEllipse(p.x + 1, p.y + 0.5, 14, 6);
+      }
+      this.guardArt.draw(g, t);
+      return;
+    }
     if (g.state === 'down') {
       gr.fillStyle(0x000000, 0.3);
       gr.fillEllipse(p.x, p.y, 24, 12);

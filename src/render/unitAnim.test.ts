@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { HIT_FLASH } from '@/sim';
-import { type AnimState, CYCLE_TILES, dirOf, frameName, ONE_SHOT } from './unitAnim';
+import { type AnimState, CYCLE_TILES, dirOf, frameName, type GuardAnimState, guardFrameName, ONE_SHOT } from './unitAnim';
 
 const anims = { idle: 1, walk: 8, run: 8, crawl_idle: 1, crawl: 8, takedown: 6, grab: 4, drag: 8, death: 6, hit: 3 };
 const D = Math.PI / 180;
@@ -67,5 +67,23 @@ describe('unit animation frames', () => {
   test('a grab plays while picking up, then the drag takes over', () => {
     expect(f({ grabAt: 10, carrying: true })).toBe('grab_d0_f0');
     expect(f({ grabAt: 10 - ONE_SHOT.grab - 0.01, carrying: true, moving: true })).toBe('drag_d0_f0');
+  });
+});
+
+describe('guard animation frames', () => {
+  const ga = { idle: 1, walk: 8, run: 8, death: 6 };
+  const g0: GuardAnimState = { ang: 0, down: false, moving: false, running: false, walked: 0, t: 5, downAt: null };
+  const g = (s: Partial<GuardAnimState>): string => guardFrameName({ ...g0, ...s }, ga);
+
+  test('posted guards idle, patrols walk, investigating and combat run', () => {
+    expect(g({ ang: Math.PI })).toBe('idle_d4_f0');
+    expect(g({ moving: true, walked: CYCLE_TILES.walk / 2 + 0.01 })).toBe('walk_d0_f4');
+    expect(g({ moving: true, running: true })).toBe('run_d0_f0');
+  });
+
+  test('a guard who goes down plays the fall and stays down', () => {
+    expect(g({ down: true, downAt: 5 })).toBe('death_d0_f0');
+    expect(g({ down: true, downAt: 0 })).toBe('death_d0_f5');
+    expect(g({ down: true })).toBe('death_d0_f5');
   });
 });

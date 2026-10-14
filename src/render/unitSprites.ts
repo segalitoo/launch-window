@@ -3,9 +3,9 @@
 // takedown, grab, death and hit, in 8 directions. Units without art keep the placeholder marker.
 
 import Phaser from 'phaser';
-import type { SimEvent, Unit, UnitId } from '@/sim';
+import type { Guard, SimEvent, Unit, UnitId } from '@/sim';
 import { depthOf, toScreen, type Point } from './iso';
-import { frameName } from './unitAnim';
+import { frameName, guardFrameName } from './unitAnim';
 
 /** Units that have rendered art: unit id → atlas name in assets/build/units/. */
 export const UNIT_ART: Partial<Record<UnitId, string>> = { shadow: 'yoav' };
@@ -147,6 +147,87 @@ export class UnitSprites {
         carrying: false,
       };
       this.entries.set(u.id, e);
+    }
+    return e;
+  }
+}
+
+/** Atlas for every guard (option A, picked by Ran in Phase 2). */
+export const GUARD_ART = 'guard';
+
+interface GuardEntry {
+  guard: Guard;
+  img: Phaser.GameObjects.Image;
+  walked: number;
+  last: { x: number; y: number };
+  lastT: number;
+  moving: boolean;
+  downAt: number | null;
+}
+
+/** Rendered guards: idle, walk, run and death in 8 directions. */
+export class GuardSprites {
+  private entries: GuardEntry[] = [];
+  private meta!: UnitMeta;
+
+  static preload(scene: Phaser.Scene): void {
+    scene.load.multiatlas(GUARD_ART, `units/${GUARD_ART}.json`, 'units/');
+    scene.load.json(`${GUARD_ART}_meta`, `units/${GUARD_ART}.json`);
+  }
+
+  /** `tint` is the unit night grade. */
+  constructor(
+    private scene: Phaser.Scene,
+    private tint: number,
+  ) {
+    const raw = scene.cache.json.get(`${GUARD_ART}_meta`) as { meta: { unit: UnitMeta } } | undefined;
+    if (raw) this.meta = raw.meta.unit;
+  }
+
+  get ready(): boolean {
+    return !!this.meta;
+  }
+
+  /** Draws guard `g` at sim time `t`. */
+  draw(g: Guard, t: number): void {
+    const e = this.entry(g, t);
+    const moved = Math.hypot(g.x - e.last.x, g.y - e.last.y);
+    e.last = { x: g.x, y: g.y };
+    // paused: keep the pose; otherwise moving means he moved since the last frame
+    if (t !== e.lastT) e.moving = moved > 1e-5 && moved < 1;
+    e.lastT = t;
+    if (e.moving) e.walked += moved;
+    const down = g.state === 'down';
+    if (down && e.downAt === null) e.downAt = t;
+    const frame = guardFrameName(
+      {
+        ang: g.ang,
+        down,
+        moving: e.moving,
+        running: g.state === 'investigate' || g.state === 'combat',
+        walked: e.walked,
+        t,
+        downAt: e.downAt,
+      },
+      this.meta.anims,
+    );
+    const p = toScreen(g.x, g.y);
+    e.img.setFrame(frame).setPosition(p.x, p.y).setDepth(depthOf(g.x, g.y, down ? 2 : 13));
+  }
+
+  private entry(g: Guard, t: number): GuardEntry {
+    let e = this.entries[g.i];
+    const fresh = { guard: g, walked: 0, last: { x: g.x, y: g.y }, lastT: t, moving: false, downAt: null };
+    if (e && e.guard !== g) Object.assign(e, fresh); // new game
+    if (!e) {
+      const m = this.meta;
+      const img = this.scene.add
+        .image(0, 0, GUARD_ART, 'idle_d0_f0')
+        .setOrigin(m.anchor[0] / m.frame[0], m.anchor[1] / m.frame[1])
+        .setScale(1 / m.supersample)
+        .setTint(this.tint);
+      e = { ...fresh, img };
+      this.entries[g.i] = e;
     }
     return e;
   }

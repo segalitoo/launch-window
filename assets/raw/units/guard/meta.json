@@ -1,0 +1,20 @@
+{
+  "unit": "guard",
+  "frame": [
+    96,
+    72
+  ],
+  "anchor": [
+    48,
+    62
+  ],
+  "supersample": 2,
+  "anims": {
+    "idle": 1,
+    "walk": 8,
+    "run": 8,
+    "death": 6
+  },
+  "dirs": 8,
+  "dir_rule": "direction d = sim angle d * 45 degrees, 0 = sim +x"
+}

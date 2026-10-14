@@ -41,9 +41,28 @@ OLIVE_DARK = (0.10, 0.12, 0.06)
 TAN = (0.50, 0.37, 0.19)  # coyote: gloves, boots, carbine, pouches (the light values at night)
 BLACK = (0.025, 0.025, 0.025)
 
+SKIN = (0.32, 0.20, 0.13)
+KHAKI = (0.34, 0.28, 0.16)
+
+# Every unit is the same rig and body plan; a spec changes the kit.
+#   cloth / cloth_dark: uniform and webbing; cloth2 = second camouflage colour (noise mix)
+#   accent: boots, gloves, pouches; weapon: rifle body; face: None = balaclava in cloth colour
+#   head: helmet_nvg | helmet | cap | beret; tape = squad colour on the helmet back (None = no tape)
+OPERATOR = {
+    "height": 1.80, "width": 1.15, "cloth": OLIVE, "cloth_dark": OLIVE_DARK, "cloth2": None,
+    "accent": TAN, "gloves": TAN, "weapon": TAN, "face": None, "head": "helmet_nvg",
+    "tape": None, "carrier": True, "pack": True, "antenna": True, "kneepads": True,
+}
 UNITS = {
     # Visual language 6c/6d. tape = squad colour on the back of the helmet (UI colour, linear).
-    "yoav": {"height": 1.80, "width": 1.15, "tape": (0.15, 0.55, 1.0), "pack": "radio"},
+    "yoav": {**OPERATOR, "tape": (0.15, 0.55, 1.0)},
+    # Guard: option A, picked by Ran (Phase 2). Khaki, soft cap, bare face and hands, black
+    # boots, dark rifle, belt webbing: lightest figure at night and unlike the olive squad.
+    # Fictional: no flags, insignia or unit marks.
+    "guard": {**OPERATOR, "height": 1.76, "width": 1.05, "cloth": KHAKI, "cloth_dark": (0.20, 0.17, 0.10),
+              "accent": BLACK, "gloves": SKIN, "weapon": (0.05, 0.045, 0.04), "face": SKIN, "head": "cap",
+              "carrier": False, "pack": False, "antenna": False, "kneepads": False,
+              "anims": ["idle", "walk", "run", "death"]},
 }
 
 
@@ -146,12 +165,21 @@ def build_operator(spec):
     h = spec["height"]
     s = h / 1.80
     w = spec["width"]
+    cloth = spec["cloth"]
+    if spec["cloth2"]:  # camouflage: two colours in large blotches
+        olive = iso.material("cloth", (cloth, spec["cloth2"]), noise_scale=3.5, noise_amount=1.6, bump=0.1)
+    else:
+        olive = iso.material("cloth", (cloth, tuple(c * 1.12 for c in cloth)), noise_scale=9, bump=0.1)
+    acc = spec["accent"]
     mat = {
-        "olive": iso.material("olive", (OLIVE, tuple(c * 1.12 for c in OLIVE)), noise_scale=9, bump=0.1),
-        "dark": iso.material("olive_dark", OLIVE_DARK, rough=0.8),
-        "tan": iso.material("tan", (TAN, tuple(c * 1.1 for c in TAN)), noise_scale=12, bump=0.05),
+        "olive": olive,
+        "dark": iso.material("cloth_dark", spec["cloth_dark"], rough=0.8),
+        "tan": iso.material("accent", (acc, tuple(c * 1.1 for c in acc)), noise_scale=12, bump=0.05),
+        "gloves": iso.material("gloves", spec["gloves"], rough=0.7),
+        "weapon": iso.material("weapon", spec["weapon"], rough=0.5),
+        "face": iso.material("face", spec["face"] or cloth, rough=0.7),
         "black": iso.material("black", BLACK, rough=0.5),
-        "tape": iso.material("tape", spec["tape"], rough=0.6),
+        "tape": iso.material("tape", spec["tape"] or BLACK, rough=0.6),
     }
     bones = bones_for(h)
     rig = build_rig(bones)
@@ -167,7 +195,8 @@ def build_operator(spec):
         ankle = B[f"shin.{side}"][1]
         on(f"thigh.{side}", f"thigh_{side}", lambda bm: limb(bm, hip, knee, 0.088 * w, 0.068 * w), "olive")
         on(f"shin.{side}", f"shin_{side}", lambda bm: limb(bm, knee, ankle + Vector((0, 0, 0.03)), 0.066 * w, 0.052 * w), "olive")
-        on(f"shin.{side}", f"kneepad_{side}", lambda bm: box(bm, knee + Vector((0.055, 0, -0.03)), (0.05, 0.10, 0.12)), "dark")
+        if spec["kneepads"]:
+            on(f"shin.{side}", f"kneepad_{side}", lambda bm: box(bm, knee + Vector((0.055, 0, -0.03)), (0.05, 0.10, 0.12)), "dark")
         on(f"foot.{side}", f"boot_{side}", lambda bm: box(bm, (0.045, y, 0.055), (0.27, 0.11, 0.11)), "tan")
 
     # torso, belt, plate carrier, pouches, backpack and antenna
@@ -176,25 +205,41 @@ def build_operator(spec):
     on("hips", "pelvis", lambda bm: box(bm, (0, 0, hip_z + 0.06), (0.22 * w, 0.34 * w, 0.20)), "olive")
     on("hips", "belt", lambda bm: box(bm, (0, 0, hip_z + 0.15), (0.24 * w, 0.36 * w, 0.05)), "dark")
     on("spine", "chest", lambda bm: limb(bm, (0, 0, hip_z + 0.14), (0, 0, sh + 0.02), 0.15 * w, 0.18 * w, segs=8), "olive")
-    on("spine", "carrier", lambda bm: box(bm, (0.01, 0, sh - 0.19 * s), (0.30 * w, 0.37 * w, 0.34 * s)), "dark")
-    for i, py in enumerate((-0.10, 0.0, 0.10)):
-        on("spine", f"pouch_{i}", lambda bm, py=py: box(bm, (0.17 * w, py * w, sh - 0.27 * s), (0.05, 0.085, 0.11)), "tan")
-    on("spine", "pack", lambda bm: box(bm, (-0.22 * w, 0, sh - 0.17 * s), (0.17, 0.30 * w, 0.38 * s)), "dark")
-    # antenna: thick enough to survive 44 px (visual language 6d), with a tip bead
-    ant_base = Vector((-0.27 * w, 0.11 * w, sh + 0.0))
-    ant_top = ant_base + Vector((-0.04, 0.0, 0.48 * s))
-    on("spine", "antenna", lambda bm: limb(bm, ant_base, ant_top, 0.014, 0.010, segs=6), "black")
-    on("spine", "antenna_tip", lambda bm: ball(bm, ant_top, 0.024, segs=6), "black")
+    if spec["carrier"]:
+        on("spine", "carrier", lambda bm: box(bm, (0.01, 0, sh - 0.19 * s), (0.30 * w, 0.37 * w, 0.34 * s)), "dark")
+        for i, py in enumerate((-0.10, 0.0, 0.10)):
+            on("spine", f"pouch_{i}", lambda bm, py=py: box(bm, (0.17 * w, py * w, sh - 0.27 * s), (0.05, 0.085, 0.11)), "tan")
+    else:  # webbing: shoulder strap and two pouches on the belt
+        on("spine", "strap", lambda bm: box(bm, (0.13 * w, 0, sh - 0.20 * s), (0.04, 0.06, 0.42 * s), rot_x=math.radians(30)), "dark")
+        for i, py in enumerate((-0.09, 0.09)):
+            on("hips", f"pouch_{i}", lambda bm, py=py: box(bm, (0.12 * w, py * w, hip_z + 0.13), (0.06, 0.08, 0.09)), "dark")
+    if spec["pack"]:
+        on("spine", "pack", lambda bm: box(bm, (-0.22 * w, 0, sh - 0.17 * s), (0.17, 0.30 * w, 0.38 * s)), "dark")
+    if spec["antenna"]:
+        # thick enough to survive 44 px (visual language 6d), with a tip bead
+        ant_base = Vector((-0.27 * w, 0.11 * w, sh + 0.0))
+        ant_top = ant_base + Vector((-0.04, 0.0, 0.48 * s))
+        on("spine", "antenna", lambda bm: limb(bm, ant_base, ant_top, 0.014, 0.010, segs=6), "black")
+        on("spine", "antenna_tip", lambda bm: ball(bm, ant_top, 0.024, segs=6), "black")
 
     # head: balaclava, helmet shell, NVG mount, headset cups, squad tape on the back
     head_c = Vector((0.01, 0, h - 0.17 * s))
     on("head", "neck", lambda bm: limb(bm, (0, 0, sh + 0.0), head_c - Vector((0, 0, 0.06)), 0.07, 0.065, segs=8), "olive")
-    on("head", "face", lambda bm: ball(bm, head_c, 0.105 * s, sz=1.15), "olive")
-    on("head", "helmet", lambda bm: ball(bm, head_c + Vector((-0.01, 0, 0.045 * s)), 0.138 * s, sz=0.95, top_only=True), "olive")
-    on("head", "nvg", lambda bm: box(bm, head_c + Vector((0.13 * s, 0, 0.10 * s)), (0.06, 0.07, 0.07)), "black")
-    for cy in (0.12, -0.12):
-        on("head", f"cup_{cy}", lambda bm, cy=cy: limb(bm, head_c + Vector((0, cy * s, 0)), head_c + Vector((0, cy * s * 1.25, 0)), 0.045, 0.045, segs=8), "dark")
-    on("head", "tape", lambda bm: box(bm, head_c + Vector((-0.135 * s, 0, 0.07 * s)), (0.02, 0.15 * s, 0.035 * s)), "tape")
+    on("head", "face", lambda bm: ball(bm, head_c, 0.105 * s, sz=1.15), "face")
+    head = spec["head"]
+    if head in ("helmet_nvg", "helmet"):
+        on("head", "helmet", lambda bm: ball(bm, head_c + Vector((-0.01, 0, 0.045 * s)), 0.138 * s, sz=0.95, top_only=True), "olive" if head == "helmet_nvg" else "dark")
+    if head == "helmet_nvg":
+        on("head", "nvg", lambda bm: box(bm, head_c + Vector((0.13 * s, 0, 0.10 * s)), (0.06, 0.07, 0.07)), "black")
+        for cy in (0.12, -0.12):
+            on("head", f"cup_{cy}", lambda bm, cy=cy: limb(bm, head_c + Vector((0, cy * s, 0)), head_c + Vector((0, cy * s * 1.25, 0)), 0.045, 0.045, segs=8), "dark")
+    if head == "cap":  # soft patrol cap with a short brim
+        on("head", "cap", lambda bm: limb(bm, head_c + Vector((0, 0, 0.04 * s)), head_c + Vector((0, 0, 0.13 * s)), 0.115 * s, 0.10 * s, segs=10), "olive")
+        on("head", "brim", lambda bm: box(bm, head_c + Vector((0.12 * s, 0, 0.05 * s)), (0.09, 0.17 * s, 0.015)), "olive")
+    if head == "beret":  # soft, pulled down to one side
+        on("head", "beret", lambda bm: ball(bm, head_c + Vector((-0.01, -0.03, 0.08 * s)), 0.125 * s, sz=0.45), "dark")
+    if spec["tape"]:
+        on("head", "tape", lambda bm: box(bm, head_c + Vector((-0.135 * s, 0, 0.07 * s)), (0.02, 0.15 * s, 0.035 * s)), "tape")
 
     # arms: sleeves and tan gloves, posed in rest so the hands meet the carbine at low ready
     for side in "LR":
@@ -202,7 +247,7 @@ def build_operator(spec):
         f1 = B[f"fore.{side}"][1]
         on(f"arm.{side}", f"upper_{side}", lambda bm: limb(bm, a0, a1, 0.062 * w, 0.054 * w), "olive")
         on(f"fore.{side}", f"fore_{side}", lambda bm: limb(bm, a1, f1, 0.054 * w, 0.046 * w), "olive")
-        on(f"fore.{side}", f"glove_{side}", lambda bm: ball(bm, f1 + Vector((0, 0, -0.03)), 0.05), "tan")
+        on(f"fore.{side}", f"glove_{side}", lambda bm: ball(bm, f1 + Vector((0, 0, -0.03)), 0.05), "gloves")
 
     # carbine: a tan bullpup carried across the chest (visual language 6d)
     def carbine(bm):
@@ -215,7 +260,7 @@ def build_operator(spec):
         tilt = math.radians(-25)
         c = Vector((0.21 * w, -0.33 * math.cos(tilt), sh - 0.33 * s + 0.33 * math.sin(tilt)))
         box(bm, c, (0.035, 0.14, 0.035), rot_x=tilt)
-    on("spine", "carbine", carbine, "tan")
+    on("spine", "carbine", carbine, "weapon")
     on("spine", "muzzle", muzzle, "black")
 
     return rig
@@ -474,7 +519,9 @@ def main():
     os.makedirs(a.out, exist_ok=True)
 
     dirs = [int(d) for d in a.dirs.split(",")]
-    anims = {k: v for k, v in ANIMS.items() if not a.only or k in a.only.split(",")}
+    spec = UNITS[a.unit]
+    unit_anims = {k: v for k, v in ANIMS.items() if k in spec.get("anims", ANIMS)}
+    anims = {k: v for k, v in unit_anims.items() if not a.only or k in a.only.split(",")}
     scene = bpy.context.scene
     for name, (fn, n) in anims.items():
         for f in range(n):
@@ -493,7 +540,7 @@ def main():
         "frame": [FRAME_W, FRAME_H],
         "anchor": list(ANCHOR),
         "supersample": a.supersample,
-        "anims": {k: n for k, (_, n) in ANIMS.items()},
+        "anims": {k: n for k, (_, n) in unit_anims.items()},
         "dirs": 8,
         "dir_rule": "direction d = sim angle d * 45 degrees, 0 = sim +x",
     }
