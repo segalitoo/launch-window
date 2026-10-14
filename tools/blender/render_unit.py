@@ -588,14 +588,14 @@ ANIMS = {
     "crawl_idle": (crawl_idle_pose, 1),
     "crawl": (crawl_pose, 12),
     # knife takedown: a hand-keyed pair with the guard's knockout, rendered by render_takedown.py
-    "takedown": ("pair", 14),
+    "takedown": ("pair", 12),
     # squat and reach down for the body (26_09, the way down)
     "grab": (Mocap("26_09", 100, 240, 8, loop=False, arms="mocap", face=(60, 100)), 8),
     "drag": (Mocap("81_08", 992, 1212, 16, loop=True, arms="mocap"), 16),
     "death": (Mocap("90_18", 75, 165, 10, loop=False, arms="mocap", root_xy=True, face=(1, 75)), 10),
     "hit": (hit_pose, 3),
     "dragged": (dragged_pose, 2),
-    "knockout": ("pair", 14),
+    "knockout": ("pair", 12),
 }
 
 

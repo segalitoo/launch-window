@@ -54,9 +54,11 @@ export const CRAWL_MULT = 0.45;
 export const DRAG_MULT = 0.55;
 export const UNIT_HP = 3;
 export const TAKEDOWN_RANGE = 1.15; // T * 1.15
-/** Where a takedown leaves the guard: arm's length in front of the attacker (0.75 m),
- *  the distance the takedown animation is built for. Not a prototype value. */
-export const TAKEDOWN_REACH = 0.47;
+/** Where a takedown leaves the guard, in tiles: ahead of the attacker and half a step to
+ *  his left (0.60 m and 0.30 m), where the takedown animation is built for him to be, so
+ *  the attacker works from the guard's back-right. Not a prototype value. */
+export const TAKEDOWN_REACH = 0.375;
+export const TAKEDOWN_SIDE = 0.1875;
 export const TAKEDOWN_REPATH = 0.25;
 export const GRAB_RANGE = 0.95; // T * 0.95
 export const CARRY_OFFSET = px(13);

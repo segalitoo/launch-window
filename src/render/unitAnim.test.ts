@@ -95,11 +95,11 @@ describe('guard animation frames', () => {
   });
 
   test('taken down from behind he plays the knockout with Yoav, then stays down', () => {
-    const ga2 = { ...ga, knockout: 14 };
+    const ga2 = { ...ga, knockout: 12 };
     const k = (s: Partial<GuardAnimState>): string => guardFrameName({ ...g0, down: true, ...s }, ga2);
     expect(k({ koAt: 5 - TAKEDOWN_IMPACT })).toBe('knockout_d0_f0');
-    expect(k({ koAt: 5 - TAKEDOWN_IMPACT - ONE_SHOT.knockout * 0.55 })).toBe('knockout_d0_f7');
-    expect(k({ koAt: 0 })).toBe('knockout_d0_f13'); // holds, on his back
+    expect(k({ koAt: 5 - TAKEDOWN_IMPACT - ONE_SHOT.knockout * 0.55 })).toBe('knockout_d0_f6');
+    expect(k({ koAt: 0 })).toBe('knockout_d0_f11'); // holds, on his back
     expect(k({ koAt: 0, onBack: true })).toBe('death_d0_f5'); // dragged and dropped: on his back
   });
 

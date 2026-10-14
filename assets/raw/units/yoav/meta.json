@@ -14,7 +14,7 @@
     "run": 12,
     "crawl_idle": 1,
     "crawl": 12,
-    "takedown": 14,
+    "takedown": 12,
     "grab": 8,
     "drag": 16,
     "death": 10,

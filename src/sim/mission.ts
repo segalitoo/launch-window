@@ -8,6 +8,7 @@ import {
   HIT_FLASH,
   SHOT_FIRST,
   TAKEDOWN_REACH,
+  TAKEDOWN_SIDE,
   TOWER_DECAY,
   TOWER_FOV,
   TOWER_LEN,
@@ -45,10 +46,11 @@ export function raiseAlarm(s: GameState, x: number, y: number, src: Guard | null
 }
 
 export function takedown(s: GameState, u: Unit, g: Guard): void {
-  // the attacker pulls him down at arm's length in front, facing away from him
+  // the attacker takes him from the back-right: he ends ahead and to the attacker's left,
+  // facing away (left of facing angle a in sim space is (sin a, -cos a))
   const a = Math.atan2(g.y - u.y, g.x - u.x);
-  const x = u.x + Math.cos(a) * TAKEDOWN_REACH;
-  const y = u.y + Math.sin(a) * TAKEDOWN_REACH;
+  const x = u.x + Math.cos(a) * TAKEDOWN_REACH + Math.sin(a) * TAKEDOWN_SIDE;
+  const y = u.y + Math.sin(a) * TAKEDOWN_REACH - Math.cos(a) * TAKEDOWN_SIDE;
   if (walkable(s.grid, tileOf(x), tileOf(y))) {
     g.x = x;
     g.y = y;

@@ -5,8 +5,8 @@ into the guard's side at the waist, then lowers him backwards to the ground and 
 Both rigs stand in one scene and are keyed on one timeline, so their contact holds; IK
 keeps Yoav's hands on the guard's head and waist. Yoav's frames render with the guard
 hidden (camera on Yoav's feet), the guard's with Yoav hidden (camera on the guard's feet).
-The game draws the guard at arm's length in front of Yoav, facing the same way
-(src/sim/mission.ts takedown() puts him there), so the two line up.
+The game puts the guard ahead and half a step to Yoav's left, facing the same way
+(src/sim/mission.ts takedown(), TAKEDOWN_REACH and TAKEDOWN_SIDE), so the two line up.
 
 Run headless (after render_unit.py for both units; this replaces their takedown frames):
   /Applications/Blender.app/Contents/MacOS/Blender -b -P tools/blender/render_takedown.py -- \\
@@ -26,9 +26,12 @@ from mathutils import Matrix, Vector
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import render_unit as ru  # noqa: E402
 
-GAP = 0.75  # metres from Yoav's feet to the guard's at the start (sim: TAKEDOWN_REACH tiles)
-N = 14  # frames over the whole move
-DURATION = 1.2  # seconds (src/render/unitAnim.ts ONE_SHOT.takedown)
+# The guard starts ahead and half a step to Yoav's left, so Yoav comes in at his back-right:
+# their outlines stay apart and the knife arm works on the open side (Ran, Session 5).
+# Metres in Yoav's frame (+x ahead, +y left); sim: TAKEDOWN_REACH and TAKEDOWN_SIDE tiles.
+GAP = (0.60, 0.30)
+N = 12  # frames over the whole move
+DURATION = 0.8  # seconds (src/render/unitAnim.ts ONE_SHOT.takedown)
 
 
 def smooth(t):
@@ -72,59 +75,61 @@ def zero(v):
 
 H = ru.ARMS_HOLD
 
-# ---------------- the guard: pulled back, stabbed, lowered onto his back ----------------
+# Readability over realism at 44 px: exaggerated key poses, a clear wind-up, a fast thrust,
+# a big reaction, a quick drop. 0.8 s: wind-up to 0.30, thrust 0.30-0.40, reaction to 0.55,
+# down by 0.85, Yoav up by 1.0.
+IDLE = {"spine": 4, "head": -2, "shin.L": -4, "shin.R": -4, **H}
+ON_BACK = {"hips": -86, "spine": 2, "head": 12, "thigh.L": 6, "thigh.R": 4, "shin.L": -4, "shin.R": -2,
+           "foot.L": 26, "foot.R": 22, "arm.L": (-5, 0, 22), "fore.L": -5, "arm.R": (-5, 0, -22), "fore.R": -5}
+
+# ---------------- the guard: grabbed, stabbed, arches, drops onto his back ----------------
 GUARD = [
-    (0.00, ({"spine": 4, "head": -2, "shin.L": -4, "shin.R": -4, **H}, 0.0, (0.0, 0.0))),
-    (0.18, ({"spine": 0, "head": -6, "shin.L": -6, "shin.R": -6, **H}, 0.0, (0.0, 0.0))),
-    # head yanked back, back arches, arms jerk up and out
-    (0.32, ({"spine": -14, "head": -38, "thigh.L": 4, "shin.L": -12, "shin.R": -10,
-             "arm.L": (40, 0, 25), "fore.L": 30, "arm.R": (35, 0, -25), "fore.R": 40}, -0.02, (0.0, 0.0))),
-    # the knife goes in: knees buckle, he sags back against Yoav
-    (0.45, ({"spine": -18, "head": -30, "thigh.L": 18, "thigh.R": 14, "shin.L": -38, "shin.R": -34,
-             "arm.L": (25, 0, 30), "fore.L": 20, "arm.R": (15, 0, -30), "fore.R": 20}, -0.12, (-0.08, 0.0))),
-    # lowered backwards
-    (0.70, ({"hips": -48, "spine": -8, "head": -10, "thigh.L": 52, "thigh.R": 46, "shin.L": -62, "shin.R": -55,
-             "arm.L": (10, 0, 35), "fore.L": 10, "arm.R": (5, 0, -35), "fore.R": 10}, -0.48, (-0.25, -0.16))),
-    # on his back, legs out, arms loose by his sides
-    (0.88, ({"hips": -84, "spine": 2, "head": 10, "thigh.L": 8, "thigh.R": 5, "shin.L": -5, "shin.R": -3,
-             "foot.L": 25, "foot.R": 20, "arm.L": (-5, 0, 18), "fore.L": -5, "arm.R": (-5, 0, -18), "fore.R": -5},
-            -0.76, (-0.42, -0.28))),
-    (1.00, ({"hips": -86, "spine": 2, "head": 12, "thigh.L": 6, "thigh.R": 4, "shin.L": -4, "shin.R": -2,
-             "foot.L": 26, "foot.R": 22, "arm.L": (-5, 0, 18), "fore.L": -5, "arm.R": (-5, 0, -18), "fore.R": -5},
-            -0.77, (-0.43, -0.30))),
+    (0.00, (IDLE, 0.0, (0.0, 0.0))),
+    # the hand closes over his mouth: head pulled back, he stiffens
+    (0.30, ({**IDLE, "spine": -6, "head": -28}, 0.0, (-0.02, 0.0))),
+    (0.40, ({**IDLE, "spine": -10, "head": -34}, 0.0, (-0.03, 0.0))),
+    # the knife goes in: big arch, head back, arms fly up and out
+    (0.52, ({"spine": -28, "head": -48, "thigh.L": 6, "shin.L": -14, "shin.R": -12,
+             "arm.L": (85, 0, 45), "fore.L": 40, "arm.R": (80, 0, -45), "fore.R": 45}, -0.03, (-0.06, 0.0))),
+    # knees go, he sags back
+    (0.68, ({"hips": -30, "spine": -12, "head": -20, "thigh.L": 40, "thigh.R": 34, "shin.L": -72, "shin.R": -64,
+             "arm.L": (40, 0, 40), "fore.L": 20, "arm.R": (35, 0, -40), "fore.R": 20}, -0.32, (-0.16, 0.06))),
+    (0.85, (ON_BACK, -0.76, (-0.42, 0.14))),
+    (1.00, (ON_BACK, -0.77, (-0.43, 0.15))),
 ]
 
-# ---------------- Yoav: in, grab, stab, lower, release, stand ----------------
-# (pose, hips lift, (root x, root y) in metres; +x toward the guard, +y to Yoav's left)
-STAND = {"spine": 4, "head": -2, "shin.L": -4, "shin.R": -4, **H}
+# ---------------- Yoav: in, hand over the mouth, knife raised, thrust, lower, stand ----------------
+# (pose, hips lift, (root x, root y) in metres; +x ahead, +y to Yoav's left)
+STAND = IDLE
 YOAV = [
     (0.00, (STAND, -0.01, (0.0, 0.0))),
-    # step in on the left foot
-    (0.18, ({"spine": 12, "head": -6, "thigh.L": 28, "shin.L": -20, "thigh.R": -10, "shin.R": -12}, -0.05, (0.28, 0.0))),
-    # grab and stab: braced, weight forward
-    (0.34, ({"spine": 10, "head": -4, "thigh.L": 20, "shin.L": -24, "thigh.R": -14, "shin.R": -16}, -0.08, (0.36, 0.0))),
-    (0.45, ({"spine": 8, "head": -2, "thigh.L": 16, "shin.L": -30, "thigh.R": -18, "shin.R": -22}, -0.12, (0.30, 0.0))),
-    # lower him: step back and to the left, down onto the right knee
+    # a quick step in on the left foot, weight forward
+    (0.25, ({"spine": 12, "head": -6, "thigh.L": 26, "shin.L": -20, "thigh.R": -12, "shin.R": -14}, -0.05, (0.16, 0.0))),
+    # braced for the thrust
+    (0.40, ({"spine": 16, "head": -4, "thigh.L": 22, "shin.L": -26, "thigh.R": -18, "shin.R": -20}, -0.10, (0.20, 0.0))),
+    # lowers him, going down on the right knee
     (0.70, ({"spine": 30, "head": -16, "thigh.L": 60, "shin.L": -80, "thigh.R": 20, "shin.R": -110, "foot.R": 40},
-            -0.42, (0.02, 0.26))),
-    (0.84, ({"spine": 26, "head": -18, "thigh.L": 70, "shin.L": -95, "thigh.R": 30, "shin.R": -118, "foot.R": 45},
-            -0.50, (-0.05, 0.26))),
-    # release and stand back up, carbine hold again
-    (1.00, (STAND, -0.01, (0.0, 0.2))),
+            -0.42, (0.08, 0.05))),
+    (0.85, ({"spine": 26, "head": -18, "thigh.L": 68, "shin.L": -92, "thigh.R": 28, "shin.R": -116, "foot.R": 45},
+            -0.48, (0.04, 0.05))),
+    (1.00, (STAND, -0.01, (0.0, 0.05))),
 ]
 
 # The guard's feet stay planted while his knees give; released as he goes down on his back.
-GUARD_FEET_ON = [(0.0, 1.0), (0.64, 1.0), (0.84, 0.0), (1.0, 0.0)]
-# Yoav's right (back) foot stays planted through the grab and stab; then he steps left.
-YOAV_RIGHT_FOOT_ON = [(0.0, 1.0), (0.48, 1.0), (0.60, 0.0), (1.0, 0.0)]
+GUARD_FEET_ON = [(0.0, 1.0), (0.62, 1.0), (0.80, 0.0), (1.0, 0.0)]
+# Yoav's right (back) foot stays planted through the grab and stab.
+YOAV_RIGHT_FOOT_ON = [(0.0, 1.0), (0.50, 1.0), (0.62, 0.0), (1.0, 0.0)]
 
-# when the hands are on the guard (IK on): ramps in and out. The knife goes into his right
-# side at the waist, the side Yoav's right hand reaches from behind.
-LEFT_ON = [(0.0, 0.0), (0.14, 0.0), (0.26, 1.0), (0.84, 1.0), (0.94, 0.0), (1.0, 0.0)]
-RIGHT_ON = [(0.0, 0.0), (0.16, 0.0), (0.28, 1.0), (0.80, 1.0), (0.92, 0.0), (1.0, 0.0)]
-KNIFE_ON = (0.12, 0.90)
-# the stab: the hand starts a hand's width outside the guard's side and drives in
-STAB_DEPTH = [(0.0, 0.16), (0.30, 0.16), (0.40, -0.02), (1.0, -0.02)]
+# IK on Yoav's hands. Left: over the guard's mouth from the start of the step to the end.
+LEFT_ON = [(0.0, 0.0), (0.10, 0.0), (0.25, 1.0), (0.85, 1.0), (0.95, 0.0), (1.0, 0.0)]
+# Right: drives the knife the whole time it is out: raised, then into his side.
+RIGHT_ON = [(0.0, 0.0), (0.06, 0.0), (0.20, 1.0), (0.85, 1.0), (0.95, 0.0), (1.0, 0.0)]
+KNIFE_ON = (0.08, 0.88)
+# 0 = knife raised at Yoav's right shoulder, out to the side (in view); 1 = in the guard's side
+THRUST = [(0.0, 0.0), (0.30, 0.0), (0.40, 1.0), (1.0, 1.0)]
+WINDUP = Vector((0.05, -0.42, 1.38))  # in Yoav's frame
+# a brief bright blade at the moment it goes in, so the eye catches it
+FLASH = (0.36, 0.47)
 
 
 def pose_rig(rig, a, lift):
@@ -153,14 +158,20 @@ def knife(rig):
     import bmesh
 
     bm = bmesh.new()
-    ru.box(bm, (0, 0.13, 0), (0.025, 0.20, 0.012))  # blade along +Y
-    ru.box(bm, (0, -0.03, 0), (0.032, 0.11, 0.03))  # grip
+    # drawn larger than life (30 cm blade) and bright, so it reads at 44 px at night (Ran:
+    # the knife must be seen); the grip is tan like the rest of his kit
+    ru.box(bm, (0, 0.19, 0), (0.045, 0.30, 0.018))  # blade along +Y
+    blade_faces = len(bm.faces)
+    ru.box(bm, (0, -0.02, 0), (0.04, 0.12, 0.04))  # grip
     me = bpy.data.meshes.new("knife")
     bm.to_mesh(me)
     bm.free()
     ob = bpy.data.objects.new("knife", me)
     bpy.context.scene.collection.objects.link(ob)
-    ob.data.materials.append(ru.iso.material("blade", (0.02, 0.02, 0.022), rough=0.35, metallic=0.6))
+    ob.data.materials.append(ru.iso.material("steel", (0.78, 0.80, 0.84), rough=0.3))
+    ob.data.materials.append(ru.iso.material("knife_grip", ru.TAN, rough=0.7))
+    for i, poly in enumerate(ob.data.polygons):
+        poly.material_index = 0 if i < blade_faces else 1
     ob.parent = rig
     return ob
 
@@ -206,7 +217,7 @@ def main():
         # guard first: Yoav's hands go where the guard is
         gp, glift, groot = keyed(u, GUARD)
         pose_rig(guard, gp, glift)
-        guard.location = (GAP + groot[0], groot[1], 0)
+        guard.location = (GAP[0] + groot[0], GAP[1] + groot[1], 0)
         yp, ylift, yroot = keyed(u, YOAV)
         pose_rig(yoav, yp, ylift)
         yoav.location = (yroot[0], yroot[1], 0)
@@ -222,13 +233,12 @@ def main():
         waist = guard.pose.bones["spine"]
         w0 = gm @ (waist.head + (waist.tail - waist.head) * 0.18)
         side = (gm.to_3x3() @ (waist.matrix.to_3x3() @ Vector((-1, 0, 0)))).normalized()  # local -X = his right
-        depth = keyed(u, STAB_DEPTH)
-        l_tgt.location = head_c + face_fwd * 0.10
-        r_tgt.location = w0 + side * (0.17 + depth)
-        # elbows out to the sides and back
         ym = yoav.matrix_world
-        l_pole.location = ym @ Vector((-0.4, 0.8, 1.2))
-        r_pole.location = ym @ Vector((-0.4, -0.8, 0.9))
+        l_tgt.location = head_c + face_fwd * 0.10
+        r_tgt.location = (ym @ WINDUP).lerp(w0 + side * 0.15, keyed(u, THRUST))
+        # left elbow high and out, hooking round his head; right elbow out to the side
+        l_pole.location = ym @ Vector((0.1, 0.9, 1.9))
+        r_pole.location = ym @ Vector((-0.2, -1.0, 0.8))
         l_ik.influence = keyed(u, LEFT_ON)
         r_ik.influence = keyed(u, RIGHT_ON)
         for (key, side), (tgt, pole, ik) in feet.items():
@@ -250,6 +260,9 @@ def main():
 
         # knife in the right hand, blade forward from the fist
         blade.hide_render = not (KNIFE_ON[0] <= u <= KNIFE_ON[1])
+        steel = blade.data.materials[0].node_tree.nodes["Principled BSDF"]
+        steel.inputs["Emission Color"].default_value = (1.0, 0.97, 0.9, 1.0)
+        steel.inputs["Emission Strength"].default_value = 6.0 if FLASH[0] <= u <= FLASH[1] else 0.0
         fore = yoav.pose.bones["fore.R"]
         d = (fore.tail - fore.head).normalized()
         z = d.cross(Vector((0, 0, 1))).cross(d).normalized() if abs(d.z) < 0.95 else Vector((1, 0, 0))
@@ -268,7 +281,7 @@ def main():
             scene.render.filepath = os.path.join(a.yoav, f"takedown_d{d_}_f{f}.png")
             bpy.ops.render.render(write_still=True)
             # the guard's frame: camera on the guard's start position
-            pivot.location = (rot @ Vector((-GAP, 0, 0, 1))).to_3d()
+            pivot.location = (rot @ Vector((-GAP[0], -GAP[1], 0, 1))).to_3d()
             for o in yoav_parts:
                 o.hide_render = True
             for o in guard_parts:

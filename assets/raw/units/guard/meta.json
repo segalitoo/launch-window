@@ -15,7 +15,7 @@
     "run": 12,
     "death": 10,
     "dragged": 2,
-    "knockout": 14
+    "knockout": 12
   },
   "sources": {
     "idle": "motion capture, CMU 111_28",
