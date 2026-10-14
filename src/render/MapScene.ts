@@ -101,7 +101,8 @@ export class MapScene extends Phaser.Scene {
   create(): void {
     this.newGame();
     this.ground = this.add.graphics().setDepth(-OVERLAY_DEPTH);
-    this.painted = PAINTED_AREAS.map((name) => new PaintedArea(this, name, -OVERLAY_DEPTH + 1));
+    const { cols, rows } = this.game$.state.grid;
+    this.painted = PAINTED_AREAS.map((name) => new PaintedArea(this, name, -OVERLAY_DEPTH + 1, cols, rows));
     this.overlay = this.add.graphics().setDepth(OVERLAY_DEPTH);
     this.input.addPointer(1);
     this.setupInput();

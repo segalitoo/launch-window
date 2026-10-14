@@ -4,7 +4,7 @@
 // Built by tools/cut_occluders.py; files live in assets/build/<name>/.
 
 import Phaser from 'phaser';
-import { depthOf } from './iso';
+import { depthOf, footprint } from './iso';
 import { type Occluder, maskOccluder } from './occlusion';
 
 interface Frame {
@@ -53,7 +53,8 @@ export class PaintedArea {
     scene.load.image(`${name}_occmask`, `${name}/${name}_occ.png`);
   }
 
-  constructor(scene: Phaser.Scene, name: string, groundDepth: number) {
+  /** `cols` x `rows` is the map size; the painting is clipped to the map's diamond. */
+  constructor(scene: Phaser.Scene, name: string, groundDepth: number, cols: number, rows: number) {
     const m = scene.cache.json.get(`${name}_meta`) as Manifest;
     this.manifest = m;
     const [W, H] = m.size;
@@ -94,6 +95,13 @@ export class PaintedArea {
       bc.fillStyle = g;
       bc.fillRect(0, 0, W, H);
     }
+    // clip to the map: the painting's rectangle reaches past the map edge into the void
+    bc.globalCompositeOperation = 'destination-in';
+    bc.fillStyle = '#000';
+    bc.beginPath();
+    for (const p of footprint(0, 0, cols, rows)) bc.lineTo((p.x - ox) * ss, (p.y - oy) * ss);
+    bc.closePath();
+    bc.fill();
     bc.globalCompositeOperation = 'source-over';
     bgTex.refresh();
     scene.add.image(ox, oy, `${name}_bg`).setOrigin(0).setScale(1 / ss).setDepth(groundDepth);
