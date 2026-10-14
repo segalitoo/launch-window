@@ -74,16 +74,6 @@ interface Gesture {
   mid: Point; // world point under the pinch midpoint
 }
 
-/** Points along half an ellipse, from angle a0 to a0 + pi (0 = the front, lower half on screen). */
-function halfEllipse(cx: number, cy: number, w: number, h: number, a0: number): Phaser.Math.Vector2[] {
-  const pts: Phaser.Math.Vector2[] = [];
-  for (let i = 0; i <= 16; i++) {
-    const a = a0 + (Math.PI * i) / 16;
-    pts.push(new Phaser.Math.Vector2(cx + (Math.cos(a) * w) / 2, cy + (Math.sin(a) * h) / 2));
-  }
-  return pts;
-}
-
 export class MapScene extends Phaser.Scene {
   game$!: Game;
   ctl!: Controller;
@@ -524,12 +514,9 @@ export class MapScene extends Phaser.Scene {
       this.shadows.fillEllipse(p.x + 1, p.y + 0.5, 22, 10);
       this.shadows.fillStyle(0x000000, 0.22);
       this.shadows.fillEllipse(p.x + 1, p.y + 0.5, 14, 6);
-      // the ring wraps around him: back half on the ground under the sprite, front half over it
-      // wide enough that the front half passes below the boots, not across them; quiet unless selected
-      for (const [g, a0] of [[this.shadows, Math.PI], [this.overlay, 0]] as const) {
-        g.lineStyle(selected ? 1.5 : 1, col, selected ? 0.85 : 0.45);
-        g.strokePoints(halfEllipse(p.x, p.y + 1, 34, 17, a0), false);
-      }
+      // the ring lies on the ground layer, so the figure always covers it (Ran: never on top of him)
+      this.shadows.lineStyle(selected ? 1.5 : 1, col, selected ? 0.85 : 0.45);
+      this.shadows.strokeEllipse(p.x, p.y + 1, 34, 17);
       // silhouette only when most of him is covered: a low wall over the boots leaves him readable
       const depth = depthOf(u.x, u.y, 13);
       const covered = this.unitArt.samples(u).filter((p) => isHidden([p], depth, this.occluders)).length;
