@@ -1,7 +1,9 @@
 export * from './constants';
 export * from './types';
 export { Game } from './game';
-export { buildMission, GUARD_DEFS } from './map';
+export { buildMission, NIGHT_LANTERN } from './map';
+export { parseTiledMap } from './tiled';
+export type { GuardDef, MissionMap, TileRect } from './tiled';
 export { step } from './step';
 export { tileAt, walkable, blocksSight } from './grid';
 export { castRay, losClear, zoneOf, detects, coneLength } from './vision';
