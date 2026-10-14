@@ -14,6 +14,7 @@ Rebuild Launch Window as one finished isometric mission in the style of Commando
 | Time | 8 h a week, as two 4 h sessions | Each session ends with something playable. |
 | Scope | One mission, Operation Night Lantern, to full quality | A second mission waits until v1 is done. |
 | Toolkit | Full proposal (assumed) | Not confirmed yet. See the toolkit section. |
+| Pace | The world moves at 60% of the prototype (`PACE` in `src/sim/constants.ts`). Guard turns, waits, sweeps, searchlights and suspicion scale with it; shots, alarm and work stay in real seconds. Timer 8:00 becomes 13:20. | Ran, Phase 2: the prototype speeds were about twice real life at the art scale. Scaling guard rhythm too keeps every verified scenario solvable the same way. |
 
 Ran is the art director. He approves every look gate, retouches key art and playtests. Claude writes the code, the pipeline scripts and the image prompts, and tests each build.
 

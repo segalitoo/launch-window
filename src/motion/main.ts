@@ -128,9 +128,6 @@ function drawCard(ctx: CanvasRenderingContext2D, ground: HTMLCanvasElement, card
 
 // ---------- the library ----------
 
-/** Movement pace: 1 = the sim's speeds; 0.6 = closer to real walking and running at our art scale. */
-let pace = 1;
-
 function cards(yoav: Atlas, noa: Atlas, itai: Atlas, guard: Atlas): Card[] {
   const base: AnimState = {
     ang: 0, alive: true, crawl: false, moving: false, carrying: false, walked: 0,
@@ -152,9 +149,9 @@ function cards(yoav: Atlas, noa: Atlas, itai: Atlas, guard: Atlas): Card[] {
     return [
       { group, name: 'Idle', note: kit, shows: [[a, 'idle']], sprites: (t, d) => [unit(a, f({ ang: ang(d), t }))] },
       { group, name: 'Run', note: `Normal move, ${speed.toFixed(1)} tiles/s.`, shows: [[a, 'run']],
-        sprites: (t, d) => [unit(a, f({ ang: ang(d), moving: true, walked: t * speed * pace }))] },
+        sprites: (t, d) => [unit(a, f({ ang: ang(d), moving: true, walked: t * speed }))] },
       { group, name: 'Crawl', note: `C, ${(speed * CRAWL_MULT).toFixed(1)} tiles/s.`, shows: [[a, 'crawl']],
-        sprites: (t, d) => [unit(a, f({ ang: ang(d), crawl: true, moving: true, walked: t * speed * CRAWL_MULT * pace }), 0, 0, false)] },
+        sprites: (t, d) => [unit(a, f({ ang: ang(d), crawl: true, moving: true, walked: t * speed * CRAWL_MULT }), 0, 0, false)] },
       { group, name: 'Death', note: 'Operator down.', shows: [[a, 'death']],
         sprites: (t, d) => {
           const k = loop(t, ONE_SHOT.death);
@@ -168,9 +165,9 @@ function cards(yoav: Atlas, noa: Atlas, itai: Atlas, guard: Atlas): Card[] {
     { group: 'Yoav', name: 'Idle', note: 'Standing, carbine at low ready, breathing.', shows: [[yoav, 'idle']],
       sprites: (t, d) => [unit(yoav, y({ ang: ang(d), t }))] },
     { group: 'Yoav', name: 'Run', note: `Normal move, ${run.toFixed(1)} tiles/s.`, shows: [[yoav, 'run']],
-      sprites: (t, d) => [unit(yoav, y({ ang: ang(d), moving: true, walked: t * run * pace }))] },
+      sprites: (t, d) => [unit(yoav, y({ ang: ang(d), moving: true, walked: t * run }))] },
     { group: 'Yoav', name: 'Crawl', note: `C, ${(run * CRAWL_MULT).toFixed(1)} tiles/s.`, shows: [[yoav, 'crawl']],
-      sprites: (t, d) => [unit(yoav, y({ ang: ang(d), crawl: true, moving: true, walked: t * run * CRAWL_MULT * pace }), 0, 0, false)] },
+      sprites: (t, d) => [unit(yoav, y({ ang: ang(d), crawl: true, moving: true, walked: t * run * CRAWL_MULT }), 0, 0, false)] },
     { group: 'Yoav', name: 'Crawl, still', note: 'Lying flat.', shows: [[yoav, 'crawl_idle']],
       sprites: (_t, d) => [unit(yoav, y({ ang: ang(d), crawl: true }), 0, 0, false)] },
     { group: 'Yoav', name: 'Hit', note: 'Shot but alive: a flinch over the hit flash.', shows: [[yoav, 'hit']],
@@ -223,7 +220,7 @@ function cards(yoav: Atlas, noa: Atlas, itai: Atlas, guard: Atlas): Card[] {
       sprites: (t, d) => {
         // moving toward direction d; the body trails behind, Yoav faces it
         const [bx, by] = ahead(d, -CARRY_OFFSET);
-        const walked = t * run * DRAG_MULT * pace;
+        const walked = t * run * DRAG_MULT;
         return [
           unit(yoav, y({ ang: ang(d), moving: true, carrying: true, walked })),
           unit(guard, draggedFrameName(Math.atan2(-by, -bx), walked, guard.anims), ...grip(bx, by), false),
@@ -233,9 +230,9 @@ function cards(yoav: Atlas, noa: Atlas, itai: Atlas, guard: Atlas): Card[] {
     { group: 'Guard', name: 'Idle', note: 'On post, breathing.', shows: [[guard, 'idle']],
       sprites: (t, d) => [unit(guard, gf({ ang: ang(d), t }))] },
     { group: 'Guard', name: 'Walk', note: `Patrol, ${SPEED_PATROL.toFixed(1)} tiles/s.`, shows: [[guard, 'walk']],
-      sprites: (t, d) => [unit(guard, gf({ ang: ang(d), moving: true, walked: t * SPEED_PATROL * pace }))] },
+      sprites: (t, d) => [unit(guard, gf({ ang: ang(d), moving: true, walked: t * SPEED_PATROL }))] },
     { group: 'Guard', name: 'Run', note: `Investigate and combat, up to ${SPEED_COMBAT.toFixed(1)} tiles/s.`, shows: [[guard, 'run']],
-      sprites: (t, d) => [unit(guard, gf({ ang: ang(d), moving: true, running: true, walked: t * SPEED_COMBAT * pace }))] },
+      sprites: (t, d) => [unit(guard, gf({ ang: ang(d), moving: true, running: true, walked: t * SPEED_COMBAT }))] },
     { group: 'Guard', name: 'Death', note: 'Shot: falls backward.', shows: [[guard, 'death']],
       sprites: (t, d) => {
         const k = loop(t, ONE_SHOT.death);
@@ -309,7 +306,6 @@ async function main(): Promise<void> {
     const dt = Math.min(0.1, (now - last) / 1000);
     last = now;
     if (!paused) t += dt * Number(sel('speed').value);
-    pace = Number(sel('pace').value);
     const dv = sel('dir').value;
     const dir = dv === 'rotate' ? Math.floor(t / 2.5) % 8 : Number(dv);
     for (const v of views) drawCard(v.canvas.getContext('2d')!, ground, v.card, t, dir, zoom);

@@ -6,6 +6,7 @@ import {
   ALARM_RATE,
   ALARM_TIME,
   HIT_FLASH,
+  PACE,
   SHOT_FIRST,
   TAKEDOWN_REACH,
   TAKEDOWN_SIDE,
@@ -101,7 +102,7 @@ export function updateTowers(s: GameState, dt: number): void {
       t.susp = 0;
       continue;
     }
-    const k = 0.5 - 0.5 * Math.cos((2 * Math.PI * s.t) / t.period + t.phase);
+    const k = 0.5 - 0.5 * Math.cos((2 * Math.PI * s.t) / (t.period / PACE) + t.phase);
     t.ang = t.a0 + (t.a1 - t.a0) * k;
     const o = center(t.x, t.y);
     let seen: Unit | null = null;

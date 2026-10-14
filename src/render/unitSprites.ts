@@ -109,7 +109,7 @@ export class UnitSprites {
     // lying down (prone or dead) sorts with low ground props, not with standing figures
     e.img.setFrame(frame).setPosition(p.x, p.y).setDepth(depthOf(u.x, u.y, u.alive && !u.crawl ? 13 : 2));
     e.ghost.setVisible(hidden && u.alive);
-    if (hidden) e.ghost.setFrame(frame).setPosition(p.x, p.y).setTint(colour).setTintFill();
+    if (hidden) e.ghost.setFrame(frame).setPosition(p.x, p.y).setTint(colour).setTintMode(Phaser.TintModes.FILL);
   }
 
   private entry(u: Unit): Entry | null {

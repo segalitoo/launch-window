@@ -109,19 +109,21 @@ def _frame(y, fwd):
 CARRY_R = {"arm.R": (0.25, 0.0, -0.97), "fore.R": (0.85, 0.05, -0.5)}
 
 
-def apply(rig, p, arms="mocap", root_xy=True, hold=None, carry_blend=0.6):
+def apply(rig, p, arms="mocap", root_xy=True, hold=None, carry_blend=0.6, upright=0.0):
     """Pose `rig` from joint positions `p` (Clip.at). arms: 'mocap', 'hold' (keep the
     carbine hold from `hold`, a dict of bone -> X rotation in degrees, relative to the
     chest), or 'carry' (left arm free from the clip; right arm carries the carbine, its
     swing damped `carry_blend` of the way toward CARRY_R).
-    root_xy False keeps the hips over the origin (in-place cycles; the sim moves the unit)."""
+    root_xy False keeps the hips over the origin (in-place cycles; the sim moves the unit).
+    upright: 0..1, how far the chest is turned back toward vertical (a lean that reads as
+    lying flat from above); limbs and head still follow the clip."""
     up = Vector((0, 0, 1))
     hip_mid = (p["LeftUpLeg"] + p["RightUpLeg"]) / 2
     pelvis_lat = (p["LeftUpLeg"] - p["RightUpLeg"]).normalized()
     pelvis_up = (p["Spine"] - hip_mid).normalized()
     pelvis_fwd = pelvis_lat.cross(pelvis_up).normalized()
     chest_lat = (p["LeftArm"] - p["RightArm"]).normalized()
-    chest_up = (p["Neck"] - p["Spine"]).normalized()
+    chest_up = (p["Neck"] - p["Spine"]).normalized().lerp(up, upright).normalized()
     chest_fwd = chest_lat.cross(chest_up).normalized()
 
     want = {

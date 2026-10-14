@@ -5,8 +5,8 @@ import { HIT_FLASH, THROW_BUSY } from '@/sim';
 
 /** Ground covered by one cycle, in tiles. Run and walk match the strides in
  *  render_unit.py, so the feet do not slide. The sim's normal move is a run
- *  (Yoav 3.5 tiles/s). The drag (CMU 81_08) covers only 0.6 m in its 1.8 s loop, a real
- *  heavy drag; at the sim's 1.9 tiles/s it plays about once a second and the feet slide. */
+ *  (Yoav 2.1 tiles/s at the 60% pace). The drag (CMU 81_08) covers only 0.6 m in its 1.8 s
+ *  loop, a real heavy drag; at the sim's 1.2 tiles/s the feet still slide a little. */
 export const CYCLE_TILES = { run: 1.6, walk: 0.725, drag: 1.9, crawl: 0.7 } as const;
 
 /** Length of the idle loop (CMU 111_28: a slow sway and breath), in seconds of sim time. */

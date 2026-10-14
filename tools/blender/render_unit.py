@@ -41,9 +41,10 @@ class Mocap:
     root_xy: keep the clip's horizontal travel (a fall); cycles stay in place, since the
     sim moves the unit. face: source frames to measure the facing from (default a..b)."""
 
-    def __init__(self, clip, a, b, n, loop, arms="hold", root_xy=False, face=None, weapon="chest", turn=0):
+    def __init__(self, clip, a, b, n, loop, arms="hold", root_xy=False, face=None, weapon="chest", turn=0, upright=0.0):
         self.clip, self.a, self.b, self.n, self.loop = clip, a, b, n, loop
         self.turn = turn  # degrees added to the measured facing (a throw aims off the hips)
+        self.upright = upright  # 0..1: chest turned back toward vertical (mocap.apply)
         self.arms, self.root_xy, self.face = arms, root_xy, face or (a, b)
         self.weapon = weapon  # "chest" (slung), "hands" (both, e.g. a strike) or "right" (carried)
 
@@ -76,17 +77,19 @@ OPERATOR = {
     "height": 1.80, "width": 1.15, "cloth": OLIVE, "cloth_dark": OLIVE_DARK, "cloth2": None,
     "accent": TAN, "gloves": TAN, "weapon": TAN, "face": None, "head": "helmet_nvg",
     "tape": None, "carrier": True, "pack": "pack", "antenna": 0.48, "kneepads": True,
-    "gun": "carbine", "kit": (),
+    "gun": "carbine", "kit": (), "helmet_cover": None,
     "anims": ["idle", "run", "crawl_idle", "crawl", "takedown", "grab", "drag", "death", "hit"],
 }
 SQUAD_ANIMS = ["idle", "run", "crawl_idle", "crawl", "death", "hit"]
 UNITS = {
     # Visual language 6c/6d. tape = squad colour on the back of the helmet (UI colour, linear).
     "yoav": {**OPERATOR, "tape": (0.15, 0.55, 1.0)},
-    # Noa, the lure (concept CH-05): helmet with a headset and no NVG, hair bun, radio pack
+    # Noa, the lure (concept CH-05): tan-covered helmet with a headset and no NVG, hair bun, radio pack
     # with a tall whip antenna, binoculars on the chest, black carbine. Shortest of the three.
     "noa": {**OPERATOR, "height": 1.68, "width": 1.05, "head": "helmet_headset", "tape": (0.27, 0.87, 0.63),
-            "antenna": 0.70, "weapon": BLACK, "kit": ("bun", "binos"), "anims": SQUAD_ANIMS + ["throw"]},
+            "antenna": 0.70, "weapon": BLACK, "kit": ("bun", "binos"),
+            # tan helmet cover (Ran, Phase 2): her one light mark at night, so she reads apart from Yoav
+            "helmet_cover": (0.42, 0.33, 0.19), "anims": SQUAD_ANIMS + ["throw"]},
     # Itai, the sapper (concept CH-06): helmet with NVG, a tall rucksack with a ladder on the
     # left and a breaching bar on the right, a charge bag on the left hip, black shotgun.
     # Tallest and widest, so he reads as the heavy one.
@@ -219,6 +222,7 @@ def build_operator(spec):
         "tape": iso.material("tape", spec["tape"] or BLACK, rough=0.6),
         "metal": iso.material("metal", (0.30, 0.30, 0.28), rough=0.45),
         "hair": iso.material("hair", (0.05, 0.035, 0.02), rough=0.8),
+        "cover": iso.material("cover", (spec["helmet_cover"] or cloth, tuple(c * 1.1 for c in (spec["helmet_cover"] or cloth))), noise_scale=9, bump=0.1),
     }
     bones = bones_for(h)
     rig = build_rig(bones)
@@ -290,7 +294,8 @@ def build_operator(spec):
     on("head", "face", lambda bm: ball(bm, head_c, 0.105 * s, sz=1.15), "face")
     head = spec["head"]
     if head in ("helmet_nvg", "helmet", "helmet_headset"):
-        on("head", "helmet", lambda bm: ball(bm, head_c + Vector((-0.01, 0, 0.045 * s)), 0.138 * s, sz=0.95, top_only=True), "dark" if head == "helmet" else "olive")
+        on("head", "helmet", lambda bm: ball(bm, head_c + Vector((-0.01, 0, 0.045 * s)), 0.138 * s, sz=0.95, top_only=True),
+           "cover" if spec["helmet_cover"] else "dark" if head == "helmet" else "olive")
     if head == "helmet_nvg":
         on("head", "nvg", lambda bm: box(bm, head_c + Vector((0.13 * s, 0, 0.10 * s)), (0.06, 0.07, 0.07)), "black")
     if head == "helmet_headset":  # a boom mic in front of the mouth instead of the NVG
@@ -649,8 +654,9 @@ ANIMS = {
     "throw": (Mocap("113_24", 340, 396, 8, loop=False, arms="mocap", turn=-20), 8),
     # Itai at a door, generator or launcher (77_08): deep squat, both hands working at the
     # ground. work_in is the same take's stand-up played backwards, so it lands on the loop.
-    "work_in": (Mocap("77_08", 420, 376, 5, loop=False, arms="mocap", face=(324, 374)), 5),
-    "work": (Mocap("77_08", 324, 374, 8, loop=True, arms="mocap", face=(324, 374)), 8),
+    # upright 0.75: the take leans so far that from above he lay flat under his rucksack (Ran)
+    "work_in": (Mocap("77_08", 420, 376, 5, loop=False, arms="mocap", face=(324, 374), upright=0.75), 5),
+    "work": (Mocap("77_08", 324, 374, 8, loop=True, arms="mocap", face=(324, 374), upright=0.75), 8),
 }
 
 
@@ -747,7 +753,7 @@ def main():
             rig.rotation_euler = (0, 0, 0)
             if isinstance(fn, Mocap):
                 set_ik(rig, {})
-                mocap.apply(rig, clip.at(times[f]), arms=fn.arms, root_xy=fn.root_xy, hold=ARMS_HOLD)
+                mocap.apply(rig, clip.at(times[f]), arms=fn.arms, root_xy=fn.root_xy, hold=ARMS_HOLD, upright=fn.upright)
                 hands_weapon(rig, fn.weapon)
             else:
                 hands_weapon(rig, "chest")

@@ -1,5 +1,6 @@
 // Helpers for sim tests and scripted runs. Pure, no test runner imports.
 
+import { PACE } from './constants';
 import { Game } from './game';
 import type { GameState, Guard, Unit, UnitId } from './types';
 
@@ -35,14 +36,15 @@ export class Script {
     return u;
   }
 
+  /** Script times are prototype seconds (NOTES.md); the sim runs them at PACE. */
   run(seconds: number): void {
-    this.game.run(seconds);
+    this.game.run(seconds / PACE);
     this.collect();
   }
 
   /** Steps until `done`. Throws with a readable reason when it times out. */
   until(label: string, done: (s: GameState) => boolean, maxSeconds: number): void {
-    const ok = this.game.runUntil(done, maxSeconds);
+    const ok = this.game.runUntil(done, maxSeconds / PACE);
     this.collect();
     if (!ok) throw new Error(`timed out: ${label} at t=${this.s.t.toFixed(2)}\n${this.log.slice(-8).join('\n')}`);
     this.log.push(`t=${this.s.t.toFixed(2)} ${label}`);
