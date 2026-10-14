@@ -126,11 +126,11 @@ About 144 hours. Re-plan at each gate.
 
 ### Phase 2. Vertical slice (16 h)
 
-- [ ] Generator yard at final art: ground, walls, gate, generator, crates
-- [ ] Night grade and light layer: lamp glow, searchlight beam
+- [x] Generator yard at final art: ground, walls, gate, generator, crates (states: the gate paints open, the lamp goes dark with the generator)
+- [x] Night grade and light layer: lamp glow (dies with the generator, after a stutter), searchlight beam (cold white-blue light with an exact edge)
 - [x] Yoav: model, rig, 10 animations in 8 directions, one atlas (low-poly look; final drawn look still to come, see below)
 - [x] Guard: idle, walk, death (plus run for investigate and combat; look A, khaki and cap)
-- [ ] Gate B: does it feel like Commandos? If not, fix the pipeline before scaling it
+- [x] Gate B: does it feel like Commandos? If not, fix the pipeline before scaling it (Ran, Phase 2: pass)
 - [ ] Final character look: units must feel drawn, like the painted map and like Commandos. Ran, 14 Oct: the low-poly Yoav is OK for now and the pipeline can scale (other squad members, guards), but the look must be fixed before release. Options to test then: toon shading with ink lines in the render, a painted pass over rendered frames, or both. The rig, animations and engine code stay.
 
 ### Phase 3. Toolkit and enemies (32 h)

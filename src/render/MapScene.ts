@@ -22,6 +22,7 @@ import {
 import { Controller, type TapHit } from './controller';
 import { depthOf, footprint, mapBounds, type Point, toScreen, toTile } from './iso';
 import { blockOccluder, insideConvex, isHidden, type Occluder } from './occlusion';
+import { lampLevel } from './lamps';
 import { PaintedArea, toTintHex } from './paintedArea';
 import { GuardSprites, UnitSprites } from './unitSprites';
 import {
@@ -32,7 +33,7 @@ import {
   GUARD_COLOR,
   GUARD_DOWN_COLOR,
   hex,
-  LIGHT_COLOR,
+  BEAM_COLOR,
   LZ_COLOR,
   shade,
   UNIT_LIFT,
@@ -81,6 +82,8 @@ export class MapScene extends Phaser.Scene {
   private ground!: Phaser.GameObjects.Graphics;
   private blocks: Phaser.GameObjects.Graphics[] = [];
   private overlay!: Phaser.GameObjects.Graphics;
+  /** Searchlight light: added over the art (and the units in it), under the overlay. */
+  private beams!: Phaser.GameObjects.Graphics;
   private bodies = new Map<object, Phaser.GameObjects.Graphics>();
   private staticVersion = -1;
   private gesture: Gesture | null = null;
@@ -89,6 +92,8 @@ export class MapScene extends Phaser.Scene {
   /** Until the player pans or zooms, every resize refits the whole map. */
   private userMoved = false;
   private painted: PaintedArea[] = [];
+  /** Sim time the generator went off (null = power on), for the lamps' stutter. */
+  private powerCutAt: number | null = null;
   private occluders: Occluder[] = [];
   private unitArt!: UnitSprites;
   private guardArt!: GuardSprites;
@@ -112,6 +117,7 @@ export class MapScene extends Phaser.Scene {
     const { cols, rows } = this.game$.state.grid;
     this.painted = PAINTED_AREAS.map((name) => new PaintedArea(this, name, -OVERLAY_DEPTH + 1, cols, rows));
     this.overlay = this.add.graphics().setDepth(OVERLAY_DEPTH);
+    this.beams = this.add.graphics().setDepth(OVERLAY_DEPTH - 2).setBlendMode(Phaser.BlendModes.ADD);
     this.unitArt = new UnitSprites(this, toTintHex(UNIT_GRADE), OVERLAY_DEPTH - 1);
     this.guardArt = new GuardSprites(this, toTintHex(UNIT_GRADE));
     this.shadows = this.add.graphics().setDepth(-OVERLAY_DEPTH + 2);
@@ -125,6 +131,7 @@ export class MapScene extends Phaser.Scene {
     this.game$ = new Game(1);
     this.ctl = new Controller(this.game$);
     this.staticVersion = -1;
+    this.powerCutAt = null;
     for (const g of this.bodies.values()) g.destroy();
     this.bodies.clear();
   }
@@ -345,6 +352,7 @@ export class MapScene extends Phaser.Scene {
 
     for (const b of this.blocks) b.destroy();
     this.blocks = [];
+    for (const p of this.painted) p.syncDoors((x, y) => s.doors.some((d) => d.x === x && d.y === y && d.open));
     this.occluders = this.painted.flatMap((p) => p.occluders);
     for (let y = 0; y < rows; y++) {
       for (let x = 0; x < cols; x++) {
@@ -393,16 +401,20 @@ export class MapScene extends Phaser.Scene {
   }
 
   private drawDynamic(s: GameState): void {
+    // lamps run on the generator: on sim time, so a pause freezes the stutter
+    if (s.generator.on) this.powerCutAt = null;
+    else this.powerCutAt ??= s.t;
+    const lamps = lampLevel(this.powerCutAt === null ? null : s.t - this.powerCutAt);
+    for (const p of this.painted) p.setLamps(lamps);
+
     const o = this.overlay.clear();
     this.shadows.clear();
     const sel = this.ctl.sel;
 
-    // searchlights
-    if (s.generator.on) {
-      for (const t of s.towers) {
-        const c = { x: t.x + 0.5, y: t.y + 0.5 };
-        this.drawCone(o, s, c, t.ang, TOWER_FOV, TOWER_LEN, null, LIGHT_COLOR, 0.22 + t.susp * 0.3);
-      }
+    // searchlights: on the generator too, so they die with the lamps
+    this.beams.clear();
+    if (lamps > 0) {
+      for (const t of s.towers) this.drawBeam(o, s, { x: t.x + 0.5, y: t.y + 0.5 }, t.ang, lamps, t.susp);
     }
     // guard cones
     for (const g of s.guards) {
@@ -459,6 +471,55 @@ export class MapScene extends Phaser.Scene {
 
     for (const g of s.guards) this.drawGuard(g, s.t, s.squad.find((u) => u.carrying === g));
     s.squad.forEach((u) => this.drawUnit(u, u === sel, s.t));
+  }
+
+  /** A searchlight: light, not a flat shape. Haze near the tower, a bright pool where it
+   *  hits the ground, a brighter core down the middle; clipped by walls like a cone. A thin
+   *  edge on the overlay keeps the area it sees exact (art rule 6). */
+  private drawBeam(o: Phaser.GameObjects.Graphics, s: GameState, at: Vec, ang: number, level: number, susp: number): void {
+    const rays: number[] = [];
+    const dirs: number[] = [];
+    for (let i = 0; i <= CONE_RAYS; i++) {
+      const a = ang - TOWER_FOV / 2 + (TOWER_FOV * i) / CONE_RAYS;
+      dirs.push(a);
+      rays.push(castRay(s.grid, at.x, at.y, a, TOWER_LEN));
+    }
+    const pt = (a: number, d: number): Point => toScreen(at.x + Math.cos(a) * d, at.y + Math.sin(a) * d);
+    // brightness at a point: along the beam, faint haze rising to the pool near the far end
+    // and easing off at the very end; across it, a brighter core. Set per corner, so the
+    // GPU blends it smoothly between them (no bands).
+    const along = (r: number): number => {
+      const k = r / TOWER_LEN;
+      const pool = Math.exp(-(((k - 0.8) / 0.22) ** 2));
+      return 0.13 + 0.34 * pool;
+    };
+    const across = (i: number): number => 0.45 + 0.55 * Math.sin((Math.PI * i) / CONE_RAYS);
+    const amp = level * (1 + susp);
+    const BANDS = 16;
+    const g = this.beams;
+    for (let i = 0; i < CONE_RAYS; i++) {
+      for (let b = 0; b < BANDS; b++) {
+        const r0 = (b / BANDS) * TOWER_LEN;
+        const r1 = ((b + 1) / BANDS) * TOWER_LEN;
+        if (rays[i]! <= r0 && rays[i + 1]! <= r0) continue;
+        // corners: ray i and i+1, at the band's near and far radius, cut by walls
+        const c = [
+          [i, Math.min(rays[i]!, r0)],
+          [i + 1, Math.min(rays[i + 1]!, r0)],
+          [i, Math.min(rays[i]!, r1)],
+          [i + 1, Math.min(rays[i + 1]!, r1)],
+        ] as const;
+        const p = c.map(([j, r]) => pt(dirs[j]!, r));
+        const al = c.map(([j, r]) => along(r) * across(j) * amp);
+        g.fillGradientStyle(BEAM_COLOR, BEAM_COLOR, BEAM_COLOR, BEAM_COLOR, al[0], al[1], al[2], al[2]);
+        g.fillTriangle(p[0]!.x, p[0]!.y, p[1]!.x, p[1]!.y, p[2]!.x, p[2]!.y);
+        g.fillGradientStyle(BEAM_COLOR, BEAM_COLOR, BEAM_COLOR, BEAM_COLOR, al[1], al[3], al[2], al[2]);
+        g.fillTriangle(p[1]!.x, p[1]!.y, p[3]!.x, p[3]!.y, p[2]!.x, p[2]!.y);
+      }
+    }
+    const edge = [pt(ang, 0), ...dirs.map((a, i) => pt(a, rays[i]!))];
+    o.lineStyle(1, BEAM_COLOR, (0.45 + susp * 0.4) * level);
+    o.strokePoints(poly(edge), true);
   }
 
   private drawCone(
