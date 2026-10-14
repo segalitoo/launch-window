@@ -525,13 +525,10 @@ export class MapScene extends Phaser.Scene {
       this.shadows.fillStyle(0x000000, 0.22);
       this.shadows.fillEllipse(p.x + 1, p.y + 0.5, 14, 6);
       // the ring wraps around him: back half on the ground under the sprite, front half over it
+      // wide enough that the front half passes below the boots, not across them; quiet unless selected
       for (const [g, a0] of [[this.shadows, Math.PI], [this.overlay, 0]] as const) {
-        if (selected) {
-          g.lineStyle(3, 0xffffff, 0.9);
-          g.strokePoints(halfEllipse(p.x, p.y, 26, 13, a0), false);
-        }
-        g.lineStyle(1.5, col, 0.9);
-        g.strokePoints(halfEllipse(p.x, p.y, 24, 12, a0), false);
+        g.lineStyle(selected ? 1.5 : 1, col, selected ? 0.85 : 0.45);
+        g.strokePoints(halfEllipse(p.x, p.y + 1, 34, 17, a0), false);
       }
       // silhouette only when most of him is covered: a low wall over the boots leaves him readable
       const depth = depthOf(u.x, u.y, 13);
