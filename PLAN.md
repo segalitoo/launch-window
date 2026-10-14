@@ -121,7 +121,7 @@ About 144 hours. Re-plan at each gate.
 - [x] Outline for units hidden behind buildings
 - [x] Sight cones and searchlights drawn in iso
 - [x] All prototype mechanics work with placeholder art (scenario 10 plays the whole mission by orders: win, zero alarms)
-- [ ] Preview plays on iPhone
+- [x] Preview plays on iPhone (Ran, Oct 14)
 
 ### Phase 2. Vertical slice (16 h)
 
