@@ -13,7 +13,7 @@
     "idle": 12,
     "run": 12,
     "crawl_idle": 1,
-    "crawl": 8,
+    "crawl": 12,
     "takedown": 14,
     "grab": 8,
     "drag": 16,

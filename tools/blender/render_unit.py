@@ -336,7 +336,37 @@ def hands_weapon(rig, mode):
 D = math.radians
 
 
-def pose(rig, angles, lift=0.0, shift=0.0):
+# degrees: which way an IK joint faces its pole, for our bone roll (measured; left and right
+# limbs mirror)
+POLE_ANGLE = {"fore.L": 180, "fore.R": 0, "shin.L": 90, "shin.R": 90}
+
+
+def set_ik(rig, targets):
+    """IK on chain ends: {bone: ((tip x, y, z), (joint x, y, z))} in the rig's frame.
+    Constraints are made once per bone and switched off when a pose names no target."""
+    for name in ("fore.L", "fore.R", "shin.L", "shin.R"):
+        pb = rig.pose.bones[name]
+        c = pb.constraints.get("ik")
+        if c is None:
+            tgt = bpy.data.objects.new(f"ik_{rig.name}_{name}", None)
+            pole = bpy.data.objects.new(f"pole_{rig.name}_{name}", None)
+            for o in (tgt, pole):
+                bpy.context.scene.collection.objects.link(o)
+                o.parent = rig
+            c = pb.constraints.new("IK")
+            c.name = "ik"
+            c.target, c.pole_target, c.chain_count = tgt, pole, 2
+            c.pole_angle = math.radians(POLE_ANGLE[name])
+        if name in targets:
+            tip, joint = targets[name]
+            c.target.location = Vector(tip)
+            c.pole_target.location = Vector(joint)
+            c.influence = 1.0
+        else:
+            c.influence = 0.0
+
+
+def pose(rig, angles, lift=0.0, shift=0.0, ik=None):
     """angles: bone -> degrees about local X (forward swing), or (x, y, z) degrees.
     Local Z is the figure's forward axis, so a Z rotation swings a limb sideways."""
     for name, r in angles.items():
@@ -344,6 +374,7 @@ def pose(rig, angles, lift=0.0, shift=0.0):
         rig.pose.bones[name].rotation_euler = (D(rx), D(ry), D(rz))
     # hips bone points up: local Y = world Z, local Z = world +X (forward)
     rig.pose.bones["hips"].location = (0, lift, shift)
+    set_ik(rig, ik or {})
 
 
 # Arms in rest hang straight; these bend them so the hands hold the carbine.
@@ -401,28 +432,46 @@ PRONE = {"hips": 84, "head": -55, "foot.L": 10, "foot.R": 10}
 PRONE_LIFT = -0.74  # drops the hip pivot from 0.87 m to about 0.13 m
 
 
+def crawl_limbs(reach_l, knee_r, reach_r, knee_l):
+    """IK targets for a low crawl, in the figure's frame (+X ahead, +Y left, metres):
+    {bone at the end of the chain: (where its tip goes, where the joint points)}.
+    Elbows sit out to the sides by the shoulders, forearms flat, hands in front of the face;
+    a reaching arm slides its elbow forward. A drawn-up knee comes out sideways along the
+    ground toward its elbow; a straight leg lies back with the toes down."""
+    def arm(side, reach):
+        y = 1 if side == "L" else -1
+        hand = (0.86 + 0.16 * reach, 0.10 * y, 0.07)
+        elbow = (0.55 + 0.22 * reach, 0.75 * y, 0.02)
+        return hand, elbow
+
+    def leg(side, up):
+        y = 1 if side == "L" else -1
+        foot = (-0.80 + 0.40 * up, (0.12 + 0.20 * up) * y, 0.06)
+        knee = (-0.10 + 0.60 * up, (0.20 + 0.80 * up) * y, 0.04)
+        return foot, knee
+
+    return {"fore.L": arm("L", reach_l), "fore.R": arm("R", reach_r),
+            "shin.L": leg("L", knee_l), "shin.R": leg("R", knee_r)}
+
+
+# knees start slightly bent: IK cannot pick a bend direction for a dead-straight chain
+PRONE_BODY = {**PRONE, "hips": 86, "spine": -6, "head": -62, "shin.L": -10, "shin.R": -10}
+
+
 def crawl_idle_pose(f, n):
-    a = {**PRONE, "arm.L": 150, "fore.L": -25, "arm.R": 160, "fore.R": -35}
-    return a, PRONE_LIFT
+    return PRONE_BODY, PRONE_LIFT - 0.02, 0.0, crawl_limbs(0.2, 0.0, 0.2, 0.0)
 
 
 def crawl_pose(f, n):
-    """Combat crawl: one knee drawn up sideways while the opposite arm reaches."""
+    """Low crawl: the left forearm reaches and plants while the right knee draws up, then
+    the other side. The hips roll toward the drawn-up knee, the chest counters, the head
+    stays up and looking ahead."""
     p = 2 * math.pi * f / n
-    kl, kr = max(0.0, math.sin(p)), max(0.0, -math.sin(p))
-    a = {
-        **PRONE,
-        "thigh.L": (0, 0, 45 * kl),
-        "thigh.R": (0, 0, -45 * kr),
-        # the shin folds back along the ground (sideways axis), so the foot stays down
-        "shin.L": (0, 0, -80 * kl),
-        "shin.R": (0, 0, 80 * kr),
-        "arm.L": 150 + 18 * math.sin(p),
-        "fore.L": -25,
-        "arm.R": 160 - 18 * math.sin(p),
-        "fore.R": -35,
-    }
-    return a, PRONE_LIFT
+    s = math.sin(p)
+    left, right = max(0.0, s), max(0.0, -s)  # which diagonal is working
+    body = {**PRONE_BODY, "hips": (86, 9 * s, 0), "spine": (-6, -6 * s, 0), "head": (-62, 4 * s, 0)}
+    # the body surges forward as a diagonal pulls, then settles
+    return body, PRONE_LIFT - 0.02, 0.04 * abs(s), crawl_limbs(left, left, right, right)
 
 
 def ease(t):
@@ -537,7 +586,7 @@ ANIMS = {
     # left arm swings free, right hand carries the carbine ready to fire (Ran)
     "run": (Mocap("09_01", 45, 137, 12, loop=True, arms="carry", weapon="right"), 12),
     "crawl_idle": (crawl_idle_pose, 1),
-    "crawl": (crawl_pose, 8),
+    "crawl": (crawl_pose, 12),
     # knife takedown: a hand-keyed pair with the guard's knockout, rendered by render_takedown.py
     "takedown": ("pair", 14),
     # squat and reach down for the body (26_09, the way down)
@@ -641,6 +690,7 @@ def main():
         for f in range(n):
             rig.rotation_euler = (0, 0, 0)
             if isinstance(fn, Mocap):
+                set_ik(rig, {})
                 mocap.apply(rig, clip.at(times[f]), arms=fn.arms, root_xy=fn.root_xy, hold=ARMS_HOLD)
                 hands_weapon(rig, fn.weapon)
             else:
