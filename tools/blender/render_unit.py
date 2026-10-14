@@ -31,9 +31,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import render_iso as iso  # noqa: E402  (camera, sun and material helpers)
 
 # ---------- frame layout (1x = 100% zoom) ----------
-FRAME_W = 56
-FRAME_H = 64
-ANCHOR = (28, 56)  # where the feet (the sim position) land in the frame
+FRAME_W = 96  # wide enough for a prone figure in any direction; pack_unit.py trims the empty space
+FRAME_H = 72
+ANCHOR = (48, 62)  # where the feet (the sim position) land in the frame
 
 # ---------- palette (linear, daylight; the engine grades to night) ----------
 OLIVE = (0.15, 0.175, 0.085)
@@ -226,8 +226,11 @@ D = math.radians
 
 
 def pose(rig, angles, lift=0.0):
-    for name, rx in angles.items():
-        rig.pose.bones[name].rotation_euler = (D(rx), 0, 0)
+    """angles: bone -> degrees about local X (forward swing), or (x, y, z) degrees.
+    Local Z is the figure's forward axis, so a Z rotation swings a limb sideways."""
+    for name, r in angles.items():
+        rx, ry, rz = r if isinstance(r, tuple) else (r, 0, 0)
+        rig.pose.bones[name].rotation_euler = (D(rx), D(ry), D(rz))
     rig.pose.bones["hips"].location = (0, lift, 0)  # hips bone points up: local Y = world Z
 
 
@@ -281,7 +284,122 @@ def idle_pose(f, n):
     return a, -0.01
 
 
-ANIMS = {"idle": (idle_pose, 1), "walk": (walk_pose, 8), "run": (run_pose, 8)}
+# ---- prone: the hips bone is the root, so pitching it lays the whole body down ----
+PRONE = {"hips": 84, "head": -55, "foot.L": 10, "foot.R": 10}
+PRONE_LIFT = -0.74  # drops the hip pivot from 0.87 m to about 0.13 m
+
+
+def crawl_idle_pose(f, n):
+    a = {**PRONE, "arm.L": 150, "fore.L": -25, "arm.R": 160, "fore.R": -35}
+    return a, PRONE_LIFT
+
+
+def crawl_pose(f, n):
+    """Combat crawl: one knee drawn up sideways while the opposite arm reaches."""
+    p = 2 * math.pi * f / n
+    kl, kr = max(0.0, math.sin(p)), max(0.0, -math.sin(p))
+    a = {
+        **PRONE,
+        "thigh.L": (0, 0, 45 * kl),
+        "thigh.R": (0, 0, -45 * kr),
+        # the shin folds back along the ground (sideways axis), so the foot stays down
+        "shin.L": (0, 0, -80 * kl),
+        "shin.R": (0, 0, 80 * kr),
+        "arm.L": 150 + 18 * math.sin(p),
+        "fore.L": -25,
+        "arm.R": 160 - 18 * math.sin(p),
+        "fore.R": -35,
+    }
+    return a, PRONE_LIFT
+
+
+def ease(t):
+    return t * t * (3 - 2 * t)
+
+
+def takedown_pose(f, n):
+    """Step in and drive the carbine butt down: up on frames 1-2, strike on 3-4."""
+    up = [0.0, 0.7, 1.0, 0.4, 0.0, 0.0][f]
+    lunge = ease(min(1.0, f / 3))
+    a = {
+        "spine": 10 + 22 * lunge,
+        "head": -8,
+        "thigh.L": 28 * lunge,
+        "shin.L": -10 * lunge,
+        "thigh.R": -14 * lunge,
+        "shin.R": -18 * lunge,
+        "arm.L": ARMS_HOLD["arm.L"] + 85 * up,
+        "fore.L": ARMS_HOLD["fore.L"],
+        "arm.R": ARMS_HOLD["arm.R"] + 95 * up,
+        "fore.R": ARMS_HOLD["fore.R"],
+    }
+    return a, -0.06 * lunge
+
+
+def grab_pose(f, n):
+    """Crouch and reach down for the body."""
+    t = ease(f / (n - 1))
+    a = {
+        "spine": 4 + 40 * t,
+        "head": -2 - 15 * t,
+        "thigh.L": 75 * t,
+        "thigh.R": 60 * t,
+        "shin.L": -4 - 115 * t,
+        "shin.R": -4 - 100 * t,
+        "foot.L": 2 + 40 * t,
+        "foot.R": 2 + 40 * t,
+        "arm.L": ARMS_HOLD["arm.L"] + 45 * t,
+        "fore.L": ARMS_HOLD["fore.L"] - 45 * t,
+        "arm.R": ARMS_HOLD["arm.R"],
+        "fore.R": ARMS_HOLD["fore.R"],
+    }
+    return a, -0.36 * t
+
+
+def drag_pose(f, n):
+    """Walk bent forward, left hand back on the body's collar."""
+    a, lift = walk_pose(f, n)
+    a.update({"spine": 24, "head": -14, "arm.L": -35, "fore.L": 15})
+    return a, lift - 0.04
+
+
+def death_pose(f, n):
+    """Fall back and lie still. The last frame holds."""
+    t = ease(f / (n - 1))
+    a = {
+        "hips": -80 * t,
+        "head": 20 * t,
+        "thigh.L": 25 * t,
+        "thigh.R": 10 * t,
+        "shin.L": -20 * t,
+        "arm.L": ARMS_HOLD["arm.L"] + 50 * t,
+        "fore.L": ARMS_HOLD["fore.L"] - 50 * t,
+        "arm.R": (ARMS_HOLD["arm.R"] - 20 * t, 0, -40 * t),
+        "fore.R": ARMS_HOLD["fore.R"] - 60 * t,
+    }
+    return a, -0.76 * t
+
+
+def hit_pose(f, n):
+    """Flinch back, then recover."""
+    k = [1.0, 0.6, 0.25][f]
+    a = {**{"spine": 4 - 16 * k, "head": -2 + 18 * k, "shin.L": -4, "shin.R": -4}, **ARMS_HOLD}
+    a["arm.L"] += 15 * k
+    return a, -0.01
+
+
+ANIMS = {
+    "idle": (idle_pose, 1),
+    "walk": (walk_pose, 8),
+    "run": (run_pose, 8),
+    "crawl_idle": (crawl_idle_pose, 1),
+    "crawl": (crawl_pose, 8),
+    "takedown": (takedown_pose, 6),
+    "grab": (grab_pose, 4),
+    "drag": (drag_pose, 8),
+    "death": (death_pose, 6),
+    "hit": (hit_pose, 3),
+}
 
 
 # ---------- camera and lights ----------

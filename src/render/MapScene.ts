@@ -309,7 +309,10 @@ export class MapScene extends Phaser.Scene {
     if (!this.ctl.paused && !s0.over) this.game$.advance(Math.min(delta, 100) / 1000);
     const s = this.game$.state;
     const events = this.game$.drainEvents();
-    if (events.length) this.hooks.onEvents(events, s, this.ctl);
+    if (events.length) {
+      this.unitArt.onEvents(events, s.t);
+      this.hooks.onEvents(events, s, this.ctl);
+    }
     if (s.staticVersion !== this.staticVersion) this.drawStatic(s);
     this.drawDynamic(s);
     this.hooks.onFrame(s, this.ctl);
@@ -407,16 +410,20 @@ export class MapScene extends Phaser.Scene {
     // selected unit path and ring
     if (sel.alive) {
       const col = hex(sel.color);
+      const art = this.unitArt.covers(sel);
       if (sel.path.length) {
-        o.lineStyle(2, col, 0.7);
+        // with art the path lies on the ground, under the figure; the destination stays on top
+        const g = art ? this.shadows : o;
+        g.lineStyle(2, col, 0.7);
         const pts = [sel, ...sel.path].map((p) => toScreen(p.x, p.y));
-        for (let i = 1; i < pts.length; i++) o.lineBetween(pts[i - 1]!.x, pts[i - 1]!.y, pts[i]!.x, pts[i]!.y);
+        for (let i = 1; i < pts.length; i++) g.lineBetween(pts[i - 1]!.x, pts[i - 1]!.y, pts[i]!.x, pts[i]!.y);
         const end = pts.at(-1)!;
+        o.lineStyle(2, col, 0.7);
         o.strokeEllipse(end.x, end.y, 14, 7);
       }
       const p = toScreen(sel.x, sel.y);
       o.lineStyle(2, col, 1);
-      o.strokeEllipse(p.x, p.y, 34, 17);
+      if (!art) o.strokeEllipse(p.x, p.y, 34, 17); // art units get their ring on the ground (drawArtUnit)
       if (sel.order?.type === 'takedown') {
         const gp = toScreen(sel.order.guard.x, sel.order.guard.y);
         o.strokeEllipse(gp.x, gp.y, 30, 15);
@@ -447,7 +454,7 @@ export class MapScene extends Phaser.Scene {
     }
 
     for (const g of s.guards) this.drawGuard(g);
-    s.squad.forEach((u) => this.drawUnit(u, u === sel));
+    s.squad.forEach((u) => this.drawUnit(u, u === sel, s.t));
   }
 
   private drawCone(
@@ -497,8 +504,13 @@ export class MapScene extends Phaser.Scene {
     this.drawMarker(gr, g, GUARD_COLOR, 0x2f2420, false);
   }
 
-  private drawUnit(u: Unit, selected: boolean): void {
+  private drawUnit(u: Unit, selected: boolean, t: number): void {
     const gr = this.bodyGfx(u);
+    const col = hex(u.color);
+    if (this.unitArt.covers(u)) {
+      this.drawArtUnit(u, selected, t, col);
+      return;
+    }
     if (!u.alive) {
       const p = toScreen(u.x, u.y);
       gr.fillStyle(0x333333, 1);
@@ -506,10 +518,19 @@ export class MapScene extends Phaser.Scene {
       gr.setDepth(depthOf(u.x, u.y, 1));
       return;
     }
-    const col = hex(u.color);
-    if (this.unitArt.covers(u)) {
-      // rendered art: a contact shadow, a ring at the feet, and a squad-colour silhouette when hidden
-      const p = toScreen(u.x, u.y);
+    this.drawPlaceholderUnit(gr, u, col, selected);
+    if (u.hitT > 0) {
+      const m = this.markerOf(u);
+      gr.lineStyle(3, ALARM_COLOR, Math.min(1, u.hitT * 3));
+      gr.strokeCircle(m.x, m.y, UNIT_RADIUS + 5);
+    }
+  }
+
+  /** Rendered art: a contact shadow, a ring at the feet, the figure, and a
+   *  squad-colour silhouette when most of it is covered. */
+  private drawArtUnit(u: Unit, selected: boolean, t: number, col: number): void {
+    const p = toScreen(u.x, u.y);
+    if (u.alive) {
       this.shadows.fillStyle(0x000000, 0.22);
       this.shadows.fillEllipse(p.x + 1, p.y + 0.5, 22, 10);
       this.shadows.fillStyle(0x000000, 0.22);
@@ -517,19 +538,11 @@ export class MapScene extends Phaser.Scene {
       // the ring lies on the ground layer, so the figure always covers it (Ran: never on top of him)
       this.shadows.lineStyle(selected ? 1.5 : 1, col, selected ? 0.85 : 0.45);
       this.shadows.strokeEllipse(p.x, p.y + 1, 34, 17);
-      // silhouette only when most of him is covered: a low wall over the boots leaves him readable
-      const depth = depthOf(u.x, u.y, 13);
-      const covered = this.unitArt.samples(u).filter((p) => isHidden([p], depth, this.occluders)).length;
-      this.unitArt.draw(u, covered >= 2, col);
-    } else {
-      this.unitArt.draw(u, false, col);
-      this.drawPlaceholderUnit(gr, u, col, selected);
     }
-    if (u.hitT > 0) {
-      const m = this.markerOf(u);
-      gr.lineStyle(3, ALARM_COLOR, Math.min(1, u.hitT * 3));
-      gr.strokeCircle(m.x, m.y, UNIT_RADIUS + 5);
-    }
+    // silhouette only when most of him is covered: a low wall over the boots leaves him readable
+    const depth = depthOf(u.x, u.y, u.crawl ? 2 : 13);
+    const covered = this.unitArt.samples(u).filter((q) => isHidden([q], depth, this.occluders)).length;
+    this.unitArt.draw(u, t, covered >= 2, col);
   }
 
   private drawPlaceholderUnit(gr: Phaser.GameObjects.Graphics, u: Unit, col: number, selected: boolean): void {

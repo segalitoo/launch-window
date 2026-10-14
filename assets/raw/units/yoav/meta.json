@@ -1,18 +1,25 @@
 {
   "unit": "yoav",
   "frame": [
-    56,
-    64
+    96,
+    72
   ],
   "anchor": [
-    28,
-    56
+    48,
+    62
   ],
   "supersample": 2,
   "anims": {
     "idle": 1,
     "walk": 8,
-    "run": 8
+    "run": 8,
+    "crawl_idle": 1,
+    "crawl": 8,
+    "takedown": 6,
+    "grab": 4,
+    "drag": 8,
+    "death": 6,
+    "hit": 3
   },
   "dirs": 8,
   "dir_rule": "direction d = sim angle d * 45 degrees, 0 = sim +x"
