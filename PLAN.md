@@ -127,7 +127,7 @@ About 144 hours. Re-plan at each gate.
 
 - [ ] Generator yard at final art: ground, walls, gate, generator, crates
 - [ ] Night grade and light layer: lamp glow, searchlight beam
-- [ ] Yoav: model, rig, 10 animations in 8 directions, one atlas
+- [x] Yoav: model, rig, 10 animations in 8 directions, one atlas (low-poly look; final drawn look still to come, see below)
 - [ ] Guard: idle, walk, death
 - [ ] Gate B: does it feel like Commandos? If not, fix the pipeline before scaling it
 - [ ] Final character look: units must feel drawn, like the painted map and like Commandos. Ran, 14 Oct: the low-poly Yoav is OK for now and the pipeline can scale (other squad members, guards), but the look must be fixed before release. Options to test then: toon shading with ink lines in the render, a painted pass over rendered frames, or both. The rig, animations and engine code stay.
