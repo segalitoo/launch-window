@@ -22,6 +22,7 @@ import {
 import { Controller, type TapHit } from './controller';
 import { depthOf, footprint, mapBounds, type Point, toScreen, toTile } from './iso';
 import { blockOccluder, insideConvex, isHidden, type Occluder } from './occlusion';
+import { lampLevel } from './lamps';
 import { PaintedArea, toTintHex } from './paintedArea';
 import { GuardSprites, UnitSprites } from './unitSprites';
 import {
@@ -89,6 +90,8 @@ export class MapScene extends Phaser.Scene {
   /** Until the player pans or zooms, every resize refits the whole map. */
   private userMoved = false;
   private painted: PaintedArea[] = [];
+  /** Sim time the generator went off (null = power on), for the lamps' stutter. */
+  private powerCutAt: number | null = null;
   private occluders: Occluder[] = [];
   private unitArt!: UnitSprites;
   private guardArt!: GuardSprites;
@@ -125,6 +128,7 @@ export class MapScene extends Phaser.Scene {
     this.game$ = new Game(1);
     this.ctl = new Controller(this.game$);
     this.staticVersion = -1;
+    this.powerCutAt = null;
     for (const g of this.bodies.values()) g.destroy();
     this.bodies.clear();
   }
@@ -393,6 +397,12 @@ export class MapScene extends Phaser.Scene {
   }
 
   private drawDynamic(s: GameState): void {
+    // lamps run on the generator: on sim time, so a pause freezes the stutter
+    if (s.generator.on) this.powerCutAt = null;
+    else this.powerCutAt ??= s.t;
+    const lamps = lampLevel(this.powerCutAt === null ? null : s.t - this.powerCutAt);
+    for (const p of this.painted) p.setLamps(lamps);
+
     const o = this.overlay.clear();
     this.shadows.clear();
     const sel = this.ctl.sel;
