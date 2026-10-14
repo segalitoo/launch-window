@@ -120,7 +120,7 @@ About 144 hours. Re-plan at each gate.
 - [x] Depth sorting for units, props and buildings (centre-sum rule, 1-tile pieces, painted occluders)
 - [x] Outline for units hidden behind buildings
 - [x] Sight cones and searchlights drawn in iso
-- [ ] All prototype mechanics work with placeholder art (touch bar added for the phone; full play-through still to do)
+- [x] All prototype mechanics work with placeholder art (scenario 10 plays the whole mission by orders: win, zero alarms)
 - [ ] Preview plays on iPhone
 
 ### Phase 2. Vertical slice (16 h)

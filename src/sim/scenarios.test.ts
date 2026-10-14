@@ -19,6 +19,7 @@ import type { InteractTarget } from './types';
 const POST_WEST = 1; // post guard at (12, 12), facing west
 const YARD = 3; // generator yard post guard at (18, 23)
 const NORTH_PATROL = 6; // compound loop patrol
+const GATE_POST = 5; // compound west-gate post at (29, 12), facing west
 const SPINNER = 7; // spinning post guard at (36, 16)
 const SOUTH = 8; // south strip patrol
 
@@ -97,6 +98,43 @@ function compoundRun(k: Script): void {
 
   orderInteract(s, itai, target(k, 32, 18));
   k.until('TEL-3 rigged', () => s.launchers[2]!.done, 40);
+}
+
+/** Continues from scenario 7: ambush the compound loop patrol on the east side,
+ *  take down the west-gate post while Itai rigs TEL-2, rig TEL-1, then walk home the
+ *  way the squad came in (the main gate road passes two posts). */
+function finishRun(k: Script): void {
+  const s = k.s;
+  const yoav = k.unit('shadow');
+  const noa = k.unit('lure');
+  const itai = k.unit('sapper');
+  const loop = k.guard(NORTH_PATROL);
+  const gatePost = k.guard(GATE_POST);
+
+  k.until('loop patrol walks south, back to Yoav', () => loop.y > 15.5 && loop.x > 40, 10);
+  orderTakedown(s, yoav, loop);
+  k.until('loop patrol down', () => loop.state === 'down', 15);
+
+  orderInteract(s, itai, target(k, 37, 12));
+  orderTakedown(s, yoav, gatePost); // he faces the west gate, Yoav comes from the east
+  k.until('gate post down', () => gatePost.state === 'down', 30);
+  k.until('TEL-2 rigged', () => s.launchers[1]!.done, 40);
+  orderInteract(s, itai, target(k, 30, 9));
+  k.until('TEL-1 rigged', () => s.launchers[0]!.done, 40);
+  expect(s.aborted).toBe(true);
+
+  const team = [yoav, noa, itai];
+  const legs: [string, [number, number][]][] = [
+    ['south of the compound door', [[35.5, 24.5], [36.5, 25.5], [34.5, 25.5]]],
+    ['inside the yard', [[18.5, 24.5], [18.5, 25.5], [17.5, 25.5]]],
+    ['out of the yard gate', [[16.5, 28.5], [15.5, 28.5], [17.5, 28.5]]],
+  ];
+  for (const [label, pts] of legs) {
+    team.forEach((u, i) => orderMove(s, u, pts[i]![0], pts[i]![1]));
+    k.until(label, () => team.every(idle), 90);
+  }
+  team.forEach((u, i) => orderMove(s, u, [4.5, 2.5, 4.5][i]!, [24.5, 26.5, 26.5][i]!));
+  k.until('win', () => s.over === 'win', 30);
 }
 
 describe('verified scenarios from prototype/NOTES.md', () => {
@@ -208,6 +246,18 @@ describe('verified scenarios from prototype/NOTES.md', () => {
     expect(k.s.over).toBeNull();
     orderMove(k.s, k.unit('sapper'), 5.5, 26.5);
     k.until('win', (s) => s.over === 'win', 5);
+  });
+
+  test('10. the whole mission by orders only: every launcher rigged, everyone home, zero alarms', () => {
+    const k = new Script();
+    generatorYardRun(k);
+    compoundRun(k);
+    finishRun(k);
+    expect(k.s.over).toBe('win');
+    expect(k.s.squad.every((u) => u.alive && u.hp === u.maxHp)).toBe(true);
+    expect(k.s.stats.takedowns).toBe(5);
+    expect(k.s.timeLeft).toBeGreaterThan(300); // about 6:50 of 8:00 left
+    noAlarm(k);
   });
 
   test('9. the timer reaching 0 ends in launch', () => {
