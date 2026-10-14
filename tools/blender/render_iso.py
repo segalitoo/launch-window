@@ -629,4 +629,5 @@ def main():
     print("META", json.dumps(meta))
 
 
-main()
+if __name__ == "__main__":  # importable by render_unit.py
+    main()

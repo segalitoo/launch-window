@@ -1,0 +1,32 @@
+:root {
+  color-scheme: dark;
+  --ink: #0b0f11;
+  --panel: #141a1d;
+  --line: #26323a;
+  --text: #ece4d3;
+  --muted: #8d989b;
+  --accent: #ffb547;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--ink); color: var(--text); font: 14px/1.45 ui-sans-serif, system-ui, sans-serif; }
+.bar { position: sticky; top: 0; z-index: 2; background: rgba(11, 15, 17, 0.94); border-bottom: 1px solid var(--line); padding: 14px 16px; }
+h1 { margin: 0; font-size: 20px; font-weight: 600; }
+.sub { margin: 2px 0 10px; color: var(--muted); }
+.controls { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; }
+.controls label { display: flex; gap: 6px; align-items: center; color: var(--muted); }
+select, button { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 4px; padding: 5px 8px; font: inherit; }
+button { cursor: pointer; }
+a { color: var(--accent); }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--card-w, 340px)), 1fr)); gap: 16px; padding: 16px; }
+.group { grid-column: 1 / -1; margin: 12px 0 -4px; font-size: 15px; font-weight: 600; color: var(--muted); letter-spacing: 0.02em; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.card canvas { display: block; width: 100%; height: auto; background: #1b1d1c; }
+.card .meta { padding: 8px 10px 10px; }
+.card .name { font-weight: 600; }
+.card .note { color: var(--muted); font-size: 12.5px; }
+.card .src { font-size: 12px; margin-top: 3px; }
+.card .src.mocap { color: #7fdc95; }
+.card .src.formula { color: var(--accent); }
+@media (max-width: 600px) {
+  .grid { padding: 16px; gap: 12px; }
+}

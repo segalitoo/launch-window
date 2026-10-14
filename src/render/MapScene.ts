@@ -22,7 +22,8 @@ import {
 import { Controller, type TapHit } from './controller';
 import { depthOf, footprint, mapBounds, type Point, toScreen, toTile } from './iso';
 import { blockOccluder, insideConvex, isHidden, type Occluder } from './occlusion';
-import { PaintedArea } from './paintedArea';
+import { PaintedArea, toTintHex } from './paintedArea';
+import { GuardSprites, UnitSprites } from './unitSprites';
 import {
   ALARM_COLOR,
   BLOCKS,
@@ -42,6 +43,8 @@ const CONE_RAYS = 28;
 const TAP_SLOP = 8; // px a pointer may move before a tap becomes a pan
 const MAX_ZOOM = 2.5;
 const OVERLAY_DEPTH = 1e9;
+/** Night grade for units, lighter than the environment's (visual language 6b). */
+const UNIT_GRADE = [0.62, 0.68, 0.82] as const;
 const MAP_TOP_MARGIN = 80; // room for tall blocks on the back row
 const PAINTED_AREAS = ['yard'];
 
@@ -87,6 +90,10 @@ export class MapScene extends Phaser.Scene {
   private userMoved = false;
   private painted: PaintedArea[] = [];
   private occluders: Occluder[] = [];
+  private unitArt!: UnitSprites;
+  private guardArt!: GuardSprites;
+  /** Soft contact shadows under rendered units, above the ground, below every structure. */
+  private shadows!: Phaser.GameObjects.Graphics;
 
   constructor(hooks: SceneHooks) {
     super('map');
@@ -95,6 +102,8 @@ export class MapScene extends Phaser.Scene {
 
   preload(): void {
     for (const name of PAINTED_AREAS) PaintedArea.preload(this, name);
+    UnitSprites.preload(this);
+    GuardSprites.preload(this);
   }
 
   create(): void {
@@ -103,6 +112,9 @@ export class MapScene extends Phaser.Scene {
     const { cols, rows } = this.game$.state.grid;
     this.painted = PAINTED_AREAS.map((name) => new PaintedArea(this, name, -OVERLAY_DEPTH + 1, cols, rows));
     this.overlay = this.add.graphics().setDepth(OVERLAY_DEPTH);
+    this.unitArt = new UnitSprites(this, toTintHex(UNIT_GRADE), OVERLAY_DEPTH - 1);
+    this.guardArt = new GuardSprites(this, toTintHex(UNIT_GRADE));
+    this.shadows = this.add.graphics().setDepth(-OVERLAY_DEPTH + 2);
     this.input.addPointer(1);
     this.setupInput();
     this.scale.on('resize', () => this.fitCamera(!this.userMoved));
@@ -300,7 +312,11 @@ export class MapScene extends Phaser.Scene {
     if (!this.ctl.paused && !s0.over) this.game$.advance(Math.min(delta, 100) / 1000);
     const s = this.game$.state;
     const events = this.game$.drainEvents();
-    if (events.length) this.hooks.onEvents(events, s, this.ctl);
+    if (events.length) {
+      this.unitArt.onEvents(events, s.t);
+      this.guardArt.onEvents(events, s.t);
+      this.hooks.onEvents(events, s, this.ctl);
+    }
     if (s.staticVersion !== this.staticVersion) this.drawStatic(s);
     this.drawDynamic(s);
     this.hooks.onFrame(s, this.ctl);
@@ -378,6 +394,7 @@ export class MapScene extends Phaser.Scene {
 
   private drawDynamic(s: GameState): void {
     const o = this.overlay.clear();
+    this.shadows.clear();
     const sel = this.ctl.sel;
 
     // searchlights
@@ -397,16 +414,20 @@ export class MapScene extends Phaser.Scene {
     // selected unit path and ring
     if (sel.alive) {
       const col = hex(sel.color);
+      const art = this.unitArt.covers(sel);
       if (sel.path.length) {
-        o.lineStyle(2, col, 0.7);
+        // with art the path lies on the ground, under the figure; the destination stays on top
+        const g = art ? this.shadows : o;
+        g.lineStyle(2, col, 0.7);
         const pts = [sel, ...sel.path].map((p) => toScreen(p.x, p.y));
-        for (let i = 1; i < pts.length; i++) o.lineBetween(pts[i - 1]!.x, pts[i - 1]!.y, pts[i]!.x, pts[i]!.y);
+        for (let i = 1; i < pts.length; i++) g.lineBetween(pts[i - 1]!.x, pts[i - 1]!.y, pts[i]!.x, pts[i]!.y);
         const end = pts.at(-1)!;
+        o.lineStyle(2, col, 0.7);
         o.strokeEllipse(end.x, end.y, 14, 7);
       }
       const p = toScreen(sel.x, sel.y);
       o.lineStyle(2, col, 1);
-      o.strokeEllipse(p.x, p.y, 34, 17);
+      if (!art) o.strokeEllipse(p.x, p.y, 34, 17); // art units get their ring on the ground (drawArtUnit)
       if (sel.order?.type === 'takedown') {
         const gp = toScreen(sel.order.guard.x, sel.order.guard.y);
         o.strokeEllipse(gp.x, gp.y, 30, 15);
@@ -436,8 +457,8 @@ export class MapScene extends Phaser.Scene {
       o.fillCircle(m.x, m.y, 4);
     }
 
-    for (const g of s.guards) this.drawGuard(g);
-    s.squad.forEach((u) => this.drawUnit(u, u === sel));
+    for (const g of s.guards) this.drawGuard(g, s.t, s.squad.find((u) => u.carrying === g));
+    s.squad.forEach((u) => this.drawUnit(u, u === sel, s.t));
   }
 
   private drawCone(
@@ -473,9 +494,18 @@ export class MapScene extends Phaser.Scene {
     o.strokePoints(poly(far), true);
   }
 
-  private drawGuard(g: Guard): void {
+  private drawGuard(g: Guard, t: number, carrier?: Unit): void {
     const gr = this.bodyGfx(g);
     const p = toScreen(g.x, g.y);
+    if (this.guardArt.ready) {
+      if (g.state !== 'down') {
+        this.shadows.fillStyle(0x000000, 0.22);
+        this.shadows.fillEllipse(p.x + 1, p.y + 0.5, 22, 10);
+        this.shadows.fillEllipse(p.x + 1, p.y + 0.5, 14, 6);
+      }
+      this.guardArt.draw(g, t, carrier);
+      return;
+    }
     if (g.state === 'down') {
       gr.fillStyle(0x000000, 0.3);
       gr.fillEllipse(p.x, p.y, 24, 12);
@@ -487,8 +517,13 @@ export class MapScene extends Phaser.Scene {
     this.drawMarker(gr, g, GUARD_COLOR, 0x2f2420, false);
   }
 
-  private drawUnit(u: Unit, selected: boolean): void {
+  private drawUnit(u: Unit, selected: boolean, t: number): void {
     const gr = this.bodyGfx(u);
+    const col = hex(u.color);
+    if (this.unitArt.covers(u)) {
+      this.drawArtUnit(u, selected, t, col);
+      return;
+    }
     if (!u.alive) {
       const p = toScreen(u.x, u.y);
       gr.fillStyle(0x333333, 1);
@@ -496,7 +531,34 @@ export class MapScene extends Phaser.Scene {
       gr.setDepth(depthOf(u.x, u.y, 1));
       return;
     }
-    const col = hex(u.color);
+    this.drawPlaceholderUnit(gr, u, col, selected);
+    if (u.hitT > 0) {
+      const m = this.markerOf(u);
+      gr.lineStyle(3, ALARM_COLOR, Math.min(1, u.hitT * 3));
+      gr.strokeCircle(m.x, m.y, UNIT_RADIUS + 5);
+    }
+  }
+
+  /** Rendered art: a contact shadow, a ring at the feet, the figure, and a
+   *  squad-colour silhouette when most of it is covered. */
+  private drawArtUnit(u: Unit, selected: boolean, t: number, col: number): void {
+    const p = toScreen(u.x, u.y);
+    if (u.alive) {
+      this.shadows.fillStyle(0x000000, 0.22);
+      this.shadows.fillEllipse(p.x + 1, p.y + 0.5, 22, 10);
+      this.shadows.fillStyle(0x000000, 0.22);
+      this.shadows.fillEllipse(p.x + 1, p.y + 0.5, 14, 6);
+      // the ring lies on the ground layer, so the figure always covers it (Ran: never on top of him)
+      this.shadows.lineStyle(selected ? 1.5 : 1, col, selected ? 0.85 : 0.45);
+      this.shadows.strokeEllipse(p.x, p.y + 1, 34, 17);
+    }
+    // silhouette only when most of him is covered: a low wall over the boots leaves him readable
+    const depth = depthOf(u.x, u.y, u.crawl ? 2 : 13);
+    const covered = this.unitArt.samples(u).filter((q) => isHidden([q], depth, this.occluders)).length;
+    this.unitArt.draw(u, t, covered >= 2, col);
+  }
+
+  private drawPlaceholderUnit(gr: Phaser.GameObjects.Graphics, u: Unit, col: number, selected: boolean): void {
     this.drawMarker(gr, u, col, selected ? 0xffffff : 0x1e2a26, u.crawl);
     // never lose a unit: behind a structure it shows as an outline in its squad colour
     const lift = u.crawl ? 5 : UNIT_LIFT;
@@ -509,11 +571,6 @@ export class MapScene extends Phaser.Scene {
       o.strokeCircle(m.x, m.y, UNIT_RADIUS);
       o.lineBetween(p.x, p.y, m.x, m.y + UNIT_RADIUS);
       o.strokeEllipse(p.x, p.y, 18, 9);
-    }
-    if (u.hitT > 0) {
-      const m = this.markerOf(u);
-      gr.lineStyle(3, ALARM_COLOR, Math.min(1, u.hitT * 3));
-      gr.strokeCircle(m.x, m.y, UNIT_RADIUS + 5);
     }
   }
 

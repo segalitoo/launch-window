@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Motion Library</title>
+  </head>
+  <body>
+    <header class="bar">
+      <h1>Motion library</h1>
+      <p class="sub">Every animation and interaction, at game speed, under the night grade. Same frame logic as the game.</p>
+      <div class="controls">
+        <label>Direction
+          <select id="dir">
+            <option value="rotate">Rotate</option>
+            <option value="0">0 · down-right</option>
+            <option value="1">1 · down</option>
+            <option value="2">2 · down-left</option>
+            <option value="3" selected>3 · left</option>
+            <option value="4">4 · up-left</option>
+            <option value="5">5 · up</option>
+            <option value="6">6 · up-right</option>
+            <option value="7">7 · right</option>
+          </select>
+        </label>
+        <label>Speed
+          <select id="speed">
+            <option value="0.25">¼ ×</option>
+            <option value="0.5">½ ×</option>
+            <option value="1" selected>1 ×</option>
+          </select>
+        </label>
+        <label>Zoom
+          <select id="zoom">
+            <option value="1">1 × (game size)</option>
+            <option value="2" selected>2 ×</option>
+            <option value="3">3 ×</option>
+          </select>
+        </label>
+        <button id="pause" type="button">Pause</button>
+        <a href="./">Back to the game</a>
+      </div>
+    </header>
+    <main id="grid" class="grid"></main>
+    <script type="module" src="/src/motion/main.ts"></script>
+  </body>
+</html>

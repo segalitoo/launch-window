@@ -6,13 +6,17 @@ import {
   ALARM_RATE,
   ALARM_TIME,
   HIT_FLASH,
+  PACE,
   SHOT_FIRST,
+  TAKEDOWN_REACH,
+  TAKEDOWN_SIDE,
   TOWER_DECAY,
   TOWER_FOV,
   TOWER_LEN,
   TOWER_SUSP,
 } from './constants';
 import { angDiff, center, dist, tileOf } from './math';
+import { walkable } from './grid';
 import type { GameResult, GameState, Guard, MessageKind, Unit } from './types';
 import { losClear } from './vision';
 
@@ -43,6 +47,17 @@ export function raiseAlarm(s: GameState, x: number, y: number, src: Guard | null
 }
 
 export function takedown(s: GameState, u: Unit, g: Guard): void {
+  // the attacker takes him from the back-right: he ends ahead and to the attacker's left,
+  // facing away (left of facing angle a in sim space is (sin a, -cos a))
+  const a = Math.atan2(g.y - u.y, g.x - u.x);
+  const x = u.x + Math.cos(a) * TAKEDOWN_REACH + Math.sin(a) * TAKEDOWN_SIDE;
+  const y = u.y + Math.sin(a) * TAKEDOWN_REACH - Math.cos(a) * TAKEDOWN_SIDE;
+  if (walkable(s.grid, tileOf(x), tileOf(y))) {
+    g.x = x;
+    g.y = y;
+  }
+  g.ang = a;
+  u.ang = a;
   g.state = 'down';
   g.path = [];
   g.susp = 0;
@@ -87,7 +102,7 @@ export function updateTowers(s: GameState, dt: number): void {
       t.susp = 0;
       continue;
     }
-    const k = 0.5 - 0.5 * Math.cos((2 * Math.PI * s.t) / t.period + t.phase);
+    const k = 0.5 - 0.5 * Math.cos((2 * Math.PI * s.t) / (t.period / PACE) + t.phase);
     t.ang = t.a0 + (t.a1 - t.a0) * k;
     const o = center(t.x, t.y);
     let seen: Unit | null = null;

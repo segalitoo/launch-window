@@ -10,6 +10,8 @@ export default defineConfig({
   build: {
     target: 'es2022',
     chunkSizeWarningLimit: 2000,
+    // the game, and the motion library page for reviewing animations
+    rollupOptions: { input: { main: 'index.html', motion: 'motion.html' } },
   },
   test: {
     include: ['src/**/*.test.ts'],

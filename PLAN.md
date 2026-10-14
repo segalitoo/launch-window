@@ -14,6 +14,7 @@ Rebuild Launch Window as one finished isometric mission in the style of Commando
 | Time | 8 h a week, as two 4 h sessions | Each session ends with something playable. |
 | Scope | One mission, Operation Night Lantern, to full quality | A second mission waits until v1 is done. |
 | Toolkit | Full proposal (assumed) | Not confirmed yet. See the toolkit section. |
+| Pace | The world moves at 60% of the prototype (`PACE` in `src/sim/constants.ts`). Guard turns, waits, sweeps, searchlights and suspicion scale with it; shots, alarm and work stay in real seconds. Timer 8:00 becomes 13:20. | Ran, Phase 2: the prototype speeds were about twice real life at the art scale. Scaling guard rhythm too keeps every verified scenario solvable the same way. |
 
 Ran is the art director. He approves every look gate, retouches key art and playtests. Claude writes the code, the pipeline scripts and the image prompts, and tests each build.
 
@@ -127,9 +128,10 @@ About 144 hours. Re-plan at each gate.
 
 - [ ] Generator yard at final art: ground, walls, gate, generator, crates
 - [ ] Night grade and light layer: lamp glow, searchlight beam
-- [ ] Yoav: model, rig, 10 animations in 8 directions, one atlas
-- [ ] Guard: idle, walk, death
+- [x] Yoav: model, rig, 10 animations in 8 directions, one atlas (low-poly look; final drawn look still to come, see below)
+- [x] Guard: idle, walk, death (plus run for investigate and combat; look A, khaki and cap)
 - [ ] Gate B: does it feel like Commandos? If not, fix the pipeline before scaling it
+- [ ] Final character look: units must feel drawn, like the painted map and like Commandos. Ran, 14 Oct: the low-poly Yoav is OK for now and the pipeline can scale (other squad members, guards), but the look must be fixed before release. Options to test then: toon shading with ink lines in the render, a painted pass over rendered frames, or both. The rig, animations and engine code stay.
 
 ### Phase 3. Toolkit and enemies (32 h)
 
@@ -146,7 +148,7 @@ About 144 hours. Re-plan at each gate.
 
 ### Phase 5. Characters and enemies art (16 h)
 
-- [ ] Noa and Itai, full animation sets
+- [x] Noa and Itai, full animation sets (done early, in Phase 2: same rig and kit system as Yoav; Noa throws the decoy, Itai squats to work; low-poly look like Yoav)
 - [ ] Guard full set, officer, dog
 
 ### Phase 6. UI (8 h)

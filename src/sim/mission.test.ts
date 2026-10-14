@@ -6,17 +6,18 @@ import { orderInteract, objectAt, orderMove, throwDecoy } from './squad';
 import { Script } from './testkit';
 
 describe('timer and alarm', () => {
-  test('the countdown starts at 8:00 and runs at real speed', () => {
+  // these check real seconds, so they step the game directly, not the paced script time
+  test('the countdown starts at the time limit (8:00 in the prototype, stretched by PACE) and runs at real speed', () => {
     const k = new Script();
     expect(k.s.timeLeft).toBe(TIME_LIMIT);
-    k.run(10);
+    k.game.run(10);
     expect(k.s.timeLeft).toBeCloseTo(TIME_LIMIT - 10, 6);
   });
 
   test('during an alarm the countdown runs at double speed', () => {
     const k = new Script();
     raiseAlarm(k.s, 0.5, 0.5, null, 'test');
-    k.run(5);
+    k.game.run(5);
     expect(k.s.alarm.active).toBe(true);
     expect(k.s.timeLeft).toBeCloseTo(TIME_LIMIT - 10, 6);
   });
@@ -26,9 +27,9 @@ describe('timer and alarm', () => {
     raiseAlarm(k.s, 12.5, 12.5, null, 'test');
     const g = k.guard(1);
     expect(g.state).toBe('combat');
-    k.run(ALARM_TIME - 0.5);
+    k.game.run(ALARM_TIME - 0.5);
     expect(k.s.alarm.active).toBe(true);
-    k.until('clears', (s) => !s.alarm.active, 1);
+    expect(k.game.runUntil((s) => !s.alarm.active, 1)).toBe(true);
     expect(['return', 'patrol']).toContain(g.state);
   });
 

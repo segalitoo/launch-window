@@ -88,11 +88,15 @@ Keep this list current. Node 22 (`.nvmrc`); Vercel builds with Node 22.
 - `npm run test:watch` run tests in watch mode
 - `npm run build` type-check the app, type-check `src/sim` without DOM types, then build to `dist/`
 - `npm run preview` serve the production build
+- Motion library: `/motion.html` on the dev server or any preview link shows every unit animation and interaction at game speed, under the night grade, with its source (motion capture clip or formula). Review animation changes there.
 - Edit the map: open `maps/night-lantern.tmj` in Tiled. Layers and object types are listed at the top of `src/sim/tiled.ts`. Save, and the dev server reloads it; `npm test` catches a broken map with a clear message.
 - `~/Downloads/Tiled.app/Contents/MacOS/tmxrasterizer maps/night-lantern.tmj /tmp/map.png` draw the map as Tiled sees it, without opening Tiled (Tiled 1.12.2 lives in ~/Downloads)
 - `python3 tools/editor_tiles.py` rebuild `maps/editor-tiles.png`, the colour squares Tiled shows (never used in the game)
 - `node tools/export-map.mjs` export the sim map to `assets/raw/blockout/map.json` for Blender
 - `/Applications/Blender.app/Contents/MacOS/Blender -b -P tools/blender/render_iso.py -- --map assets/raw/blockout/map.json --out assets/raw/blockout --name yard --region 11 20 25 30 --look B` render a map region through the iso camera (see the file header)
+- `/Applications/Blender.app/Contents/MacOS/Blender -b -P tools/blender/render_unit.py -- --unit yoav --out assets/raw/units/yoav` build, rig and render a unit (10 animations in 8 directions, 424 frames; about 3 min)
+- `/Applications/Blender.app/Contents/MacOS/Blender -b -P tools/blender/render_takedown.py -- --yoav assets/raw/units/yoav --guard assets/raw/units/guard` render the knife takedown pair (both units in one scene, IK contact); run after render_unit.py for both units
+- `python3 tools/pack_unit.py yoav` trim and pack the rendered frames into `assets/build/units/yoav-N.png` pages and `yoav.json` (Phaser multi-atlas)
 - `python3 tools/grade_night.py assets/raw/blockout/yard_B_day.png --hud` preview the engine's night grade and the overlay
 - `python3 tools/check_align.py <plate.png> <painted.jpg>` measure how far a painting drifted from its blockout, and write a red-edge overlay
 - `python3 tools/import_paint.py <plate.json> <painted.jpg>` put a painting back on the iso grid (writes `_day.png` and a sidecar)
