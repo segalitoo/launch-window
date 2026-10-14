@@ -89,6 +89,7 @@ Keep this list current. Node 22 (`.nvmrc`); Vercel builds with Node 22.
 - `npm run build` type-check the app, type-check `src/sim` without DOM types, then build to `dist/`
 - `npm run preview` serve the production build
 - Edit the map: open `maps/night-lantern.tmj` in Tiled. Layers and object types are listed at the top of `src/sim/tiled.ts`. Save, and the dev server reloads it; `npm test` catches a broken map with a clear message.
+- `~/Downloads/Tiled.app/Contents/MacOS/tmxrasterizer maps/night-lantern.tmj /tmp/map.png` draw the map as Tiled sees it, without opening Tiled (Tiled 1.12.2 lives in ~/Downloads)
 - `python3 tools/editor_tiles.py` rebuild `maps/editor-tiles.png`, the colour squares Tiled shows (never used in the game)
 - `node tools/export-map.mjs` export the sim map to `assets/raw/blockout/map.json` for Blender
 - `/Applications/Blender.app/Contents/MacOS/Blender -b -P tools/blender/render_iso.py -- --map assets/raw/blockout/map.json --out assets/raw/blockout --name yard --region 11 20 25 30 --look B` render a map region through the iso camera (see the file header)
