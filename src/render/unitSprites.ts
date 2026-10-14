@@ -8,8 +8,9 @@ import { depthOf, toScreen, type Point } from './iso';
 import { draggedFrameName, frameName, guardFrameName } from './unitAnim';
 
 /** Units that have rendered art: unit id → atlas name in assets/build/units/. */
-/** Phase 2 look test (Ran): `?look=a` in the address swaps Yoav and the guards for their
- *  look A atlases (tools/blender/looks.py, cel_black), to judge the drawn look in play. */
+/** Phase 2 look test (Ran): `?look=a` in the address swaps Yoav and the guards for the
+ *  test-look atlases (yoav_a, guard_a), to judge a drawn look in play. Now holding D3
+ *  (tools/blender/looks.py, outline_pop); look A (cel_black) was rejected: no detail. */
 const LOOK_A = typeof location !== 'undefined' && new URLSearchParams(location.search).get('look') === 'a';
 
 export const UNIT_ART: Partial<Record<UnitId, string>> = { shadow: LOOK_A ? 'yoav_a' : 'yoav', lure: 'noa', sapper: 'itai' };

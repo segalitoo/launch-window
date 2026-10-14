@@ -16,7 +16,18 @@ Thresholds were measured on Yoav's light pass (shadow side 0.1 to 0.3, lit faces
 
 import bpy
 
-LOOKS = ("render", "cel_black", "cel_tone", "paint", "hybrid")
+LOOKS = ("render", "cel_black", "cel_tone", "paint", "hybrid", "outline", "outline_hi", "outline_pop")
+
+# Ran on look A (cel_black): "not clear, we can't see details, a silhouette of a soldier".
+# The flat bands threw most of the figure into one shadow band and the inner lines ate the
+# few pixels the gear has. The outline looks keep the render's own shading (all the detail)
+# and add only what drawn sprites have:
+#   outline      the render plus a 1 px black outline
+#   outline_hi   plus highlights on the faces lit from the top left, so gear edges catch light
+#   outline_pop  plus a brightness gain, so details separate at night
+HIGHLIGHT = 0.45  # added surface colour on lit faces
+LIT = 0.6  # light level that counts as lit (shadow side 0.1 to 0.3, lit faces about 1.0)
+POP_GAIN = 1.3  # a plain gain: Blender's contrast pivots on mid grey and crushed these dark figures
 
 # light bands: (light level where the band starts, band colour). Shadows lean cool and the
 # lit side warm, like the painted yard (visual language 6b).
@@ -115,6 +126,25 @@ def setup_look(scene, look):
         return k.outputs[0]
 
     col = rl.outputs["Diffuse Color"]
+    if look.startswith("outline"):
+        image = rl.outputs["Image"]
+        if look in ("outline_hi", "outline_pop"):
+            light = mix("ADD", rl.outputs["Diffuse Direct"], rl.outputs["Diffuse Indirect"])
+            lum = N.new("CompositorNodeRGBToBW")
+            L.new(light, lum.inputs[0])
+            lit = math("GREATER_THAN", lum.outputs[0], LIT)
+            hi = mix("MULTIPLY", col, (HIGHLIGHT, HIGHLIGHT * 0.97, HIGHLIGHT * 0.9, 1.0))
+            image = mix("ADD", image, hi, lit)
+        if look == "outline_pop":
+            image = mix("MULTIPLY", image, (POP_GAIN, POP_GAIN, POP_GAIN, 1.0))
+        edge = math("MINIMUM", math("GREATER_THAN", sobel(rl.outputs["Alpha"]), 0.25), math("GREATER_THAN", rl.outputs["Alpha"], 0.5))
+        image = mix("MIX", image, INK_BLACK, edge)
+        sa = N.new("CompositorNodeSetAlpha")
+        _menu(sa.inputs["Type"], "Replace Alpha", "REPLACE_ALPHA")
+        L.new(image, sa.inputs["Image"])
+        L.new(rl.outputs["Alpha"], sa.inputs["Alpha"])
+        L.new(sa.outputs[0], out.inputs[0])
+        return
     if look == "paint":
         image = kuwahara(rl.outputs["Image"])
     else:
