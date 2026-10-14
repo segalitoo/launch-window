@@ -115,7 +115,7 @@ About 144 hours. Re-plan at each gate.
 
 ### Phase 1. Engine port (16 h)
 
-- [ ] Iso projection and camera: pan, pinch, zoom (placeholder done in Session 1; pinch not yet tested on a real phone)
+- [x] Iso projection and camera: pan, pinch, zoom (checked on iPhone by Ran, Oct 14)
 - [x] Mission map rebuilt in Tiled and loaded into the sim grid (1:1 with the code map; layout redesign comes later)
 - [x] Depth sorting for units, props and buildings (centre-sum rule, 1-tile pieces, painted occluders)
 - [x] Outline for units hidden behind buildings
