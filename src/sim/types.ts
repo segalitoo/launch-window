@@ -171,6 +171,8 @@ export interface GameState {
   generator: Generator;
   towers: Tower[];
   launchers: Launcher[];
+  /** Landing zone, inclusive tile bounds. */
+  lz: { x0: number; y0: number; x1: number; y1: number };
   guards: Guard[];
   squad: Unit[];
   projectiles: Projectile[];

@@ -6,7 +6,6 @@ import {
   ALARM_RATE,
   ALARM_TIME,
   HIT_FLASH,
-  LZ,
   SHOT_FIRST,
   TOWER_DECAY,
   TOWER_FOV,
@@ -74,10 +73,11 @@ export function endGame(s: GameState, result: GameResult, u?: Unit): void {
   s.events.push(u ? { type: 'gameOver', result, unit: u.id } : { type: 'gameOver', result });
 }
 
-export function inLZ(u: Unit): boolean {
+export function inLZ(s: GameState, u: Unit): boolean {
+  const z = s.lz;
   const tx = tileOf(u.x);
   const ty = tileOf(u.y);
-  return tx >= LZ.x0 && tx <= LZ.x1 && ty >= LZ.y0 && ty <= LZ.y1;
+  return tx >= z.x0 && tx <= z.x1 && ty >= z.y0 && ty <= z.y1;
 }
 
 /** Searchlights sweep between two angles and see everyone, crawling or not. */

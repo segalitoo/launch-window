@@ -96,6 +96,3 @@ export const EPS_MOVE = px(0.01);
 export const EPS_LOS_MIN = px(1);
 export const EPS_LOS = px(0.01);
 export const RAY_MAX_STEPS = 200;
-
-// Landing zone, inclusive tile bounds
-export const LZ = { x0: 1, y0: 23, x1: 6, y1: 28 } as const;

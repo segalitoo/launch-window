@@ -10,7 +10,6 @@ import {
   type GameState,
   type Guard,
   type InteractTarget,
-  LZ,
   NEAR_FRACTION,
   type SimEvent,
   tileAt,
@@ -321,7 +320,8 @@ export class MapScene extends Phaser.Scene {
       }
     }
     // landing zone
-    const lz = footprint(LZ.x0, LZ.y0, LZ.x1 - LZ.x0 + 1, LZ.y1 - LZ.y0 + 1);
+    const z = this.game$.state.lz;
+    const lz = footprint(z.x0, z.y0, z.x1 - z.x0 + 1, z.y1 - z.y0 + 1);
     g.fillStyle(LZ_COLOR, 0.12);
     g.fillPoints(poly(lz), true);
     g.lineStyle(2, LZ_COLOR, 0.8);

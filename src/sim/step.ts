@@ -30,5 +30,5 @@ export function step(s: GameState, dt: number): void {
     if (!anySee) s.alarm.timer -= dt;
     if (s.alarm.timer <= 0) clearAlarm(s);
   }
-  if (s.aborted && s.squad.every((u) => u.alive && inLZ(u))) endGame(s, 'win');
+  if (s.aborted && s.squad.every((u) => u.alive && inLZ(s, u))) endGame(s, 'win');
 }
