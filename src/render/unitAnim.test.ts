@@ -62,7 +62,7 @@ describe('unit animation frames', () => {
     expect(f({ takedownAt: 10 })).toBe('takedown_d0_f0');
     expect(f({ takedownAt: 10 - ONE_SHOT.takedown * 0.99 })).toBe('takedown_d0_f5');
     expect(f({ takedownAt: 10 - ONE_SHOT.takedown - 0.01 })).toBe('idle_d0_f0');
-    expect(f({ takedownAt: 10 - ONE_SHOT.takedown * 0.5, moving: true })).toBe('takedown_d0_f3'); // wins over the run
+    expect(f({ takedownAt: 10 - ONE_SHOT.takedown * 0.55, moving: true })).toBe('takedown_d0_f3'); // wins over the run
   });
 
   test('death plays through and holds its last frame', () => {
@@ -94,12 +94,12 @@ describe('guard animation frames', () => {
     expect(g({ moving: true, running: true })).toBe('run_d0_f0');
   });
 
-  test('struck from behind he stands until the blow lands, then collapses forward', () => {
-    const ga2 = { ...ga, knockout: 12 };
+  test('taken down from behind he plays the knockout with Yoav, then stays down', () => {
+    const ga2 = { ...ga, knockout: 14 };
     const k = (s: Partial<GuardAnimState>): string => guardFrameName({ ...g0, down: true, ...s }, ga2);
-    expect(k({ koAt: 5 })).toBe('idle_d0_f0');
-    expect(k({ koAt: 5 - TAKEDOWN_IMPACT - 0.01 })).toBe('knockout_d0_f0');
-    expect(k({ koAt: 0 })).toBe('knockout_d0_f11'); // holds face down
+    expect(k({ koAt: 5 - TAKEDOWN_IMPACT })).toBe('knockout_d0_f0');
+    expect(k({ koAt: 5 - TAKEDOWN_IMPACT - ONE_SHOT.knockout * 0.55 })).toBe('knockout_d0_f7');
+    expect(k({ koAt: 0 })).toBe('knockout_d0_f13'); // holds, on his back
     expect(k({ koAt: 0, onBack: true })).toBe('death_d0_f5'); // dragged and dropped: on his back
   });
 

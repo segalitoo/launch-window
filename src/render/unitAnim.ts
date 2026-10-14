@@ -14,10 +14,11 @@ export const IDLE_LOOP = 1.73;
 
 /** One-shot lengths in seconds of sim time. The sim makes takedowns and grabs instant,
  *  so these play over the moment without holding the unit. */
-export const ONE_SHOT = { takedown: 0.8, grab: 0.6, death: 0.75, knockout: 0.8 } as const;
+export const ONE_SHOT = { takedown: 1.2, grab: 0.6, death: 0.75, knockout: 1.2 } as const;
 
-/** Seconds into the takedown when Yoav's blow lands; the guard stands until then. */
-export const TAKEDOWN_IMPACT = 0.55;
+/** Seconds into the takedown before the guard's own animation starts. The knife takedown is
+ *  one hand-keyed pair (tools/blender/render_takedown.py), so both start together. */
+export const TAKEDOWN_IMPACT = 0;
 
 /** Direction index 0..7 for a sim angle: d * 45 degrees, 0 = sim +x. */
 export const dirOf = (ang: number): number => ((Math.round(ang / (Math.PI / 4)) % 8) + 8) % 8;
@@ -76,8 +77,8 @@ export interface GuardAnimState {
   t: number;
   /** When he went down (null = already down when first seen). */
   downAt: number | null;
-  /** When he was taken down from behind (null = shot, or not taken down). He stands until
-   *  the blow lands, then collapses forward. */
+  /** When he was taken down from behind (null = shot, or not taken down): the pair with
+   *  Yoav's knife takedown, lowered onto his back. */
   koAt?: number | null;
   /** Dragged and dropped: he lies on his back, as he was dragged. */
   onBack?: boolean;

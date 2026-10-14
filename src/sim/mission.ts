@@ -7,12 +7,14 @@ import {
   ALARM_TIME,
   HIT_FLASH,
   SHOT_FIRST,
+  TAKEDOWN_REACH,
   TOWER_DECAY,
   TOWER_FOV,
   TOWER_LEN,
   TOWER_SUSP,
 } from './constants';
 import { angDiff, center, dist, tileOf } from './math';
+import { walkable } from './grid';
 import type { GameResult, GameState, Guard, MessageKind, Unit } from './types';
 import { losClear } from './vision';
 
@@ -43,6 +45,16 @@ export function raiseAlarm(s: GameState, x: number, y: number, src: Guard | null
 }
 
 export function takedown(s: GameState, u: Unit, g: Guard): void {
+  // the attacker pulls him down at arm's length in front, facing away from him
+  const a = Math.atan2(g.y - u.y, g.x - u.x);
+  const x = u.x + Math.cos(a) * TAKEDOWN_REACH;
+  const y = u.y + Math.sin(a) * TAKEDOWN_REACH;
+  if (walkable(s.grid, tileOf(x), tileOf(y))) {
+    g.x = x;
+    g.y = y;
+  }
+  g.ang = a;
+  u.ang = a;
   g.state = 'down';
   g.path = [];
   g.susp = 0;

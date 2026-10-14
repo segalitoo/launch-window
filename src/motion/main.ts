@@ -10,6 +10,7 @@ import {
   SPEED_COMBAT,
   SPEED_PATROL,
   SPEED_SHADOW,
+  TAKEDOWN_REACH,
 } from '@/sim';
 import { toScreen } from '@/render/iso';
 import { type AnimState, draggedFrameName, frameName, guardFrameName, ONE_SHOT, TAKEDOWN_IMPACT } from '@/render/unitAnim';
@@ -160,10 +161,10 @@ function cards(yoav: Atlas, guard: Atlas): Card[] {
         return [unit(yoav, y({ ang: ang(d), t: k, alive: k < 0.5, diedAt: k < 0.5 ? null : 0.5 }), 0, 0, k < 0.5)];
       } },
 
-    { group: 'Interactions', name: 'Takedown', note: 'Yoav strikes a guard from behind with the carbine; the guard collapses forward.', shows: [[yoav, 'takedown'], [guard, 'knockout']],
+    { group: 'Interactions', name: 'Takedown', note: 'From behind: hand over the mouth, knife into the side, lowered to the ground.', shows: [[yoav, 'takedown'], [guard, 'knockout']],
       sprites: (t, d) => {
-        const k = loop(t, TAKEDOWN_IMPACT + ONE_SHOT.knockout);
-        const [gx, gy] = ahead(d, 0.9);
+        const k = loop(t, ONE_SHOT.takedown);
+        const [gx, gy] = ahead(d, TAKEDOWN_REACH);
         const down = k >= 0.5;
         return [
           unit(yoav, y({ ang: ang(d), t: k, takedownAt: 0.5 })),

@@ -104,9 +104,16 @@ def _frame(y, fwd):
     return Matrix((x, y, z)).transposed()
 
 
-def apply(rig, p, arms="mocap", root_xy=True, hold=None):
-    """Pose `rig` from joint positions `p` (Clip.at). arms: 'mocap' or 'hold' (keep the
-    carbine hold from `hold`, a dict of bone -> X rotation in degrees, relative to the chest).
+# Right arm carrying the carbine one-handed: where it settles, in the chest's frame
+# (forward, left, up): upper arm hangs a little forward, forearm forward at hip height.
+CARRY_R = {"arm.R": (0.25, 0.0, -0.97), "fore.R": (0.85, 0.05, -0.5)}
+
+
+def apply(rig, p, arms="mocap", root_xy=True, hold=None, carry_blend=0.6):
+    """Pose `rig` from joint positions `p` (Clip.at). arms: 'mocap', 'hold' (keep the
+    carbine hold from `hold`, a dict of bone -> X rotation in degrees, relative to the
+    chest), or 'carry' (left arm free from the clip; right arm carries the carbine, its
+    swing damped `carry_blend` of the way toward CARRY_R).
     root_xy False keeps the hips over the origin (in-place cycles; the sim moves the unit)."""
     up = Vector((0, 0, 1))
     hip_mid = (p["LeftUpLeg"] + p["RightUpLeg"]) / 2
@@ -147,6 +154,12 @@ def apply(rig, p, arms="mocap", root_xy=True, hold=None):
     head = target - offset
     hips.matrix = Matrix.Translation(head) @ R.to_4x4()
     bpy.context.view_layer.update()
+
+    if arms == "carry":
+        for name, local in CARRY_R.items():
+            target = (chest_fwd * local[0] + chest_lat * local[1] + chest_up * local[2]).normalized()
+            d = want[name][0].normalized()
+            want[name] = (d.lerp(target, carry_blend), want[name][1])
 
     for name in ORDER[1:]:
         pb = rig.pose.bones[name]

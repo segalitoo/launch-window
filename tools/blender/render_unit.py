@@ -44,7 +44,7 @@ class Mocap:
     def __init__(self, clip, a, b, n, loop, arms="hold", root_xy=False, face=None, weapon="chest"):
         self.clip, self.a, self.b, self.n, self.loop = clip, a, b, n, loop
         self.arms, self.root_xy, self.face = arms, root_xy, face or (a, b)
-        self.weapon = weapon  # "chest" (slung) or "hands" (swung, e.g. a strike)
+        self.weapon = weapon  # "chest" (slung), "hands" (both, e.g. a strike) or "right" (carried)
 
     def times(self):
         step = (self.b - self.a) / (self.n if self.loop else max(1, self.n - 1))
@@ -298,11 +298,14 @@ def build_operator(spec):
     return rig
 
 
-def hands_weapon(rig, on):
-    """Show the carbine in both hands (on=True) or slung on the chest (on=False).
-    In the hands it lies along the line from the right hand to the left, the right hand
-    at the grip; set again after every pose."""
+def hands_weapon(rig, mode):
+    """Where the carbine is: "chest" (slung, the default), "hands" (both hands, along the
+    line from the right hand to the left) or "right" (in the right hand, muzzle forward and
+    a little down, ready to fire). Set again after every pose."""
     objs = bpy.data.objects
+    on = mode in ("hands", "right")
+    if "carbine" not in objs:
+        return
     objs["carbine"].hide_render = on
     objs["muzzle"].hide_render = on
     held = objs["carbine_held"]
@@ -311,6 +314,17 @@ def hands_weapon(rig, on):
         return
     bpy.context.view_layer.update()
     r = rig.pose.bones["fore.R"].tail
+    if mode == "right":
+        # muzzle along the body's forward axis, tipped 20 degrees down; grip in the hand
+        chest = rig.pose.bones["spine"].matrix.to_3x3()
+        fwd = (chest @ Vector((0, 0, 1)))  # local Z = forward (rest roll)
+        fwd.z = 0
+        fwd = fwd.normalized()
+        aim = (fwd * math.cos(math.radians(20)) - Vector((0, 0, math.sin(math.radians(20))))).normalized()
+        y = -aim  # muzzle is local -Y
+        z = y.cross(Vector((0, 0, 1))).cross(y).normalized()
+        held.matrix_basis = Matrix.Translation(r + aim * 0.05) @ Matrix((y.cross(z), y, z)).transposed().to_4x4()
+        return
     l = rig.pose.bones["fore.L"].tail
     y = (r - l).normalized()  # muzzle (local -Y) toward the left hand
     z = y.cross(Vector((0, 0, 1))).cross(y).normalized() if abs(y.z) < 0.95 else Vector((1, 0, 0))
@@ -511,10 +525,8 @@ def hit_pose(f, n):
 # Motion capture, CMU clips (assets/raw/mocap/README.md). Ran, Phase 2: movement must feel natural.
 #   run: 09_01, one stride 2.55 m (1.6 tiles) in 0.77 s, foot plant to foot plant
 #   death: 90_18, a backward fall, 0.75 s from standing to lying still
-#   takedown: 02_07 (swordplay), both hands overhead, then a hard downward strike; the
-#         carbine is held in the hands for it (hands_weapon)
-#   knockout: 77_16 (lying face down, getting up) played backwards: knees give, kneel,
-#         hands down, legs slide back, face down. Guards struck from behind fall this way.
+#   takedown + knockout: a hand-keyed pair (knife, head grab, lowered to the ground),
+#         rendered together by render_takedown.py
 #   drag: 81_08, walking backwards bent over, both hands low in front, pulling; the
 #         loop 992-1212 starts and ends on the closest matching pose (1.8 s, 0.6 m)
 ANIMS = {
@@ -522,18 +534,19 @@ ANIMS = {
     "idle": (Mocap("111_28", 100, 308, 12, loop=True), 12),
     # patrol walk (16_15): one stride, 1.16 m in 1.15 s
     "walk": (Mocap("16_15", 62, 200, 12, loop=True), 12),
-    "run": (Mocap("09_01", 45, 137, 12, loop=True), 12),
+    # left arm swings free, right hand carries the carbine ready to fire (Ran)
+    "run": (Mocap("09_01", 45, 137, 12, loop=True, arms="carry", weapon="right"), 12),
     "crawl_idle": (crawl_idle_pose, 1),
     "crawl": (crawl_pose, 8),
-    "takedown": (Mocap("02_07", 55, 205, 12, loop=False, arms="mocap", face=(85, 120), weapon="hands"), 12),
+    # knife takedown: a hand-keyed pair with the guard's knockout, rendered by render_takedown.py
+    "takedown": ("pair", 14),
     # squat and reach down for the body (26_09, the way down)
     "grab": (Mocap("26_09", 100, 240, 8, loop=False, arms="mocap", face=(60, 100)), 8),
     "drag": (Mocap("81_08", 992, 1212, 16, loop=True, arms="mocap"), 16),
     "death": (Mocap("90_18", 75, 165, 10, loop=False, arms="mocap", root_xy=True, face=(1, 75)), 10),
     "hit": (hit_pose, 3),
     "dragged": (dragged_pose, 2),
-    # struck from behind: a get-up from lying face down (77_16), played backwards
-    "knockout": (Mocap("77_16", 460, 220, 12, loop=False, arms="mocap", root_xy=True, face=(440, 460)), 12),
+    "knockout": ("pair", 14),
 }
 
 
@@ -616,6 +629,8 @@ def main():
     clips = {}
     hip_h = rig.data.bones["thigh.L"].head_local.z
     for name, (fn, n) in anims.items():
+        if fn == "pair":
+            continue  # rendered by render_takedown.py, both units together
         if isinstance(fn, Mocap):
             if fn.clip not in clips:
                 clips[fn.clip] = mocap.Clip(os.path.join(MOCAP_DIR, fn.clip + ".bvh"), hip_h)
@@ -627,9 +642,9 @@ def main():
             rig.rotation_euler = (0, 0, 0)
             if isinstance(fn, Mocap):
                 mocap.apply(rig, clip.at(times[f]), arms=fn.arms, root_xy=fn.root_xy, hold=ARMS_HOLD)
-                hands_weapon(rig, fn.weapon == "hands")
+                hands_weapon(rig, fn.weapon)
             else:
-                hands_weapon(rig, False)
+                hands_weapon(rig, "chest")
                 for pb in rig.pose.bones:
                     pb.rotation_euler = (0, 0, 0)
                     pb.location = (0, 0, 0)
@@ -647,7 +662,7 @@ def main():
         "supersample": a.supersample,
         "anims": {k: n for k, (_, n) in unit_anims.items()},
         # where each animation comes from, shown in the motion library page
-        "sources": {k: (f"motion capture, CMU {fn.clip}" if isinstance(fn, Mocap) else "formula pose") for k, (fn, _) in unit_anims.items()},
+        "sources": {k: (f"motion capture, CMU {fn.clip}" if isinstance(fn, Mocap) else "hand keyed pair (render_takedown.py)" if fn == "pair" else "formula pose") for k, (fn, _) in unit_anims.items()},
         "dirs": 8,
         "dir_rule": "direction d = sim angle d * 45 degrees, 0 = sim +x",
     }
