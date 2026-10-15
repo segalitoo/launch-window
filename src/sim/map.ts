@@ -12,6 +12,7 @@ import {
   UNIT_HP,
   UNIT_START_ANG,
   PISTOL_ROUNDS,
+  SMOKE_CHARGES,
 } from './constants';
 import { createGrid } from './grid';
 import { center } from './math';
@@ -44,6 +45,7 @@ function makeGuard(d: GuardDef, i: number): Guard {
     ko: 0,
     tied: false,
     dead: false,
+    revealed: false,
     carried: false,
     phase: i * GUARD_PHASE_STEP,
     post: null,
@@ -77,7 +79,7 @@ function makeGuard(d: GuardDef, i: number): Guard {
 }
 
 function makeUnit(
-  o: { id: UnitId; name: string; call: string; color: string; speed: number; charges?: number; rounds?: number },
+  o: { id: UnitId; name: string; call: string; color: string; speed: number; charges?: number; rounds?: number; smokes?: number },
   tx: number,
   ty: number,
 ): Unit {
@@ -95,6 +97,8 @@ function makeUnit(
     hitT: 0,
     charges: 0,
     rounds: 0,
+    smokes: 0,
+    disguised: false,
     ...o,
   };
 }
@@ -108,7 +112,7 @@ export function buildMission(seed = 1, map: MissionMap = NIGHT_LANTERN): GameSta
     makeUnit({ id, ...o }, ...map.spawns[id]);
   const squad: Unit[] = [
     unit('shadow', { name: 'Yoav', call: 'Shadow', color: '#6cc4ff', speed: SPEED_SHADOW, rounds: PISTOL_ROUNDS }),
-    unit('lure', { name: 'Noa', call: 'Lure', color: '#8ef0d0', speed: SPEED_LURE, charges: DECOY_CHARGES }),
+    unit('lure', { name: 'Noa', call: 'Lure', color: '#8ef0d0', speed: SPEED_LURE, charges: DECOY_CHARGES, smokes: SMOKE_CHARGES }),
     unit('sapper', { name: 'Itai', call: 'Sapper', color: '#c9b8ff', speed: SPEED_SAPPER }),
   ];
 
@@ -129,6 +133,7 @@ export function buildMission(seed = 1, map: MissionMap = NIGHT_LANTERN): GameSta
     guards: map.guards.map(makeGuard),
     squad,
     projectiles: [],
+    smokes: [],
     alarm: { active: false, timer: 0 },
     stats: { takedowns: 0, alarms: 0 },
     events: [],

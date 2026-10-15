@@ -97,6 +97,8 @@ export interface Guard extends Vec {
   tied: boolean;
   /** Shot with the pistol: down for good. */
   dead: boolean;
+  /** Seen through Noa's binoculars: his route stays shown on the map. */
+  revealed: boolean;
   carried: boolean;
   phase: number;
   // post guards
@@ -125,6 +127,8 @@ export type Order =
   | { type: 'grab'; body: Guard }
   | { type: 'tie'; body: Guard; started: boolean; t: number }
   | { type: 'shoot'; guard: Guard; t: number }
+  | { type: 'binoculars'; guard: Guard; t: number }
+  | { type: 'uniform'; t: number }
   | {
       type: 'interact';
       target: InteractTarget;
@@ -153,6 +157,10 @@ export interface Unit extends Vec {
   charges: number;
   /** Silenced pistol rounds (Yoav). */
   rounds: number;
+  /** Smoke grenades (Noa). */
+  smokes: number;
+  /** Wearing the captured uniform (Noa). */
+  disguised: boolean;
 }
 
 export interface Projectile {
@@ -162,6 +170,15 @@ export interface Projectile {
   y1: number;
   t: number;
   dur: number;
+  /** What lands: a decoy makes a noise, a smoke grenade a cloud. */
+  kind: 'decoy' | 'smoke';
+}
+
+/** A smoke cloud: blocks all sight through it until `left` runs out. */
+export interface Smoke {
+  x: number;
+  y: number;
+  left: number;
 }
 
 export type GameResult = 'win' | 'launch' | 'down';
@@ -178,6 +195,9 @@ export type SimEvent =
   | { type: 'pistol'; unit: UnitId; guard: number }
   | { type: 'tied'; unit: UnitId; guard: number }
   | { type: 'woke'; guard: number }
+  | { type: 'revealed'; guard: number }
+  | { type: 'smoke'; x: number; y: number }
+  | { type: 'disguise'; unit: UnitId; on: boolean }
   | { type: 'noise'; x: number; y: number; heard: number }
   | { type: 'moveOrdered'; unit: UnitId; x: number; y: number }
   | { type: 'gameOver'; result: GameResult; unit?: UnitId };
@@ -200,6 +220,7 @@ export interface GameState {
   guards: Guard[];
   squad: Unit[];
   projectiles: Projectile[];
+  smokes: Smoke[];
   alarm: { active: boolean; timer: number };
   stats: { takedowns: number; alarms: number };
   events: SimEvent[];

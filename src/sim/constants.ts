@@ -97,6 +97,19 @@ export const PISTOL_RANGE = 6;
 export const PISTOL_AIM = 0.5;
 export const PISTOL_HEAR = 2;
 
+// Noa's tools (Phase 3, decided with Ran). Not prototype values.
+/** Looking through the binoculars at a guard: real seconds; his route stays shown after. */
+export const BINO_TIME = 1;
+/** Smoke grenades: thrown like the decoy (DECOY_RANGE, THROW_FLIGHT). The cloud blocks all
+ *  sight through it, guards and searchlights. 8 s in the plan, stretched by PACE. */
+export const SMOKE_CHARGES = 2;
+export const SMOKE_RADIUS = 2;
+export const SMOKE_TIME = wait(8);
+/** Captured uniform: putting it on or off, real seconds; guards see through it within this
+ *  many tiles, or when she crawls, drags a body, or during an alarm. */
+export const UNIFORM_TIME = 2;
+export const UNIFORM_CLOSE = 1;
+
 // Guards
 export const SPEED_PATROL = move(40); // 40 px/s in the prototype
 export const SPEED_INVESTIGATE = move(62); // 62 px/s in the prototype

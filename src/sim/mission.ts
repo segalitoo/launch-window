@@ -19,7 +19,7 @@ import {
 import { angDiff, center, dist, tileOf } from './math';
 import { walkable } from './grid';
 import type { GameResult, GameState, Guard, MessageKind, Unit } from './types';
-import { hidden, losClear } from './vision';
+import { hidden, losClear, smokeBlocks } from './vision';
 
 export function message(s: GameState, msg: string, kind: MessageKind = ''): void {
   s.events.push({ type: 'message', msg, kind });
@@ -138,7 +138,8 @@ export function updateTowers(s: GameState, dt: number): void {
       if (
         d > TOWER_LEN ||
         Math.abs(angDiff(Math.atan2(u.y - o.y, u.x - o.x), t.ang)) > TOWER_FOV / 2 ||
-        !losClear(s.grid, o.x, o.y, u.x, u.y)
+        !losClear(s.grid, o.x, o.y, u.x, u.y) ||
+        smokeBlocks(s, o.x, o.y, u.x, u.y)
       )
         continue;
       seen = u;

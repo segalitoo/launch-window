@@ -6,7 +6,7 @@ export { parseTiledMap } from './tiled';
 export type { GuardDef, MissionMap, TileRect } from './tiled';
 export { step } from './step';
 export { tileAt, walkable, blocksSight } from './grid';
-export { castRay, losClear, zoneOf, detects, coneLength, hidden } from './vision';
+export { castRay, losClear, zoneOf, detects, coneLength, hidden, sightRay, smokeBlocks, disguiseHolds } from './vision';
 export { findPath, pathTo, smooth, clearWalk, nearestWalkable, moveAlong } from './pathfinding';
 export {
   clearOrder,
@@ -17,6 +17,9 @@ export {
   orderMove,
   orderTakedown,
   orderTie,
+  orderBinoculars,
+  orderUniform,
+  throwSmoke,
   firePistol,
   setCrawl,
   speedOf,

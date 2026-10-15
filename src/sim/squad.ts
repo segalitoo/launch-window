@@ -11,6 +11,7 @@ import {
   DUR_LAUNCHER,
   GRAB_RANGE,
   INTERACT_REACH,
+  BINO_TIME,
   PISTOL_AIM,
   PISTOL_HEAR,
   PISTOL_RANGE,
@@ -19,6 +20,7 @@ import {
   THROW_BUSY,
   THROW_FLIGHT,
   TIE_DUR,
+  UNIFORM_TIME,
 } from './constants';
 import { hearNoise } from './guards';
 import { walkable } from './grid';
@@ -26,7 +28,7 @@ import { center, dist, pathLength } from './math';
 import { message, pistolKill, takedown } from './mission';
 import { moveAlong, pathTo } from './pathfinding';
 import type { GameState, Guard, InteractTarget, Unit, Vec } from './types';
-import { detects, losClear } from './vision';
+import { detects, losClear, smokeBlocks } from './vision';
 
 export const speedOf = (u: Unit): number => u.speed * (u.crawl ? CRAWL_MULT : 1) * (u.carrying ? DRAG_MULT : 1);
 
@@ -189,9 +191,18 @@ export function firePistol(s: GameState, u: Unit, g: Guard): PistolResult {
 export type ThrowResult = 'thrown' | 'empty' | 'range' | 'invalid';
 
 export function throwDecoy(s: GameState, u: Unit, wx: number, wy: number): ThrowResult {
+  return throwItem(s, u, wx, wy, 'decoy');
+}
+
+/** Noa's smoke grenade: thrown like the decoy; the cloud blocks all sight through it. */
+export function throwSmoke(s: GameState, u: Unit, wx: number, wy: number): ThrowResult {
+  return throwItem(s, u, wx, wy, 'smoke');
+}
+
+function throwItem(s: GameState, u: Unit, wx: number, wy: number, kind: 'decoy' | 'smoke'): ThrowResult {
   if (!u.alive || u.id !== 'lure') return 'invalid';
-  if (u.charges <= 0) {
-    message(s, 'Noa is out of decoys.', 'warn');
+  if ((kind === 'decoy' ? u.charges : u.smokes) <= 0) {
+    message(s, kind === 'decoy' ? 'Noa is out of decoys.' : 'Noa is out of smoke.', 'warn');
     return 'empty';
   }
   if (Math.hypot(wx - u.x, wy - u.y) > DECOY_RANGE) {
@@ -199,11 +210,41 @@ export function throwDecoy(s: GameState, u: Unit, wx: number, wy: number): Throw
     return 'range';
   }
   clearOrder(u);
-  u.charges--;
+  if (kind === 'decoy') u.charges--;
+  else u.smokes--;
   u.busy = THROW_BUSY;
   u.ang = Math.atan2(wy - u.y, wx - u.x);
-  s.projectiles.push({ x0: u.x, y0: u.y, x1: wx, y1: wy, t: 0, dur: THROW_FLIGHT });
+  s.projectiles.push({ x0: u.x, y0: u.y, x1: wx, y1: wy, t: 0, dur: THROW_FLIGHT, kind });
   return 'thrown';
+}
+
+/** Noa watches a guard through the binoculars for BINO_TIME; his route stays shown after. */
+export function orderBinoculars(s: GameState, u: Unit, g: Guard): boolean {
+  if (!u.alive || u.id !== 'lure' || g.state === 'down') return false;
+  if (g.revealed) {
+    message(s, 'Noa already knows his route.');
+    return false;
+  }
+  if (!losClear(s.grid, u.x, u.y, g.x, g.y) || smokeBlocks(s, u.x, u.y, g.x, g.y)) {
+    message(s, 'Noa cannot see him from here.', 'warn');
+    return false;
+  }
+  clearOrder(u);
+  u.order = { type: 'binoculars', guard: g, t: 0 };
+  u.ang = Math.atan2(g.y - u.y, g.x - u.x);
+  return true;
+}
+
+/** Noa puts the captured uniform on, or takes it off: UNIFORM_TIME standing still. */
+export function orderUniform(s: GameState, u: Unit): boolean {
+  if (!u.alive || u.id !== 'lure') return false;
+  if (u.carrying) {
+    message(s, 'Put the body down first.', 'warn');
+    return false;
+  }
+  clearOrder(u);
+  u.order = { type: 'uniform', t: 0 };
+  return true;
 }
 
 export function toggleCrawl(u: Unit): void {
@@ -315,6 +356,30 @@ export function updateUnit(s: GameState, u: Unit, dt: number): void {
         }
         return;
       }
+    } else if (o.type === 'binoculars') {
+      const g = o.guard;
+      if (g.state === 'down') clearOrder(u);
+      else {
+        u.ang = Math.atan2(g.y - u.y, g.x - u.x);
+        o.t += dt;
+        if (o.t >= BINO_TIME) {
+          if (losClear(s.grid, u.x, u.y, g.x, g.y) && !smokeBlocks(s, u.x, u.y, g.x, g.y)) {
+            g.revealed = true;
+            s.events.push({ type: 'revealed', guard: g.i });
+          } else message(s, 'Lost sight of him.', 'warn');
+          clearOrder(u);
+        }
+        return;
+      }
+    } else if (o.type === 'uniform') {
+      o.t += dt;
+      if (o.t >= UNIFORM_TIME) {
+        u.disguised = !u.disguised;
+        s.events.push({ type: 'disguise', unit: u.id, on: u.disguised });
+        message(s, u.disguised ? 'Noa is in the captured uniform.' : 'Noa took the uniform off.');
+        clearOrder(u);
+      }
+      return;
     } else if (o.type === 'interact') {
       if (!o.started) {
         if (!u.path.length) {
