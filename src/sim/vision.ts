@@ -67,9 +67,17 @@ export function zoneOf(s: GameState, g: Vec & { ang: number }, p: Vec): Zone | n
   return d <= len * NEAR_FRACTION ? 'near' : 'far';
 }
 
-/** Like zoneOf, but a crawling unit in the far zone is not seen. */
+/** In a hiding spot (bush, dark corner) and standing still or crawling. */
+export function hidden(s: GameState, u: Unit): boolean {
+  if (!u.crawl && u.path.length > 0) return false;
+  const tx = tileOf(u.x);
+  const ty = tileOf(u.y);
+  return s.hides.some((h) => tx >= h.x0 && tx <= h.x1 && ty >= h.y0 && ty <= h.y1);
+}
+
+/** Like zoneOf, but a crawling or hidden unit in the far zone is not seen. */
 export function detects(s: GameState, g: Vec & { ang: number }, u: Unit): Zone | null {
   const z = zoneOf(s, g, u);
-  if (!z || (z === 'far' && u.crawl)) return null;
+  if (!z || (z === 'far' && (u.crawl || hidden(s, u)))) return null;
   return z;
 }

@@ -85,6 +85,18 @@ export const DUR_LAUNCHER = 3.5;
 export const UNIT_START_ANG = -Math.PI / 4;
 export const HIT_FLASH = 0.3;
 
+// Yoav's tools (Phase 3, decided with Ran). Not prototype values.
+/** A guard taken down with the knife wakes after this and raises the alarm, unless tied. The
+ *  plan's 60 s, stretched with the guard rhythm (PACE). */
+export const WAKE_TIME = wait(60);
+/** Kneeling to tie a downed guard, real seconds (work, like Itai's). */
+export const TIE_DUR = 2;
+export const PISTOL_ROUNDS = 3;
+/** Silenced pistol: range in tiles, aim time in real seconds, and how far the shot is heard. */
+export const PISTOL_RANGE = 6;
+export const PISTOL_AIM = 0.5;
+export const PISTOL_HEAR = 2;
+
 // Guards
 export const SPEED_PATROL = move(40); // 40 px/s in the prototype
 export const SPEED_INVESTIGATE = move(62); // 62 px/s in the prototype

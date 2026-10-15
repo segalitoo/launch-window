@@ -14,11 +14,12 @@ import {
   TOWER_FOV,
   TOWER_LEN,
   TOWER_SUSP,
+  WAKE_TIME,
 } from './constants';
 import { angDiff, center, dist, tileOf } from './math';
 import { walkable } from './grid';
 import type { GameResult, GameState, Guard, MessageKind, Unit } from './types';
-import { losClear } from './vision';
+import { hidden, losClear } from './vision';
 
 export function message(s: GameState, msg: string, kind: MessageKind = ''): void {
   s.events.push({ type: 'message', msg, kind });
@@ -59,11 +60,36 @@ export function takedown(s: GameState, u: Unit, g: Guard): void {
   g.ang = a;
   u.ang = a;
   g.state = 'down';
+  g.ko = WAKE_TIME;
   g.path = [];
   g.susp = 0;
   g.seeing = null;
   s.stats.takedowns++;
   s.events.push({ type: 'takedown', unit: u.id, guard: g.i });
+}
+
+/** Yoav's silenced pistol: the guard falls and stays down. */
+export function pistolKill(s: GameState, u: Unit, g: Guard): void {
+  g.state = 'down';
+  g.dead = true;
+  g.ko = 0;
+  g.path = [];
+  g.susp = 0;
+  g.seeing = null;
+  s.stats.takedowns++;
+  s.events.push({ type: 'pistol', unit: u.id, guard: g.i });
+}
+
+/** A knocked-out guard who was not tied gets up and raises the alarm where he lies. */
+export function wake(s: GameState, g: Guard): void {
+  const carrier = s.squad.find((u) => u.carrying === g);
+  if (carrier) carrier.carrying = null;
+  g.carried = false;
+  g.ko = 0;
+  g.found = false;
+  g.state = 'search';
+  s.events.push({ type: 'woke', guard: g.i });
+  raiseAlarm(s, g.x, g.y, g, 'A guard woke up and raised the alarm!');
 }
 
 export function shoot(s: GameState, g: Guard, u: Unit): void {
@@ -107,7 +133,7 @@ export function updateTowers(s: GameState, dt: number): void {
     const o = center(t.x, t.y);
     let seen: Unit | null = null;
     for (const u of s.squad) {
-      if (!u.alive) continue;
+      if (!u.alive || hidden(s, u)) continue;
       const d = dist(o, u);
       if (
         d > TOWER_LEN ||

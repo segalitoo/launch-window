@@ -30,7 +30,7 @@ import {
   TURN_WALK,
   WAYPOINT_REACH,
 } from './constants';
-import { message, raiseAlarm, shoot } from './mission';
+import { message, raiseAlarm, shoot, wake } from './mission';
 import { dist, pathLength, turnTo } from './math';
 import { moveAlong, pathTo } from './pathfinding';
 import type { GameState, Guard, Unit } from './types';
@@ -45,12 +45,13 @@ export function goReturn(s: GameState, g: Guard): void {
   if (!g.path.length) g.state = 'patrol';
 }
 
-/** A decoy lands at (x, y). Guards in earshot walk over, or search in place if the walk is long. */
-export function hearNoise(s: GameState, x: number, y: number): void {
+/** A noise at (x, y): a landed decoy, or a pistol shot (radius PISTOL_HEAR). Guards in
+ *  earshot walk over, or search in place if the walk is long. */
+export function hearNoise(s: GameState, x: number, y: number, radius = DECOY_HEAR): void {
   let n = 0;
   for (const g of s.guards) {
     if (g.state === 'down' || g.state === 'combat') continue;
-    if (Math.hypot(g.x - x, g.y - y) > DECOY_HEAR) continue;
+    if (Math.hypot(g.x - x, g.y - y) > radius) continue;
     n++;
     const p = pathTo(s.grid, g, x, y);
     const len = p ? pathLength(g, p) : 0;
@@ -70,7 +71,13 @@ export function hearNoise(s: GameState, x: number, y: number): void {
 }
 
 export function updateGuard(s: GameState, g: Guard, dt: number): void {
-  if (g.state === 'down') return;
+  if (g.state === 'down') {
+    if (g.ko > 0 && !g.tied && !g.dead) {
+      g.ko -= dt;
+      if (g.ko <= 0) wake(s, g);
+    }
+    return;
+  }
 
   // perception
   let best: Unit | null = null;

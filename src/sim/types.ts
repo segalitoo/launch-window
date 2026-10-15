@@ -52,6 +52,15 @@ export interface Launcher {
   done: boolean;
 }
 
+/** A bush or dark corner. An operator standing still or crawling inside is seen only by a
+ *  guard very close (the near zone), never by a searchlight. Inclusive tile bounds. */
+export interface HideSpot {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+}
+
 export interface Tower {
   x: number;
   y: number;
@@ -82,6 +91,12 @@ export interface Guard extends Vec {
   lastKnown: Vec | null;
   /** A downed guard whose body was seen. Each body raises the alarm once. */
   found: boolean;
+  /** Seconds until a knocked-out guard wakes (0 = not knocked out). */
+  ko: number;
+  /** Tied up by Yoav: never wakes. */
+  tied: boolean;
+  /** Shot with the pistol: down for good. */
+  dead: boolean;
   carried: boolean;
   phase: number;
   // post guards
@@ -108,6 +123,8 @@ export type InteractTarget =
 export type Order =
   | { type: 'takedown'; guard: Guard; repath: number }
   | { type: 'grab'; body: Guard }
+  | { type: 'tie'; body: Guard; started: boolean; t: number }
+  | { type: 'shoot'; guard: Guard; t: number }
   | {
       type: 'interact';
       target: InteractTarget;
@@ -134,6 +151,8 @@ export interface Unit extends Vec {
   ang: number;
   hitT: number;
   charges: number;
+  /** Silenced pistol rounds (Yoav). */
+  rounds: number;
 }
 
 export interface Projectile {
@@ -156,6 +175,9 @@ export type SimEvent =
   | { type: 'alarmCleared' }
   | { type: 'takedown'; unit: UnitId; guard: number }
   | { type: 'shot'; guard: number; unit: UnitId }
+  | { type: 'pistol'; unit: UnitId; guard: number }
+  | { type: 'tied'; unit: UnitId; guard: number }
+  | { type: 'woke'; guard: number }
   | { type: 'noise'; x: number; y: number; heard: number }
   | { type: 'moveOrdered'; unit: UnitId; x: number; y: number }
   | { type: 'gameOver'; result: GameResult; unit?: UnitId };
@@ -173,6 +195,8 @@ export interface GameState {
   launchers: Launcher[];
   /** Landing zone, inclusive tile bounds. */
   lz: { x0: number; y0: number; x1: number; y1: number };
+  /** Hiding spots (bushes, dark corners), inclusive tile bounds. */
+  hides: HideSpot[];
   guards: Guard[];
   squad: Unit[];
   projectiles: Projectile[];

@@ -11,6 +11,7 @@ import {
   TIME_LIMIT,
   UNIT_HP,
   UNIT_START_ANG,
+  PISTOL_ROUNDS,
 } from './constants';
 import { createGrid } from './grid';
 import { center } from './math';
@@ -40,6 +41,9 @@ function makeGuard(d: GuardDef, i: number): Guard {
     seeing: null,
     lastKnown: null,
     found: false,
+    ko: 0,
+    tied: false,
+    dead: false,
     carried: false,
     phase: i * GUARD_PHASE_STEP,
     post: null,
@@ -73,7 +77,7 @@ function makeGuard(d: GuardDef, i: number): Guard {
 }
 
 function makeUnit(
-  o: { id: UnitId; name: string; call: string; color: string; speed: number; charges?: number },
+  o: { id: UnitId; name: string; call: string; color: string; speed: number; charges?: number; rounds?: number },
   tx: number,
   ty: number,
 ): Unit {
@@ -90,6 +94,7 @@ function makeUnit(
     ang: UNIT_START_ANG,
     hitT: 0,
     charges: 0,
+    rounds: 0,
     ...o,
   };
 }
@@ -102,7 +107,7 @@ export function buildMission(seed = 1, map: MissionMap = NIGHT_LANTERN): GameSta
   const unit = (id: UnitId, o: Omit<Parameters<typeof makeUnit>[0], 'id'>): Unit =>
     makeUnit({ id, ...o }, ...map.spawns[id]);
   const squad: Unit[] = [
-    unit('shadow', { name: 'Yoav', call: 'Shadow', color: '#6cc4ff', speed: SPEED_SHADOW }),
+    unit('shadow', { name: 'Yoav', call: 'Shadow', color: '#6cc4ff', speed: SPEED_SHADOW, rounds: PISTOL_ROUNDS }),
     unit('lure', { name: 'Noa', call: 'Lure', color: '#8ef0d0', speed: SPEED_LURE, charges: DECOY_CHARGES }),
     unit('sapper', { name: 'Itai', call: 'Sapper', color: '#c9b8ff', speed: SPEED_SAPPER }),
   ];
@@ -120,6 +125,7 @@ export function buildMission(seed = 1, map: MissionMap = NIGHT_LANTERN): GameSta
     towers: map.towers.map((t) => ({ ...t })),
     launchers: map.launchers.map((l) => ({ ...l })),
     lz: { ...map.lz },
+    hides: map.hides.map((h) => ({ ...h })),
     guards: map.guards.map(makeGuard),
     squad,
     projectiles: [],
