@@ -131,7 +131,7 @@ About 144 hours. Re-plan at each gate.
 - [x] Yoav: model, rig, 10 animations in 8 directions, one atlas (low-poly look; final drawn look still to come, see below)
 - [x] Guard: idle, walk, death (plus run for investigate and combat; look A, khaki and cap)
 - [x] Gate B: does it feel like Commandos? If not, fix the pipeline before scaling it (Ran, Phase 2: pass)
-- [ ] Final character look: units must feel drawn, like the painted map and like Commandos. Ran, 14 Oct: the low-poly Yoav is OK for now and the pipeline can scale (other squad members, guards), but the look must be fixed before release. Options to test then: toon shading with ink lines in the render, a painted pass over rendered frames, or both. The rig, animations and engine code stay.
+- [x] Final character look: D3, the render plus highlights, a 30% gain and a 1 px black outline (Ran, Phase 2). Cel bands with ink (look A) were rejected: no detail. All units re-rendered. See docs/visual-language.md 6f.
 
 ### Phase 3. Toolkit and enemies (32 h)
 

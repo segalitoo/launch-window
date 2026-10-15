@@ -254,6 +254,7 @@ async function main(): Promise<void> {
   const [yoav, noa, itai, guard, day] = await Promise.all([
     loadAtlas('yoav'), loadAtlas('noa'), loadAtlas('itai'), loadAtlas('guard'), loadImage('yard/yard_day.jpg'),
   ]);
+  const list = cards(yoav, noa, itai, guard);
   const ground = graded(day, NIGHT, false);
   const grid = document.getElementById('grid')!;
   const sel = (id: string): HTMLSelectElement => document.getElementById(id) as HTMLSelectElement;
@@ -262,7 +263,7 @@ async function main(): Promise<void> {
 
   const views: { card: Card; canvas: HTMLCanvasElement }[] = [];
   let group = '';
-  for (const card of cards(yoav, noa, itai, guard)) {
+  for (const card of list) {
     if (card.group !== group) {
       group = card.group;
       grid.insertAdjacentHTML('beforeend', `<h2 class="group">${group}</h2>`);

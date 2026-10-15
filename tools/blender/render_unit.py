@@ -28,6 +28,7 @@ import bpy
 from mathutils import Matrix, Vector
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import looks  # noqa: E402  (drawn looks in the compositor)
 import mocap  # noqa: E402  (motion capture onto our rig)
 import render_iso as iso  # noqa: E402  (camera, sun and material helpers)
 
@@ -722,6 +723,7 @@ def main():
     ap.add_argument("--samples", type=int, default=48)
     ap.add_argument("--only", default="", help="render only these anims, comma separated")
     ap.add_argument("--dirs", default="0,1,2,3,4,5,6,7")
+    ap.add_argument("--look", default="outline_pop", choices=looks.LOOKS, help="drawn look (tools/blender/looks.py)")
     a = ap.parse_args(argv)
 
     iso.reset_scene()
@@ -729,6 +731,7 @@ def main():
     setup_lights()
     setup_camera(a.supersample)
     setup_render(a.samples)
+    looks.setup_look(bpy.context.scene, a.look)
     os.makedirs(a.out, exist_ok=True)
 
     dirs = [int(d) for d in a.dirs.split(",")]
