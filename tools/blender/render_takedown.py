@@ -181,6 +181,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--yoav", required=True)
     ap.add_argument("--guard", required=True)
+    ap.add_argument("--guard-unit", default="guard", help="spec in render_unit.UNITS for the one taken down (officer)")
+    ap.add_argument("--guard-only", action="store_true", help="render only his knockout; Yoav's frames are the same for every guard")
     ap.add_argument("--supersample", type=int, default=2)
     ap.add_argument("--samples", type=int, default=48)
     ap.add_argument("--dirs", default="0,1,2,3,4,5,6,7")
@@ -190,7 +192,7 @@ def main():
     ru.iso.reset_scene()
     yoav = ru.build_operator(ru.UNITS["yoav"])
     yoav_parts = [o for o in bpy.data.objects if o.parent == yoav or o == yoav]
-    guard = ru.build_operator(ru.UNITS["guard"])
+    guard = ru.build_operator(ru.UNITS[a.guard_unit])
     guard_parts = [o for o in bpy.data.objects if (o.parent == guard or o == guard)]
     blade = knife(yoav)
     yoav_parts.append(blade)
@@ -274,14 +276,15 @@ def main():
             rot = Matrix.Rotation(-math.radians(45 * d_), 4, "Z")
             pivot.rotation_euler = (0, 0, -math.radians(45 * d_))
             # Yoav's frame: camera on Yoav's start position (world origin)
-            pivot.location = (0, 0, 0)
-            for o in guard_parts:
-                o.hide_render = True
-            for o in yoav_parts:
-                o.hide_render = o.name.startswith("carbine_held") or (o == blade and not (KNIFE_ON[0] <= u <= KNIFE_ON[1]))
-            bpy.context.view_layer.update()
-            scene.render.filepath = os.path.join(a.yoav, f"takedown_d{d_}_f{f}.png")
-            bpy.ops.render.render(write_still=True)
+            if not a.guard_only:
+                pivot.location = (0, 0, 0)
+                for o in guard_parts:
+                    o.hide_render = True
+                for o in yoav_parts:
+                    o.hide_render = o.name.startswith("carbine_held") or (o == blade and not (KNIFE_ON[0] <= u <= KNIFE_ON[1]))
+                bpy.context.view_layer.update()
+                scene.render.filepath = os.path.join(a.yoav, f"takedown_d{d_}_f{f}.png")
+                bpy.ops.render.render(write_still=True)
             # the guard's frame: camera on the guard's start position
             pivot.location = (rot @ Vector((-GAP[0], -GAP[1], 0, 1))).to_3d()
             for o in yoav_parts:
@@ -292,7 +295,7 @@ def main():
             scene.render.filepath = os.path.join(a.guard, f"knockout_d{d_}_f{f}.png")
             bpy.ops.render.render(write_still=True)
 
-    for path, anim in ((a.yoav, "takedown"), (a.guard, "knockout")):
+    for path, anim in ((a.guard, "knockout"),) if a.guard_only else ((a.yoav, "takedown"), (a.guard, "knockout")):
         mp = os.path.join(path, "meta.json")
         m = json.load(open(mp))
         m["anims"][anim] = N

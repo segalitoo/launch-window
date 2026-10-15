@@ -125,7 +125,10 @@ function updateDog(s: GameState, g: Guard, dt: number): void {
   if (u) {
     g.path = [];
     turnTo(g, Math.atan2(u.y - g.y, u.x - g.x), dt, TURN_COMBAT);
-    if (g.seeing !== u) g.barkCD = Math.min(g.barkCD > 0 ? g.barkCD : DOG_REACT, DOG_REACT);
+    if (g.seeing !== u) {
+      g.barkCD = Math.min(g.barkCD > 0 ? g.barkCD : DOG_REACT, DOG_REACT);
+      message(s, `The dog smells ${u.name}!`, 'warn');
+    }
     g.seeing = u;
     g.barkCD -= dt;
     if (g.barkCD <= 0) {

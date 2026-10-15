@@ -3,9 +3,9 @@
 // takedown, grab, death and hit, in 8 directions. Units without art keep the placeholder marker.
 
 import Phaser from 'phaser';
-import type { Guard, SimEvent, Unit, UnitId } from '@/sim';
+import type { Guard, GuardRole, SimEvent, Unit, UnitId } from '@/sim';
 import { depthOf, toScreen, type Point } from './iso';
-import { draggedFrameName, frameName, guardFrameName } from './unitAnim';
+import { DOG_RUN, dirOf, dogFrameName, draggedFrameName, frameName, guardFrameName } from './unitAnim';
 
 /** Units that have rendered art: unit id → atlas name in assets/build/units/. */
 export const UNIT_ART: Partial<Record<UnitId, string>> = { shadow: 'yoav', lure: 'noa', sapper: 'itai' };
@@ -179,8 +179,9 @@ export class UnitSprites {
 /** How far in front of the dragger his hands hold the collar, in tiles. */
 const GRIP_REACH = 0.25;
 
-/** Atlas for every guard (option A, picked by Ran in Phase 2). */
-export const GUARD_ART = 'guard';
+/** Atlas per guard role: the guard (option A, picked by Ran in Phase 2), the officer (maroon
+ *  beret, OFFICER-01 look A) and the dog (DOG-01 coat A), Phase 3. */
+export const GUARD_ART: Readonly<Record<GuardRole, string>> = { guard: 'guard', officer: 'officer', dog: 'dog' };
 
 interface GuardEntry {
   guard: Guard;
@@ -189,34 +190,43 @@ interface GuardEntry {
   last: { x: number; y: number };
   lastT: number;
   moving: boolean;
+  /** Tiles per second over the last drawn frame (the dog runs above DOG_RUN). */
+  speed: number;
   downAt: number | null;
   carrierLast?: { x: number; y: number };
   koAt: number | null;
   onBack: boolean;
   wokeAt: number | null;
+  barkAt: number | null;
 }
 
 /** Rendered guards: idle, walk, run, death (shot), knockout (struck from behind) and
- *  dragged, in 8 directions. */
+ *  dragged, in 8 directions; the officer the same in his own atlas; the dog its own set
+ *  (dogFrameName). */
 export class GuardSprites {
   private entries: GuardEntry[] = [];
   /** Takedowns from sim events by guard index, waiting for that guard's next draw. */
   private takedowns = new Map<number, number>();
+  /** Barks by dog index, waiting for its next draw. */
+  private barks = new Map<number, number>();
 
   /** Sim events that start one-shots. `t` is the sim time. */
   onEvents(events: readonly SimEvent[], t: number): void {
     for (const ev of events) {
       if (ev.type === 'takedown' || ev.type === 'tripped') this.takedowns.set(ev.guard, t);
       else if (ev.type === 'woke') this.wakes.set(ev.guard, t);
+      else if (ev.type === 'bark') this.barks.set(ev.guard, t);
     }
   }
   /** Guards who woke up, waiting for their next draw. */
   private wakes = new Map<number, number>();
-  private meta!: UnitMeta;
+  private metas: Partial<Record<GuardRole, UnitMeta>> = {};
 
   static preload(scene: Phaser.Scene): void {
-    scene.load.multiatlas(GUARD_ART, `units/${GUARD_ART}.json`, 'units/');
-    scene.load.json(`${GUARD_ART}_meta`, `units/${GUARD_ART}.json`);
+    for (const art of Object.values(GUARD_ART)) {
+      scene.load.multiatlas(art, `units/${art}.json`, 'units/');
+      scene.load.json(`${art}_meta`, `units/${art}.json`);
+    }
   }
 
   /** `tint` is the unit night grade. */
@@ -224,12 +234,18 @@ export class GuardSprites {
     private scene: Phaser.Scene,
     private tint: number,
   ) {
-    const raw = scene.cache.json.get(`${GUARD_ART}_meta`) as { meta: { unit: UnitMeta } } | undefined;
-    if (raw) this.meta = raw.meta.unit;
+    for (const [role, art] of Object.entries(GUARD_ART) as [GuardRole, string][]) {
+      const raw = scene.cache.json.get(`${art}_meta`) as { meta: { unit: UnitMeta } } | undefined;
+      if (raw) this.metas[role] = raw.meta.unit;
+    }
   }
 
   get ready(): boolean {
-    return !!this.meta;
+    return !!this.metas.guard && !!this.metas.officer && !!this.metas.dog;
+  }
+
+  private meta(g: Guard): UnitMeta {
+    return this.metas[g.role]!;
   }
 
   /** Draws guard `g` at sim time `t`. `carrier` is the unit dragging him, if any. */
@@ -255,12 +271,36 @@ export class GuardSprites {
     const moved = Math.hypot(g.x - e.last.x, g.y - e.last.y);
     e.last = { x: g.x, y: g.y };
     // paused: keep the pose; otherwise moving means he moved since the last frame
-    if (t !== e.lastT) e.moving = moved > 1e-5 && moved < 1;
+    if (t !== e.lastT) {
+      e.moving = moved > 1e-5 && moved < 1;
+      e.speed = e.moving ? moved / (t - e.lastT) : 0;
+    }
     e.lastT = t;
     if (e.moving) e.walked += moved;
     const down = g.state === 'down';
     if (down && e.downAt === null) e.downAt = t;
-    const frame = guardFrameName(
+    const bark = this.barks.get(g.i);
+    if (bark !== undefined) {
+      e.barkAt = bark;
+      this.barks.delete(g.i);
+    }
+    const frame = g.role === 'dog'
+      ? dogFrameName(
+        {
+          ang: g.ang,
+          down,
+          downAt: e.downAt,
+          moving: e.moving,
+          running: e.speed > DOG_RUN,
+          walked: e.walked,
+          t,
+          alert: !!g.seeing,
+          barkAt: e.barkAt,
+          sniffing: g.distract > 0,
+        },
+        this.meta(g).anims,
+      )
+      : guardFrameName(
       {
         ang: g.ang,
         down,
@@ -273,7 +313,7 @@ export class GuardSprites {
         onBack: e.onBack,
         wokeAt: e.wokeAt,
       },
-      this.meta.anims,
+      this.meta(g).anims,
     );
     const p = toScreen(g.x, g.y);
     e.img.setFrame(frame).setPosition(p.x, p.y).setDepth(depthOf(g.x, g.y, down ? 2 : 13));
@@ -287,7 +327,11 @@ export class GuardSprites {
     const grip = { x: c.x + (dx / len) * GRIP_REACH, y: c.y + (dy / len) * GRIP_REACH };
     e.walked += Math.hypot(c.x - (e.carrierLast?.x ?? c.x), c.y - (e.carrierLast?.y ?? c.y));
     e.carrierLast = { x: c.x, y: c.y };
-    const frame = draggedFrameName(Math.atan2(-dy, -dx), e.walked, this.meta.anims);
+    const anims = this.meta(g).anims;
+    // the dog has no dragged pose: it lies on its side, pulled by the harness, legs away
+    const frame = g.role === 'dog'
+      ? `death_d${dirOf(Math.atan2(dy, dx) + Math.PI / 2)}_f${(anims['death'] ?? 1) - 1}`
+      : draggedFrameName(Math.atan2(-dy, -dx), e.walked, anims);
     const p = toScreen(grip.x, grip.y);
     // sort by the middle of the body, half a body length beyond the grip
     const mid = { x: grip.x + (dx / len) * 0.5, y: grip.y + (dy / len) * 0.5 };
@@ -297,14 +341,18 @@ export class GuardSprites {
   private entry(g: Guard, t: number): GuardEntry {
     let e = this.entries[g.i];
     const fresh = {
-      guard: g, walked: 0, last: { x: g.x, y: g.y }, lastT: t, moving: false, downAt: null,
-      carrierLast: undefined, koAt: null, onBack: false, wokeAt: null,
+      guard: g, walked: 0, last: { x: g.x, y: g.y }, lastT: t, moving: false, speed: 0, downAt: null,
+      carrierLast: undefined, koAt: null, onBack: false, wokeAt: null, barkAt: null,
     };
-    if (e && e.guard !== g) Object.assign(e, fresh); // new game
+    if (e && e.guard !== g) {
+      // new game: the same index may be another role on another map
+      Object.assign(e, fresh);
+      e.img.setTexture(GUARD_ART[g.role], 'idle_d0_f0');
+    }
     if (!e) {
-      const m = this.meta;
+      const m = this.meta(g);
       const img = this.scene.add
-        .image(0, 0, GUARD_ART, 'idle_d0_f0')
+        .image(0, 0, GUARD_ART[g.role], 'idle_d0_f0')
         .setOrigin(m.anchor[0] / m.frame[0], m.anchor[1] / m.frame[1])
         .setScale(1 / m.supersample)
         .setTint(this.tint);

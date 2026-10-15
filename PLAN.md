@@ -84,9 +84,9 @@ Character pipeline:
 | Enemy | Behavior | Counter |
 | --- | --- | --- |
 | Guard | Patrols or stands post | Everything above |
-| Officer | Sees through the uniform, calls nearby guards | Knife from behind, pistol |
-| Dog | Smells operators in a circle, even crawling or disguised | Smoke, tripwire, pistol |
-| Camera | Fixed sweep, needs power | Cut power, smoke |
+| Officer | Sees through the uniform; walks his route slower (one, in the compound, maroon beret) | Knife from behind, tie, gun |
+| Dog | Heels at the east patrol; smells operators within 3 tiles, even hidden, crawling, in smoke or in the uniform (walls stop it); barks, and its handler and guards within 5 tiles come to look | A decoy (5 s of sniffing), a gun, the charge. Not the knife; it steps over tripwires (Ran, Phase 3) |
+| Camera | Two on the compound gate; sweeps like a searchlight with a short cone; 1 s in view raises the alarm | Cut power, smoke, hiding spots, the uniform |
 
 ## Roadmap
 
@@ -138,7 +138,7 @@ About 144 hours. Re-plan at each gate.
 - [x] Yoav: tie up, hiding spots, silenced pistol (5 hiding spots on the map, placeholder bushes until Phase 4; Yoav's aim pose; guards get up when they wake)
 - [x] Noa: binoculars, smoke, captured uniform (plus guns for all three, Ran's addition: loud or silenced)
 - [x] Itai: wire cutters, tripwire, remote charge
-- [ ] Officer, dog, camera
+- [x] Officer, dog, camera (officer look A and dog coat A shown to Ran as OFFICER-01 and DOG-01)
 - [ ] Backpack inventory panel, placeholder art
 - [ ] A small test map per tool, then rebalance the main mission and timer
 
@@ -149,7 +149,7 @@ About 144 hours. Re-plan at each gate.
 ### Phase 5. Characters and enemies art (16 h)
 
 - [x] Noa and Itai, full animation sets (done early, in Phase 2: same rig and kit system as Yoav; Noa throws the decoy, Itai squats to work; low-poly look like Yoav)
-- [ ] Guard full set, officer, dog
+- [ ] Guard full set, officer, dog (officer and dog atlases built early in Phase 3; the guard still lacks some moves)
 
 ### Phase 6. UI (8 h)
 
