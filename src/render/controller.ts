@@ -17,6 +17,9 @@ import {
   orderTie,
   orderBinoculars,
   orderUniform,
+  orderWire,
+  orderPlant,
+  detonate,
   throwDecoy,
   throwSmoke,
   toggleSilencer,
@@ -148,6 +151,13 @@ export class Controller {
       const i = s.squad.findIndex((u) => u.id === 'lure');
       if (this.selected !== i) this.select(i);
       orderUniform(s, this.sel);
+    } else if (k === 'j' || k === 'k' || k === 'l') {
+      // Itai's tripwire, charge and detonator: at his feet, or from anywhere
+      const i = s.squad.findIndex((u) => u.id === 'sapper');
+      if (this.selected !== i) this.select(i);
+      if (k === 'j') orderWire(s, this.sel);
+      else if (k === 'k') orderPlant(s, this.sel);
+      else detonate(s, this.sel);
     } else if (k === 'f') {
       // the selected operator's gun
       if (this.sel.alive) this.mode = this.mode === 'fire' ? null : 'fire';

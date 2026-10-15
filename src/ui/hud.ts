@@ -25,6 +25,9 @@ const BAR: readonly (readonly [string, string, string, UnitId | null])[] = [
   ['smoke', 'v', 'Smoke', 'lure'],
   ['bino', 'b', 'Binoc.', 'lure'],
   ['uniform', 'u', 'Uniform', 'lure'],
+  ['wire', 'j', 'Wire', 'sapper'],
+  ['charge', 'k', 'Charge', 'sapper'],
+  ['detonate', 'l', 'Detonate', 'sapper'],
   ['crawl', 'c', 'Crawl', null],
   ['fire', 'f', 'Fire', null],
   ['silencer', 'h', 'Silent', null],
@@ -49,7 +52,7 @@ export class Hud {
         <div class="status" id="status"></div>
         <div class="toasts" id="toasts" aria-live="polite"></div>
         <p class="hint">Tap a unit to select (1 2 3). Tap the map to move. Tap a guard: Yoav takes him down.
-        <span class="keys">C crawl · F fire · H silencer · X drop body · S stop · Space pause · Yoav: G tie · Noa: T decoy, V smoke, B binoculars, U uniform · drag to pan, scroll or pinch to zoom.</span>
+        <span class="keys">C crawl · F fire · H silencer · X drop body · S stop · Space pause · Yoav: G tie · Noa: T decoy, V smoke, B binoculars, U uniform · Itai: tap the fence to cut it, J wire, K charge, L detonate · drag to pan, scroll or pinch to zoom.</span>
         <span class="touch-keys">Drag to pan, pinch to zoom.</span></p>
         <nav class="bar tools" aria-label="Tools">${BAR.filter((b) => b[3]).map(([id, , label]) => `<button type="button" data-id="${id}">${label}</button>`).join('')}</nav>
         <nav class="bar" aria-label="Orders">${BAR.filter((b) => !b[3]).map(([id, , label]) => `<button type="button" data-id="${id}">${label}</button>`).join('')}</nav>
@@ -87,7 +90,7 @@ export class Hud {
       s.alarm.active ? 'ALARM ×2' : 'quiet',
       `launchers ${rigged}/3`,
       `power ${s.generator.on ? 'on' : 'cut'}`,
-      `${sel.name}${sel.crawl ? ' (crawl)' : ''}${sel.carrying ? ' (dragging)' : ''}${sel.id === 'lure' ? ` · decoys ${sel.charges} · smoke ${sel.smokes}${sel.disguised ? ' · in uniform' : ''}` : ''} · ${sel.silenced ? 'silenced' : 'LOUD'}`,
+      `${sel.name}${sel.crawl ? ' (crawl)' : ''}${sel.carrying ? ' (dragging)' : ''}${sel.id === 'lure' ? ` · decoys ${sel.charges} · smoke ${sel.smokes}${sel.disguised ? ' · in uniform' : ''}` : ''}${sel.id === 'sapper' ? ` · wires ${sel.wires}${sel.remote ? ' · charge planted' : sel.remotes ? ' · 1 charge' : ''}` : ''} · ${sel.silenced ? 'silenced' : 'LOUD'}`,
       c.throwMode ? 'THROW: tap a spot' : '',
       c.mode === 'tie' ? 'TIE: tap a body' : '',
       c.mode === 'fire' ? `FIRE${sel.silenced ? '' : ' (LOUD)'}: tap a guard` : '',
@@ -113,6 +116,10 @@ export class Hud {
     on('uniform', sel.disguised);
     on('silencer', sel.silenced);
     this.buttons.get('smoke')!.disabled = sel.smokes <= 0;
+    this.buttons.get('wire')!.disabled = sel.wires <= 0;
+    this.buttons.get('charge')!.disabled = sel.remotes <= 0 || !!sel.remote;
+    this.buttons.get('detonate')!.disabled = !sel.remote;
+    on('detonate', !!sel.remote);
     // only the selected operator's tools show; the row hides when he has none
     let tools = 0;
     for (const [id, , , who] of BAR) {

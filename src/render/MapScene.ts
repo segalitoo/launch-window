@@ -56,6 +56,8 @@ const OVERLAY_DEPTH = 1e9;
 const ROPE_COLOR = 0xd8c9a3;
 /** How long a pistol tracer stays on screen, sim seconds. */
 const TRACER_TIME = 0.15;
+/** How long a blast's flash and ring stay on screen, sim seconds. */
+const BLAST_FX = 0.6;
 /** Night grade for units, lighter than the environment's (visual language 6b). */
 const UNIT_GRADE = [0.62, 0.68, 0.82] as const;
 const MAP_TOP_MARGIN = 80; // room for tall blocks on the back row
@@ -98,6 +100,8 @@ export class MapScene extends Phaser.Scene {
   private hideGfx!: Phaser.GameObjects.Graphics;
   /** Pistol shots on screen: a short tracer, sim time. */
   private tracers: { x0: number; y0: number; x1: number; y1: number; t: number; loud: boolean }[] = [];
+  /** Blasts on screen: a flash and a ring, sim time. */
+  private blasts: { x: number; y: number; t: number }[] = [];
   /** Smoke clouds: above the units and the art, under the overlay. */
   private smokeGfx!: Phaser.GameObjects.Graphics;
   /** Searchlight light: added over the art (and the units in it), under the overlay. */
@@ -344,6 +348,7 @@ export class MapScene extends Phaser.Scene {
       this.guardArt.onEvents(events, s.t);
       this.hooks.onEvents(events, s, this.ctl);
       for (const e of events) {
+        if (e.type === 'blast') this.blasts.push({ x: e.x, y: e.y, t: s.t });
         if (e.type !== 'fired') continue;
         const u = s.squad.find((q) => q.id === e.unit)!;
         const g = s.guards[e.guard]!;
@@ -384,6 +389,10 @@ export class MapScene extends Phaser.Scene {
     for (let y = 0; y < rows; y++) {
       for (let x = 0; x < cols; x++) {
         const code = tileAt(s.grid, x, y);
+        if (code === 'F') {
+          this.blocks.push(this.drawFence(s, x, y));
+          continue;
+        }
         let style = BLOCKS[code];
         if (!style) continue;
         // the painting already shows this structure; its occluder sprite stands in for the block
@@ -400,6 +409,46 @@ export class MapScene extends Phaser.Scene {
         this.occluders.push(blockOccluder(x, y, style.inset, style.height));
       }
     }
+  }
+
+  /** Chain-link fence (Phase 3): a see-through panel along the run, posts at the ends. No
+   *  occluder: you see through it, and it only blocks walking until Itai cuts it. */
+  private drawFence(s: GameState, x: number, y: number): Phaser.GameObjects.Graphics {
+    const solid = (tx: number, ty: number): boolean => ['F', '#'].includes(tileAt(s.grid, tx, ty));
+    const alongX = solid(x - 1, y) || solid(x + 1, y) || !(solid(x, y - 1) || solid(x, y + 1));
+    const a = alongX ? { x, y: y + 0.5 } : { x: x + 0.5, y };
+    const b = alongX ? { x: x + 1, y: y + 0.5 } : { x: x + 0.5, y: y + 1 };
+    const H = 26;
+    const g = this.add.graphics().setDepth(depthOf(x + 0.5, y + 0.5, 1));
+    const p = (q: Vec, h: number): Point => toScreen(q.x, q.y, h);
+    g.fillStyle(night(0x8a969a), 0.22);
+    g.fillPoints(poly([p(a, 0), p(b, 0), p(b, H), p(a, H)]), true);
+    // the mesh: two sets of diagonals, clipped to the panel
+    g.lineStyle(1, night(0xaab4b8), 0.45);
+    const at = (t: number, h: number): Point => p({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }, h);
+    for (let k = -1; k < 1; k += 0.25) {
+      for (const up of [true, false]) {
+        // along the line h = (t - k) H (up) or (k + 1 - t) H (down), kept inside 0..1
+        const t0 = Math.max(0, k);
+        const t1 = Math.min(1, k + 1);
+        if (t1 <= t0) continue;
+        const h = (t: number): number => (up ? t - k : k + 1 - t) * H;
+        const q0 = at(t0, h(t0));
+        const q1 = at(t1, h(t1));
+        g.lineBetween(q0.x, q0.y, q1.x, q1.y);
+      }
+    }
+    g.lineStyle(2, night(0x5a6266), 1);
+    for (const q of [a, b]) {
+      const lo = p(q, 0);
+      const hi = p(q, H + 3);
+      g.lineBetween(lo.x, lo.y, hi.x, hi.y);
+    }
+    g.lineStyle(1.5, night(0x6d777b), 1);
+    const ta = p(a, H);
+    const tb = p(b, H);
+    g.lineBetween(ta.x, ta.y, tb.x, tb.y);
+    return g;
   }
 
   private drawBlock(g: Phaser.GameObjects.Graphics, x: number, y: number, w: number, h: number, height: number, color: number): void {
@@ -534,6 +583,34 @@ export class MapScene extends Phaser.Scene {
       }
     }
     this.drawSmoke(s);
+    // Itai's tripwires and planted charge: for the player's eyes only
+    o.lineStyle(1.5, ROPE_COLOR, 0.9);
+    for (const w of s.wires) {
+      const l = toScreen(w.x + 0.15, w.y + 0.5, 3);
+      const r = toScreen(w.x + 0.85, w.y + 0.5, 3);
+      o.lineBetween(l.x, l.y, r.x, r.y);
+      o.fillStyle(ROPE_COLOR, 1);
+      o.fillCircle(l.x, l.y, 1.5);
+      o.fillCircle(r.x, r.y, 1.5);
+    }
+    const itai = s.squad.find((u) => u.id === 'sapper');
+    if (itai?.remote) {
+      const c = toScreen(itai.remote.x, itai.remote.y, 2);
+      o.fillStyle(0x30302a, 1);
+      o.fillRect(c.x - 4, c.y - 3, 8, 5);
+      o.fillStyle(ALARM_COLOR, Math.sin(s.t * 8) > 0 ? 1 : 0.25); // a blinking light
+      o.fillCircle(c.x + 2, c.y - 3, 1.5);
+    }
+    // blasts: a flash and a ring that widens and fades
+    this.blasts = this.blasts.filter((b) => s.t - b.t < BLAST_FX);
+    for (const b of this.blasts) {
+      const k = (s.t - b.t) / BLAST_FX;
+      const c = toScreen(b.x, b.y);
+      o.fillStyle(0xffe2a0, Math.max(0, 0.9 - k * 3));
+      o.fillEllipse(c.x, c.y - 10, 70 * (0.4 + k), 46 * (0.4 + k));
+      o.lineStyle(3, 0xffc070, 1 - k);
+      o.strokeEllipse(c.x, c.y, 160 * k + 20, 80 * k + 10);
+    }
     // interaction progress
     for (const u of s.squad) {
       const bar = (k: number, col: number): void => {

@@ -108,7 +108,12 @@ export class UnitSprites {
         grabAt: e.grabAt,
         hitT: u.alive ? u.hitT : 0,
         busy: u.busy,
-        workT: u.order?.type === 'interact' && u.order.started ? u.order.t : null,
+        workT:
+          u.order?.type === 'interact' && u.order.started
+            ? u.order.t
+            : u.order?.type === 'wire' || u.order?.type === 'plant'
+              ? u.order.t
+              : null,
         tieT: u.order?.type === 'tie' && u.order.started ? u.order.t : null,
         aimT: u.order?.type === 'shoot' ? u.order.t : null,
         firedAt: this.shots.get(u.id) ?? null,
@@ -201,7 +206,7 @@ export class GuardSprites {
   /** Sim events that start one-shots. `t` is the sim time. */
   onEvents(events: readonly SimEvent[], t: number): void {
     for (const ev of events) {
-      if (ev.type === 'takedown') this.takedowns.set(ev.guard, t);
+      if (ev.type === 'takedown' || ev.type === 'tripped') this.takedowns.set(ev.guard, t);
       else if (ev.type === 'woke') this.wakes.set(ev.guard, t);
     }
   }

@@ -77,9 +77,9 @@ Character pipeline:
 | Noa, Lure | Smoke grenade | Block all sight in an area: 2 grenades, 13 s (8 s at the 60% pace), guards and searchlights | Built |
 | Noa, Lure | Captured uniform | Walk past regular guards; seen through when crawling, dragging, within 1 tile, or in an alarm | Built |
 | Itai, Sapper | Breach door, cut power, plant charge | Locked routes, searchlights, the objective | Built |
-| Itai, Sapper | Wire cutters | Cut a new hole in the outer fence | New |
-| Itai, Sapper | Tripwire | Takes out the next guard who walks through | New |
-| Itai, Sapper | Remote charge | A loud diversion far from the team | New |
+| Itai, Sapper | Wire cutters | Cut a new hole in the outer fence (2 fence runs on the perimeter: south by the strip, west by the road; fence blocks walking, not sight; 2 s) | Built |
+| Itai, Sapper | Tripwire | Takes out the next guard who walks through (2 wires; knocked out like a takedown) | Built |
+| Itai, Sapper | Remote charge | A loud diversion far from the team (1 charge; guards within 10 tiles investigate, within 1.5 caught in it; no alarm) | Built |
 
 | Enemy | Behavior | Counter |
 | --- | --- | --- |
@@ -137,7 +137,7 @@ About 144 hours. Re-plan at each gate.
 
 - [x] Yoav: tie up, hiding spots, silenced pistol (5 hiding spots on the map, placeholder bushes until Phase 4; Yoav's aim pose; guards get up when they wake)
 - [x] Noa: binoculars, smoke, captured uniform (plus guns for all three, Ran's addition: loud or silenced)
-- [ ] Itai: wire cutters, tripwire, remote charge
+- [x] Itai: wire cutters, tripwire, remote charge
 - [ ] Officer, dog, camera
 - [ ] Backpack inventory panel, placeholder art
 - [ ] A small test map per tool, then rebalance the main mission and timer
