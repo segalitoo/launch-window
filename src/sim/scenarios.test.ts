@@ -23,6 +23,7 @@ const NORTH_PATROL = 6; // compound loop patrol
 const GATE_POST = 5; // compound west-gate post at (29, 12), facing west
 const SPINNER = 7; // spinning post guard at (36, 16)
 const SOUTH = 8; // south strip patrol
+const OFFICER = 10; // compound officer, row 11 there and back (Phase 3)
 
 const target = (k: Script, tx: number, ty: number): InteractTarget => {
   const t = objectAt(k.s, tx, ty);
@@ -125,6 +126,12 @@ function finishRun(k: Script): void {
   orderTakedown(s, yoav, loop);
   k.until('loop patrol down', () => loop.state === 'down', 15);
   tie(k, loop, 'loop patrol tied');
+
+  const officer = k.guard(OFFICER);
+  k.until('officer walks west, back to Yoav', () => officer.state === 'patrol' && Math.cos(officer.ang) < -0.9 && officer.x < 39.5, 40);
+  orderTakedown(s, yoav, officer);
+  k.until('officer down', () => officer.state === 'down', 15);
+  tie(k, officer, 'officer tied');
 
   orderInteract(s, itai, target(k, 37, 12));
   orderTakedown(s, yoav, gatePost); // he faces the west gate, Yoav comes from the east
@@ -267,7 +274,7 @@ describe('verified scenarios from prototype/NOTES.md', () => {
     finishRun(k);
     expect(k.s.over).toBe('win');
     expect(k.s.squad.every((u) => u.alive && u.hp === u.maxHp)).toBe(true);
-    expect(k.s.stats.takedowns).toBe(5);
+    expect(k.s.stats.takedowns).toBe(6);
     expect(k.s.timeLeft).toBeGreaterThan(300); // about 6:50 of 8:00 left
     noAlarm(k);
   });

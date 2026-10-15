@@ -5,6 +5,7 @@ import {
   ALARM_CONE_SCALE,
   CONE_LEN,
   CONE_MIN_DIST,
+  DOG_SMELL,
   EPS_LOS,
   EPS_LOS_MIN,
   FOV,
@@ -15,7 +16,10 @@ import {
 } from './constants';
 import { blocksSight } from './grid';
 import { angDiff, tileOf } from './math';
-import type { GameState, Grid, Unit, Vec } from './types';
+import type { GameState, Grid, GuardRole, Unit, Vec } from './types';
+
+/** Who is looking: a guard (with a role) or a camera (no role). */
+export type Eye = Vec & { ang: number; role?: GuardRole };
 
 /** True when a smoke cloud lies across the line from (x0, y0) to (x1, y1). */
 export function smokeBlocks(s: GameState, x0: number, y0: number, x1: number, y1: number): boolean {
@@ -103,9 +107,9 @@ export function zoneOf(s: GameState, g: Vec & { ang: number }, p: Vec): Zone | n
 }
 
 /** Noa in the captured uniform passes for one of theirs, unless she crawls, drags a body,
- *  comes within UNIFORM_CLOSE tiles, or the alarm is on. */
-export function disguiseHolds(s: GameState, g: Vec, u: Unit): boolean {
-  if (!u.disguised || s.alarm.active || u.crawl || u.carrying) return false;
+ *  comes within UNIFORM_CLOSE tiles, or the alarm is on. An officer is never fooled. */
+export function disguiseHolds(s: GameState, g: Eye, u: Unit): boolean {
+  if (!u.disguised || s.alarm.active || u.crawl || u.carrying || g.role === 'officer') return false;
   return Math.hypot(u.x - g.x, u.y - g.y) > UNIFORM_CLOSE;
 }
 
@@ -118,9 +122,25 @@ export function hidden(s: GameState, u: Unit): boolean {
 }
 
 /** Like zoneOf, but a crawling or hidden unit in the far zone is not seen. */
-export function detects(s: GameState, g: Vec & { ang: number }, u: Unit): Zone | null {
+export function detects(s: GameState, g: Eye, u: Unit): Zone | null {
+  if (g.role === 'dog') return null; // dogs smell (smells), they have no cone
   const z = zoneOf(s, g, u);
   if (!z || (z === 'far' && (u.crawl || hidden(s, u)))) return null;
   if (disguiseHolds(s, g, u)) return null;
   return z;
+}
+
+/** What a dog smells: the closest operator within DOG_SMELL tiles that walls do not hide.
+ *  Hiding spots, crawling, smoke and the uniform do not help. */
+export function smells(s: GameState, dog: Vec): Unit | null {
+  let best: Unit | null = null;
+  let bd = DOG_SMELL;
+  for (const u of s.squad) {
+    if (!u.alive) continue;
+    const d = Math.hypot(u.x - dog.x, u.y - dog.y);
+    if (d > bd || !losClear(s.grid, dog.x, dog.y, u.x, u.y)) continue;
+    best = u;
+    bd = d;
+  }
+  return best;
 }

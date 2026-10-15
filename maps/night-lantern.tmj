@@ -10,7 +10,7 @@
  "tilewidth": 24,
  "tileheight": 24,
  "nextlayerid": 6,
- "nextobjectid": 30,
+ "nextobjectid": 34,
  "compressionlevel": -1,
  "properties": [
   {
@@ -3040,6 +3040,72 @@
      "height": 48,
      "rotation": 0,
      "visible": true
+    },
+    {
+     "id": 30,
+     "name": "Gate camera out",
+     "type": "camera",
+     "x": 816,
+     "y": 528,
+     "width": 24,
+     "height": 24,
+     "rotation": 0,
+     "visible": true,
+     "properties": [
+      {
+       "name": "a0",
+       "type": "float",
+       "value": 45
+      },
+      {
+       "name": "a1",
+       "type": "float",
+       "value": 135
+      },
+      {
+       "name": "period",
+       "type": "float",
+       "value": 6
+      },
+      {
+       "name": "phase",
+       "type": "float",
+       "value": 0
+      }
+     ]
+    },
+    {
+     "id": 31,
+     "name": "Gate camera in",
+     "type": "camera",
+     "x": 864,
+     "y": 528,
+     "width": 24,
+     "height": 24,
+     "rotation": 0,
+     "visible": true,
+     "properties": [
+      {
+       "name": "a0",
+       "type": "float",
+       "value": 225
+      },
+      {
+       "name": "a1",
+       "type": "float",
+       "value": 315
+      },
+      {
+       "name": "period",
+       "type": "float",
+       "value": 6
+      },
+      {
+       "name": "phase",
+       "type": "float",
+       "value": 3
+      }
+     ]
     }
    ]
   },
@@ -3292,6 +3358,53 @@
       {
        "x": 672,
        "y": 0
+      }
+     ]
+    },
+    {
+     "id": 32,
+     "name": "Officer",
+     "type": "patrol",
+     "x": 708.0,
+     "y": 276.0,
+     "width": 0,
+     "height": 0,
+     "rotation": 0,
+     "visible": true,
+     "polyline": [
+      {
+       "x": 0,
+       "y": 0
+      },
+      {
+       "x": 264,
+       "y": 0
+      }
+     ],
+     "properties": [
+      {
+       "name": "role",
+       "type": "string",
+       "value": "officer"
+      }
+     ]
+    },
+    {
+     "id": 33,
+     "name": "Dog",
+     "type": "dog",
+     "x": 516.0,
+     "y": 276.0,
+     "width": 0,
+     "height": 0,
+     "rotation": 0,
+     "visible": true,
+     "point": true,
+     "properties": [
+      {
+       "name": "handler",
+       "type": "int",
+       "value": 5
       }
      ]
     }

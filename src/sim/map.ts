@@ -28,7 +28,11 @@ export const NIGHT_LANTERN: MissionMap = parseTiledMap(JSON.parse(nightLantern))
 function makeGuard(d: GuardDef, i: number): Guard {
   const g: Guard = {
     i,
-    kind: d.kind,
+    kind: d.kind === 'dog' ? 'post' : d.kind,
+    role: d.kind === 'dog' ? 'dog' : d.officer ? 'officer' : 'guard',
+    handler: d.kind === 'dog' ? d.handler : -1,
+    distract: 0,
+    barkCD: 0,
     state: 'patrol',
     x: 0,
     y: 0,
@@ -58,7 +62,12 @@ function makeGuard(d: GuardDef, i: number): Guard {
     ri: 1,
     dir: 1,
   };
-  if (d.kind === 'post') {
+  if (d.kind === 'dog') {
+    const p = center(d.at[0], d.at[1]);
+    g.x = p.x;
+    g.y = p.y;
+    g.post = p;
+  } else if (d.kind === 'post') {
     const p = center(d.at[0], d.at[1]);
     g.x = p.x;
     g.y = p.y;
@@ -131,6 +140,7 @@ export function buildMission(seed = 1, map: MissionMap = NIGHT_LANTERN): GameSta
     doors: map.doors.map((d) => ({ ...d })),
     generator: { ...map.generator },
     towers: map.towers.map((t) => ({ ...t })),
+    cameras: map.cameras.map((c) => ({ ...c })),
     launchers: map.launchers.map((l) => ({ ...l })),
     lz: { ...map.lz },
     hides: map.hides.map((h) => ({ ...h })),

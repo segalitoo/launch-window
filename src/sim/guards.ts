@@ -4,8 +4,15 @@
 import {
   ALARM_RATE,
   ALARM_TIME,
+  BARK_EVERY,
+  BARK_HEAR,
   COMBAT_SPIN,
   DECOY_HEAR,
+  DOG_DISTRACT,
+  DOG_REACT,
+  DOG_HEEL,
+  DOG_REPATH,
+  OFFICER_PACE,
   INVESTIGATE_MAX_PATH,
   LAST_KNOWN_REACH,
   PATROL_WAIT,
@@ -33,8 +40,8 @@ import {
 import { message, raiseAlarm, shoot, wake } from './mission';
 import { dist, pathLength, turnTo } from './math';
 import { moveAlong, pathTo } from './pathfinding';
-import type { GameState, Guard, Unit } from './types';
-import { detects, zoneOf } from './vision';
+import type { GameState, Guard, Unit, Vec } from './types';
+import { detects, smells, zoneOf } from './vision';
 
 /** Sends a guard back to its post, or to its current patrol waypoint. */
 export function goReturn(s: GameState, g: Guard): void {
@@ -45,13 +52,30 @@ export function goReturn(s: GameState, g: Guard): void {
   if (!g.path.length) g.state = 'patrol';
 }
 
-/** A noise at (x, y): a landed decoy, or a silenced shot (radius SILENCED_HEAR). Guards in
- *  earshot walk over, or search in place if the walk is long. */
-export function hearNoise(s: GameState, x: number, y: number, radius = DECOY_HEAR): void {
+export interface NoiseOpts {
+  /** A landed decoy: dogs in earshot go and sniff at it. Other noises leave dogs alone. */
+  decoy?: boolean;
+  /** Where the noise is heard from, if not (x, y): a dog barks at an operator. */
+  from?: Vec;
+  /** A guard who always comes, whatever the distance: the barking dog's handler. */
+  also?: Guard;
+}
+
+/** A noise at (x, y): a landed decoy, a silenced shot (radius SILENCED_HEAR), a blast, a
+ *  bark. Guards in earshot walk over, or search in place if the walk is long. */
+export function hearNoise(s: GameState, x: number, y: number, radius = DECOY_HEAR, o: NoiseOpts = {}): void {
+  const src = o.from ?? { x, y };
   let n = 0;
   for (const g of s.guards) {
     if (g.state === 'down' || g.state === 'combat') continue;
-    if (Math.hypot(g.x - x, g.y - y) > radius) continue;
+    if (g !== o.also && Math.hypot(g.x - src.x, g.y - src.y) > radius) continue;
+    if (g.role === 'dog') {
+      if (!o.decoy) continue;
+      g.distract = DOG_DISTRACT;
+      g.path = pathTo(s.grid, g, x, y) ?? [];
+      g.seeing = null;
+      continue;
+    }
     n++;
     const p = pathTo(s.grid, g, x, y);
     const len = p ? pathLength(g, p) : 0;
@@ -70,12 +94,75 @@ export function hearNoise(s: GameState, x: number, y: number, radius = DECOY_HEA
   s.events.push({ type: 'noise', x, y, heard: n });
 }
 
+/** A dog barks at an operator it smells: its handler and guards close by come to look. During
+ *  an alarm the bark tells everyone where he is. */
+function bark(s: GameState, dog: Guard, u: Unit): void {
+  s.events.push({ type: 'bark', guard: dog.i, x: dog.x, y: dog.y });
+  if (s.alarm.active) {
+    raiseAlarm(s, u.x, u.y, null, 'A dog is barking!');
+    return;
+  }
+  const h = s.guards[dog.handler];
+  hearNoise(s, u.x, u.y, BARK_HEAR, { from: dog, ...(h ? { also: h } : {}) });
+}
+
+/** A dog heels at its handler's side, smells operators close by and barks; a decoy keeps it
+ *  sniffing for a while. It never shoots, finds bodies or joins the alarm itself. */
+function updateDog(s: GameState, g: Guard, dt: number): void {
+  const walk = (speed: number): void => {
+    const a = moveAlong(g, dt, speed);
+    if (a !== null) turnTo(g, a, dt, TURN_WALK);
+  };
+  if (g.distract > 0) {
+    g.distract -= dt;
+    g.seeing = null;
+    if (g.path.length) walk(SPEED_INVESTIGATE);
+    else g.ang += Math.sin(s.t * 4) * dt * 2; // nose to the ground
+    if (g.distract <= 0) g.path = [];
+    return;
+  }
+  const u = smells(s, g);
+  if (u) {
+    g.path = [];
+    turnTo(g, Math.atan2(u.y - g.y, u.x - g.x), dt, TURN_COMBAT);
+    if (g.seeing !== u) g.barkCD = Math.min(g.barkCD > 0 ? g.barkCD : DOG_REACT, DOG_REACT);
+    g.seeing = u;
+    g.barkCD -= dt;
+    if (g.barkCD <= 0) {
+      bark(s, g, u);
+      g.barkCD = BARK_EVERY;
+    }
+    return;
+  }
+  g.seeing = null;
+  g.barkCD = 0;
+  const h = s.guards[g.handler];
+  if (!h) return;
+  const d = dist(g, h);
+  if (d <= DOG_HEEL) {
+    g.path = [];
+    if (h.state !== 'down') turnTo(g, h.ang, dt, TURN_WALK);
+    return;
+  }
+  g.timer -= dt;
+  if (!g.path.length || g.timer <= 0) {
+    g.timer = DOG_REPATH;
+    g.path = pathTo(s.grid, g, h.x, h.y) ?? [];
+  }
+  // keep up: a trot when close, a run when left behind
+  walk(d > DOG_HEEL * 3 ? SPEED_COMBAT : Math.max(SPEED_PATROL, SPEED_INVESTIGATE * Math.min(1, d / 3)));
+}
+
 export function updateGuard(s: GameState, g: Guard, dt: number): void {
   if (g.state === 'down') {
     if (g.ko > 0 && !g.tied && !g.dead) {
       g.ko -= dt;
       if (g.ko <= 0) wake(s, g);
     }
+    return;
+  }
+  if (g.role === 'dog') {
+    updateDog(s, g, dt);
     return;
   }
 
@@ -162,7 +249,7 @@ export function updateGuard(s: GameState, g: Guard, dt: number): void {
             g.wait = PATROL_WAIT;
           } else g.path = pathTo(s.grid, g, wp.x, wp.y) ?? [];
         }
-        walk(SPEED_PATROL);
+        walk(g.role === 'officer' ? SPEED_PATROL * OFFICER_PACE : SPEED_PATROL);
       }
       break;
     case 'investigate':
@@ -210,5 +297,5 @@ export function clearAlarm(s: GameState): void {
   s.alarm.active = false;
   message(s, 'Alarm cleared. Guards are going back to their posts.');
   s.events.push({ type: 'alarmCleared' });
-  for (const g of s.guards) if (g.state === 'combat') goReturn(s, g);
+  for (const g of s.guards) if (g.state === 'combat' && g.role !== 'dog') goReturn(s, g);
 }

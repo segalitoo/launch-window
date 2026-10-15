@@ -33,7 +33,7 @@ describe('mission map', () => {
     const count = (c: string): number => g.cells.filter((x) => x === c).length;
     expect(count('c')).toBe(15);
     expect(count('L')).toBe(9);
-    expect(s.guards).toHaveLength(10);
+    expect(s.guards).toHaveLength(12); // 10 guards, the officer and the dog (Phase 3)
     expect(s.squad.map((u) => u.name)).toEqual(['Yoav', 'Noa', 'Itai']);
   });
 

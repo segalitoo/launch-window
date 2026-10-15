@@ -18,12 +18,16 @@ import {
   BLAST_HEAR,
   BLAST_HURT,
   BLAST_KILL,
+  CAM_DECAY,
+  CAM_FOV,
+  CAM_LEN,
+  CAM_SUSP_TIME,
 } from './constants';
 import { angDiff, center, dist, tileOf } from './math';
 import { walkable } from './grid';
 import { hearNoise } from './guards';
 import type { GameResult, GameState, Guard, MessageKind, Unit } from './types';
-import { hidden, losClear, smokeBlocks } from './vision';
+import { disguiseHolds, hidden, losClear, smokeBlocks } from './vision';
 
 export function message(s: GameState, msg: string, kind: MessageKind = ''): void {
   s.events.push({ type: 'message', msg, kind });
@@ -40,7 +44,7 @@ export function raiseAlarm(s: GameState, x: number, y: number, src: Guard | null
   s.alarm.active = true;
   s.alarm.timer = ALARM_TIME;
   for (const g of s.guards) {
-    if (g.state === 'down') continue;
+    if (g.state === 'down' || g.role === 'dog') continue;
     if (g === src || Math.hypot(g.x - x, g.y - y) < ALARM_RADIUS) {
       if (g.state !== 'combat') g.shootCD = SHOT_FIRST;
       g.state = 'combat';
@@ -87,7 +91,7 @@ export function gunKill(s: GameState, u: Unit, g: Guard, loud: boolean): void {
 /** A guard walks into one of Itai's tripwires: knocked out, like a knife takedown. */
 export function checkWires(s: GameState): void {
   for (const g of s.guards) {
-    if (g.state === 'down' || g.carried) continue;
+    if (g.state === 'down' || g.carried || g.role === 'dog') continue; // a dog steps over
     const i = s.wires.findIndex((w) => w.x === tileOf(g.x) && w.y === tileOf(g.y));
     if (i < 0) continue;
     s.wires.splice(i, 1);
@@ -198,5 +202,39 @@ export function updateTowers(s: GameState, dt: number): void {
       if (s.alarm.active) s.alarm.timer = ALARM_TIME;
       if (t.susp >= 1) raiseAlarm(s, seen.x, seen.y, null, `Searchlight caught ${seen.name}!`);
     } else t.susp = Math.max(0, t.susp - TOWER_DECAY * dt);
+  }
+}
+
+/** Cameras sweep like searchlights with a short cone and run on the generator. They miss an
+ *  operator in a hiding spot or in the uniform; CAM_SUSP_TIME in view raises the alarm. */
+export function updateCameras(s: GameState, dt: number): void {
+  for (const c of s.cameras) {
+    if (!s.generator.on) {
+      c.susp = 0;
+      continue;
+    }
+    const k = 0.5 - 0.5 * Math.cos((2 * Math.PI * s.t) / (c.period / PACE) + c.phase);
+    c.ang = c.a0 + (c.a1 - c.a0) * k;
+    const o = center(c.x, c.y);
+    const eye = { ...o, ang: c.ang };
+    let seen: Unit | null = null;
+    for (const u of s.squad) {
+      if (!u.alive || hidden(s, u) || disguiseHolds(s, eye, u)) continue;
+      const d = dist(o, u);
+      if (
+        d > CAM_LEN ||
+        Math.abs(angDiff(Math.atan2(u.y - o.y, u.x - o.x), c.ang)) > CAM_FOV / 2 ||
+        !losClear(s.grid, o.x, o.y, u.x, u.y) ||
+        smokeBlocks(s, o.x, o.y, u.x, u.y)
+      )
+        continue;
+      seen = u;
+      break;
+    }
+    if (seen) {
+      c.susp = Math.min(1, c.susp + (s.alarm.active ? ALARM_RATE : 1 / CAM_SUSP_TIME) * dt);
+      if (s.alarm.active) s.alarm.timer = ALARM_TIME;
+      if (c.susp >= 1) raiseAlarm(s, seen.x, seen.y, null, `A camera caught ${seen.name}!`);
+    } else c.susp = Math.max(0, c.susp - CAM_DECAY * dt);
   }
 }
