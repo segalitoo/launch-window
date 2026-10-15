@@ -1,6 +1,6 @@
 import type { Grid, TileCode } from './types';
 
-const BLOCK_MOVE: ReadonlySet<TileCode> = new Set(['#', 'B', 'c', 'D', 'G', 'L', 'T']);
+const BLOCK_MOVE: ReadonlySet<TileCode> = new Set(['#', 'B', 'c', 'D', 'F', 'G', 'L', 'T']);
 const BLOCK_SIGHT: ReadonlySet<TileCode> = new Set(['#', 'B', 'c', 'D', 'G', 'L', 'T']);
 
 export function createGrid(cols: number, rows: number): Grid {

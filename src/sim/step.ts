@@ -2,7 +2,7 @@
 
 import { ALARM_TIME_SCALE, SMOKE_TIME } from './constants';
 import { clearAlarm, hearNoise, updateGuard } from './guards';
-import { endGame, inLZ, updateTowers } from './mission';
+import { checkWires, endGame, inLZ, updateTowers } from './mission';
 import { updateUnit } from './squad';
 import type { GameState } from './types';
 
@@ -20,6 +20,7 @@ export function step(s: GameState, dt: number): void {
   for (const u of s.squad) updateUnit(s, u, dt);
   updateTowers(s, dt);
   for (const g of s.guards) updateGuard(s, g, dt);
+  checkWires(s);
   if (s.over) return;
   for (const p of s.projectiles) p.t += dt;
   const landed = s.projectiles.filter((p) => p.t >= p.dur);

@@ -7,10 +7,12 @@ import {
   DECOY_RANGE,
   DRAG_MULT,
   DUR_DOOR,
+  DUR_FENCE,
   DUR_GENERATOR,
   DUR_LAUNCHER,
   GRAB_RANGE,
   INTERACT_REACH,
+  PLANT_TIME,
   BINO_TIME,
   CARBINE_RANGE,
   GUN_AIM,
@@ -24,11 +26,12 @@ import {
   THROW_FLIGHT,
   TIE_DUR,
   UNIFORM_TIME,
+  WIRE_TIME,
 } from './constants';
 import { hearNoise } from './guards';
-import { walkable } from './grid';
-import { center, dist, pathLength } from './math';
-import { gunKill, message, raiseAlarm, takedown } from './mission';
+import { tileAt, walkable } from './grid';
+import { center, dist, pathLength, tileOf } from './math';
+import { blast, gunKill, message, raiseAlarm, takedown } from './mission';
 import { moveAlong, pathTo } from './pathfinding';
 import type { GameState, Guard, InteractTarget, Unit, Vec } from './types';
 import { detects, losClear, smokeBlocks } from './vision';
@@ -48,11 +51,12 @@ export function objectAt(s: GameState, tx: number, ty: number): InteractTarget |
   if (tx >= g.x && tx < g.x + g.w && ty >= g.y && ty < g.y + g.h) return { kind: 'generator', o: g };
   const l = s.launchers.find((l) => tx >= l.x && tx < l.x + l.w && ty >= l.y && ty < l.y + l.h);
   if (l) return { kind: 'launcher', o: l };
+  if (tileAt(s.grid, tx, ty) === 'F') return { kind: 'fence', o: { x: tx, y: ty } };
   return null;
 }
 
 const footprint = (t: InteractTarget): { x: number; y: number; w: number; h: number } =>
-  t.kind === 'door' ? { x: t.o.x, y: t.o.y, w: 1, h: 1 } : t.o;
+  t.kind === 'door' || t.kind === 'fence' ? { x: t.o.x, y: t.o.y, w: 1, h: 1 } : t.o;
 
 /** The walkable tile around an object with the shortest walk for this unit,
  *  so Itai never takes the long way round. */
@@ -126,6 +130,7 @@ export function orderInteract(s: GameState, u: Unit, target: InteractTarget): bo
       door: 'Locked. Itai can breach it.',
       generator: 'Itai can cut the power here.',
       launcher: 'Only Itai can plant the charges.',
+      fence: 'Itai can cut the fence.',
     };
     message(s, msg[target.kind]);
     return false;
@@ -145,7 +150,7 @@ export function orderInteract(s: GameState, u: Unit, target: InteractTarget): bo
   }
   clearOrder(u);
   u.path = r.path;
-  const dur = target.kind === 'door' ? DUR_DOOR : target.kind === 'generator' ? DUR_GENERATOR : DUR_LAUNCHER;
+  const dur = { door: DUR_DOOR, generator: DUR_GENERATOR, launcher: DUR_LAUNCHER, fence: DUR_FENCE }[target.kind];
   u.order = { type: 'interact', target, spot: r.spot, started: false, t: 0, dur };
   return true;
 }
@@ -246,6 +251,47 @@ export function orderBinoculars(s: GameState, u: Unit, g: Guard): boolean {
   return true;
 }
 
+/** Itai sets a tripwire at his feet (WIRE_TIME kneeling). */
+export function orderWire(s: GameState, u: Unit): boolean {
+  if (!u.alive || u.id !== 'sapper') return false;
+  if (u.wires <= 0) {
+    message(s, 'Itai is out of tripwires.', 'warn');
+    return false;
+  }
+  if (s.wires.some((w) => w.x === tileOf(u.x) && w.y === tileOf(u.y))) {
+    message(s, 'There is a wire here already.');
+    return false;
+  }
+  clearOrder(u);
+  u.order = { type: 'wire', t: 0 };
+  return true;
+}
+
+/** Itai plants the remote charge at his feet (PLANT_TIME kneeling). */
+export function orderPlant(s: GameState, u: Unit): boolean {
+  if (!u.alive || u.id !== 'sapper') return false;
+  if (u.remote) {
+    message(s, 'The charge is already planted. Set it off first.');
+    return false;
+  }
+  if (u.remotes <= 0) {
+    message(s, 'Itai has no remote charge left.', 'warn');
+    return false;
+  }
+  clearOrder(u);
+  u.order = { type: 'plant', t: 0 };
+  return true;
+}
+
+/** Sets off Itai's planted charge, wherever he is. */
+export function detonate(s: GameState, u: Unit): boolean {
+  if (!u.alive || u.id !== 'sapper' || !u.remote) return false;
+  const at = u.remote;
+  u.remote = null;
+  blast(s, at.x, at.y);
+  return true;
+}
+
 /** Noa puts the captured uniform on, or takes it off: UNIFORM_TIME standing still. */
 export function orderUniform(s: GameState, u: Unit): boolean {
   if (!u.alive || u.id !== 'lure') return false;
@@ -285,6 +331,10 @@ function finishInteract(s: GameState, target: InteractTarget): void {
     target.o.on = false;
     s.staticVersion++;
     message(s, 'Power cut. Searchlights are dark.', 'ok');
+  } else if (target.kind === 'fence') {
+    s.grid.cells[target.o.y * s.grid.cols + target.o.x] = '.';
+    s.staticVersion++;
+    message(s, 'Fence cut. A new way in.', 'ok');
   } else {
     target.o.done = true;
     const left = s.launchers.filter((l) => !l.done).length;
@@ -383,6 +433,22 @@ export function updateUnit(s: GameState, u: Unit, dt: number): void {
         }
         return;
       }
+    } else if (o.type === 'wire' || o.type === 'plant') {
+      o.t += dt;
+      if (o.t >= (o.type === 'wire' ? WIRE_TIME : PLANT_TIME)) {
+        const at = { x: tileOf(u.x), y: tileOf(u.y) };
+        if (o.type === 'wire') {
+          s.wires.push(at);
+          u.wires--;
+          message(s, `Tripwire set. ${u.wires} left.`, 'ok');
+        } else {
+          u.remote = center(at.x, at.y);
+          u.remotes--;
+          message(s, 'Charge planted. Set it off from anywhere.', 'ok');
+        }
+        clearOrder(u);
+      }
+      return;
     } else if (o.type === 'uniform') {
       o.t += dt;
       if (o.t >= UNIFORM_TIME) {

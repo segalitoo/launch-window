@@ -4,7 +4,7 @@
 //
 // Layers:
 //   ground   tile layer, tile id = sim deco (0 sand, 1 road, 2 slab, 3 yard)
-//   walls    tile layer, tile 4 = wall '#', tile 5 = crate 'c', empty = open
+//   walls    tile layer, tile 4 = wall '#', tile 5 = crate 'c', tile 6 = fence 'F', empty = open
 //   objects  rectangles, type building | door | generator | tower | launcher | hide;
 //            the name is the label. Towers need float props a0, a1 (degrees), period, phase.
 //            hide = a bush or dark corner (a hiding spot); it blocks nothing.
@@ -83,7 +83,7 @@ interface TMap {
 }
 
 const UNIT_IDS: readonly UnitId[] = ['shadow', 'lure', 'sapper'];
-const WALL_TILES: Record<number, TileCode> = { 4: '#', 5: 'c' };
+const WALL_TILES: Record<number, TileCode> = { 4: '#', 5: 'c', 6: 'F' };
 
 export function parseTiledMap(json: unknown): MissionMap {
   const m = json as TMap;

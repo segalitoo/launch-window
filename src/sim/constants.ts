@@ -116,6 +116,21 @@ export const SMOKE_TIME = wait(8);
 export const UNIFORM_TIME = 2;
 export const UNIFORM_CLOSE = 1;
 
+// Itai's tools (Phase 3). Not prototype values; work times are real seconds, like his others.
+/** Cutting a hole in the outer fence. */
+export const DUR_FENCE = 2;
+/** Tripwires: the next guard who walks through is knocked out (wakes like a knife takedown). */
+export const WIRE_CHARGES = 2;
+export const WIRE_TIME = 2;
+/** Remote charge: planted at his feet, set off from anywhere. A diversion: guards within
+ *  BLAST_HEAR tiles come to look, anyone within BLAST_KILL is caught in it. No alarm. */
+export const REMOTE_CHARGES = 1;
+export const PLANT_TIME = 2;
+export const BLAST_HEAR = 10;
+export const BLAST_KILL = 1.5;
+/** Hit points an operator loses in his own blast. */
+export const BLAST_HURT = 2;
+
 // Guards
 export const SPEED_PATROL = move(40); // 40 px/s in the prototype
 export const SPEED_INVESTIGATE = move(62); // 62 px/s in the prototype

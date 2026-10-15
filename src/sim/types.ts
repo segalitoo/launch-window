@@ -6,9 +6,10 @@ export interface Vec {
   y: number;
 }
 
-/** `#` wall, `B` building, `c` crate, `D` locked door, `d` open door,
- *  `G` generator, `L` launcher, `T` searchlight tower, `.` ground. */
-export type TileCode = '#' | 'B' | 'c' | 'D' | 'd' | 'G' | 'L' | 'T' | '.';
+/** `#` wall, `B` building, `c` crate, `D` locked door, `d` open door, `F` fence (blocks
+ *  walking, not sight; Itai cuts it), `G` generator, `L` launcher, `T` searchlight tower,
+ *  `.` ground. */
+export type TileCode = '#' | 'B' | 'c' | 'D' | 'd' | 'F' | 'G' | 'L' | 'T' | '.';
 
 /** Ground decoration, for the view only: 0 sand, 1 road, 2 slab, 3 yard. */
 export type Deco = 0 | 1 | 2 | 3;
@@ -115,10 +116,11 @@ export interface Guard extends Vec {
 
 export type UnitId = 'shadow' | 'lure' | 'sapper';
 
-export type InteractKind = 'door' | 'generator' | 'launcher';
+export type InteractKind = 'door' | 'generator' | 'launcher' | 'fence';
 
 export type InteractTarget =
   | { kind: 'door'; o: Door }
+  | { kind: 'fence'; o: Vec }
   | { kind: 'generator'; o: Generator }
   | { kind: 'launcher'; o: Launcher };
 
@@ -129,6 +131,8 @@ export type Order =
   | { type: 'shoot'; guard: Guard; t: number; dur: number; loud: boolean }
   | { type: 'binoculars'; guard: Guard; t: number }
   | { type: 'uniform'; t: number }
+  | { type: 'wire'; t: number }
+  | { type: 'plant'; t: number }
   | {
       type: 'interact';
       target: InteractTarget;
@@ -161,6 +165,10 @@ export interface Unit extends Vec {
   smokes: number;
   /** Wearing the captured uniform (Noa). */
   disguised: boolean;
+  /** Tripwires left to set, remote charges left to plant, and the one planted (Itai). */
+  wires: number;
+  remotes: number;
+  remote: Vec | null;
 }
 
 export interface Projectile {
@@ -198,6 +206,8 @@ export type SimEvent =
   | { type: 'revealed'; guard: number }
   | { type: 'smoke'; x: number; y: number }
   | { type: 'disguise'; unit: UnitId; on: boolean }
+  | { type: 'tripped'; guard: number }
+  | { type: 'blast'; x: number; y: number }
   | { type: 'noise'; x: number; y: number; heard: number }
   | { type: 'moveOrdered'; unit: UnitId; x: number; y: number }
   | { type: 'gameOver'; result: GameResult; unit?: UnitId };
@@ -221,6 +231,8 @@ export interface GameState {
   squad: Unit[];
   projectiles: Projectile[];
   smokes: Smoke[];
+  /** Tripwires Itai has set, by tile. */
+  wires: Vec[];
   alarm: { active: boolean; timer: number };
   stats: { takedowns: number; alarms: number };
   events: SimEvent[];

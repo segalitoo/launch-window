@@ -12,6 +12,8 @@ import {
   UNIT_HP,
   UNIT_START_ANG,
   SMOKE_CHARGES,
+  REMOTE_CHARGES,
+  WIRE_CHARGES,
 } from './constants';
 import { createGrid } from './grid';
 import { center } from './math';
@@ -78,7 +80,7 @@ function makeGuard(d: GuardDef, i: number): Guard {
 }
 
 function makeUnit(
-  o: { id: UnitId; name: string; call: string; color: string; speed: number; charges?: number; smokes?: number },
+  o: { id: UnitId; name: string; call: string; color: string; speed: number; charges?: number; smokes?: number; wires?: number; remotes?: number },
   tx: number,
   ty: number,
 ): Unit {
@@ -98,6 +100,9 @@ function makeUnit(
     silenced: true,
     smokes: 0,
     disguised: false,
+    wires: 0,
+    remotes: 0,
+    remote: null,
     ...o,
   };
 }
@@ -112,7 +117,7 @@ export function buildMission(seed = 1, map: MissionMap = NIGHT_LANTERN): GameSta
   const squad: Unit[] = [
     unit('shadow', { name: 'Yoav', call: 'Shadow', color: '#6cc4ff', speed: SPEED_SHADOW }),
     unit('lure', { name: 'Noa', call: 'Lure', color: '#8ef0d0', speed: SPEED_LURE, charges: DECOY_CHARGES, smokes: SMOKE_CHARGES }),
-    unit('sapper', { name: 'Itai', call: 'Sapper', color: '#c9b8ff', speed: SPEED_SAPPER }),
+    unit('sapper', { name: 'Itai', call: 'Sapper', color: '#c9b8ff', speed: SPEED_SAPPER, wires: WIRE_CHARGES, remotes: REMOTE_CHARGES }),
   ];
 
   // copies: the state mutates these during play, the parsed map must stay clean
@@ -133,6 +138,7 @@ export function buildMission(seed = 1, map: MissionMap = NIGHT_LANTERN): GameSta
     squad,
     projectiles: [],
     smokes: [],
+    wires: [],
     alarm: { active: false, timer: 0 },
     stats: { takedowns: 0, alarms: 0 },
     events: [],
