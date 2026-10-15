@@ -4,6 +4,10 @@
 import Phaser from 'phaser';
 import {
   BINO_TIME,
+  CAM_FOV,
+  CAM_LEN,
+  castRay,
+  DOG_SMELL,
   coneLength,
   FOV,
   Game,
@@ -58,6 +62,11 @@ const ROPE_COLOR = 0xd8c9a3;
 const TRACER_TIME = 0.15;
 /** How long a blast's flash and ring stay on screen, sim seconds. */
 const BLAST_FX = 0.6;
+/** A bark: two arcs off the dog's head, sim seconds. */
+const BARK_FX = 0.5;
+/** Gate cameras: the cone shares the guards' amber; the body sits on the wall top. */
+const CAM_BODY = 0x2a2c2e;
+const CAM_HEIGHT = 30;
 /** Night grade for units, lighter than the environment's (visual language 6b). */
 const UNIT_GRADE = [0.62, 0.68, 0.82] as const;
 const MAP_TOP_MARGIN = 80; // room for tall blocks on the back row
@@ -102,6 +111,7 @@ export class MapScene extends Phaser.Scene {
   private tracers: { x0: number; y0: number; x1: number; y1: number; t: number; loud: boolean }[] = [];
   /** Blasts on screen: a flash and a ring, sim time. */
   private blasts: { x: number; y: number; t: number }[] = [];
+  private barks: { guard: number; t: number }[] = [];
   /** Smoke clouds: above the units and the art, under the overlay. */
   private smokeGfx!: Phaser.GameObjects.Graphics;
   /** Searchlight light: added over the art (and the units in it), under the overlay. */
@@ -349,6 +359,7 @@ export class MapScene extends Phaser.Scene {
       this.hooks.onEvents(events, s, this.ctl);
       for (const e of events) {
         if (e.type === 'blast') this.blasts.push({ x: e.x, y: e.y, t: s.t });
+        if (e.type === 'bark') this.barks.push({ guard: e.guard, t: s.t });
         if (e.type !== 'fired') continue;
         const u = s.squad.find((q) => q.id === e.unit)!;
         const g = s.guards[e.guard]!;
@@ -492,9 +503,31 @@ export class MapScene extends Phaser.Scene {
     if (lamps > 0) {
       for (const t of s.towers) this.drawBeam(o, s, { x: t.x + 0.5, y: t.y + 0.5 }, t.ang, lamps, t.susp);
     }
-    // guard cones
+    // gate cameras: on the generator, a short amber cone like a guard's
+    for (const c of s.cameras) {
+      const at = { x: c.x + 0.5, y: c.y + 0.5 };
+      const color = s.alarm.active ? ALARM_COLOR : CONE_COLOR;
+      if (lamps > 0) {
+        this.drawCone(o, s, at, c.ang, CAM_FOV, CAM_LEN, null, color, (0.14 + c.susp * 0.3) * lamps);
+        // two thin lines from the lens to the cone's edges: the cone hangs from the camera
+        const lens = toScreen(at.x + Math.cos(c.ang) * 0.35, at.y + Math.sin(c.ang) * 0.35, CAM_HEIGHT + 2);
+        o.lineStyle(1, color, 0.6 * lamps);
+        for (const side of [-1, 1]) {
+          const a = c.ang + (side * CAM_FOV) / 2;
+          const d = sightRay(s, at.x, at.y, a, CAM_LEN);
+          const e = toScreen(at.x + Math.cos(a) * d, at.y + Math.sin(a) * d);
+          o.lineBetween(lens.x, lens.y, e.x, e.y);
+        }
+      }
+      this.drawCamera(o, at, c.ang, lamps > 0 && Math.sin(s.t * 5) > 0);
+    }
+    // guard cones; the dog smells all round instead
     for (const g of s.guards) {
       if (g.state === 'down') continue;
+      if (g.role === 'dog') {
+        if (g.distract <= 0) this.drawSmell(o, s, g, !!g.seeing);
+        continue;
+      }
       const color = s.alarm.active || g.state === 'combat' ? ALARM_COLOR : CONE_COLOR;
       const len = coneLength(s);
       this.drawCone(o, s, g, g.ang, FOV, len, len * NEAR_FRACTION, color, 0.2 + g.susp * 0.25);
@@ -600,6 +633,20 @@ export class MapScene extends Phaser.Scene {
       o.fillRect(c.x - 4, c.y - 3, 8, 5);
       o.fillStyle(ALARM_COLOR, Math.sin(s.t * 8) > 0 ? 1 : 0.25); // a blinking light
       o.fillCircle(c.x + 2, c.y - 3, 1.5);
+    }
+    // barks: two arcs off the dog's head, in the alarm colour
+    this.barks = this.barks.filter((b) => s.t - b.t < BARK_FX);
+    for (const b of this.barks) {
+      const g = s.guards[b.guard];
+      if (!g) continue;
+      const k = (s.t - b.t) / BARK_FX;
+      const c = toScreen(g.x + Math.cos(g.ang) * 0.35, g.y + Math.sin(g.ang) * 0.35, 18);
+      o.lineStyle(2, ALARM_COLOR, 1 - k);
+      for (const r of [5 + 10 * k, 10 + 14 * k]) {
+        o.beginPath();
+        o.arc(c.x, c.y, r, -Math.PI * 0.85, -Math.PI * 0.15, false);
+        o.strokePath();
+      }
     }
     // blasts: a flash and a ring that widens and fades
     this.blasts = this.blasts.filter((b) => s.t - b.t < BLAST_FX);
@@ -752,6 +799,39 @@ export class MapScene extends Phaser.Scene {
     const edge = [pt(ang, 0), ...dirs.map((a, i) => pt(a, rays[i]!))];
     o.lineStyle(1, BEAM_COLOR, (0.45 + susp * 0.4) * level);
     o.strokePoints(poly(edge), true);
+  }
+
+  /** The dog's nose: everything within DOG_SMELL that walls do not hide, all round. Dashed,
+   *  so it reads apart from a sight cone; brighter while it smells someone. */
+  private drawSmell(o: Phaser.GameObjects.Graphics, s: GameState, g: Guard, alert: boolean): void {
+    const n = 48;
+    const pts: Point[] = [];
+    for (let i = 0; i < n; i++) {
+      const a = (Math.PI * 2 * i) / n;
+      const d = castRay(s.grid, g.x, g.y, a, DOG_SMELL);
+      pts.push(toScreen(g.x + Math.cos(a) * d, g.y + Math.sin(a) * d));
+    }
+    const color = s.alarm.active || alert ? ALARM_COLOR : CONE_COLOR;
+    o.fillStyle(color, alert ? 0.22 : 0.1);
+    o.fillPoints(poly(pts), true);
+    o.lineStyle(1.5, color, 0.85);
+    for (let i = 0; i < n; i += 2) o.lineBetween(pts[i]!.x, pts[i]!.y, pts[i + 1]!.x, pts[i + 1]!.y);
+  }
+
+  /** A camera on the wall top: a dark box looking along `ang`, a red light while it records. */
+  private drawCamera(o: Phaser.GameObjects.Graphics, at: Vec, ang: number, led: boolean): void {
+    const base = toScreen(at.x, at.y, CAM_HEIGHT);
+    const lens = toScreen(at.x + Math.cos(ang) * 0.35, at.y + Math.sin(ang) * 0.35, CAM_HEIGHT + 2);
+    o.lineStyle(7, CAM_BODY, 1);
+    o.lineBetween(base.x, base.y, lens.x, lens.y);
+    o.lineStyle(1, 0x8a8e90, 1);
+    o.lineBetween(base.x, base.y - 3, lens.x, lens.y - 3);
+    o.fillStyle(CAM_BODY, 1);
+    o.fillCircle(base.x, base.y + 2, 3);
+    if (led) {
+      o.fillStyle(ALARM_COLOR, 1);
+      o.fillCircle(base.x, base.y - 1, 1.5);
+    }
   }
 
   private drawCone(

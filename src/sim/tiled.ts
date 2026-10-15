@@ -5,22 +5,26 @@
 // Layers:
 //   ground   tile layer, tile id = sim deco (0 sand, 1 road, 2 slab, 3 yard)
 //   walls    tile layer, tile 4 = wall '#', tile 5 = crate 'c', tile 6 = fence 'F', empty = open
-//   objects  rectangles, type building | door | generator | tower | launcher | hide;
-//            the name is the label. Towers need float props a0, a1 (degrees), period, phase.
+//   objects  rectangles, type building | door | generator | tower | camera | launcher | hide;
+//            the name is the label. Towers and cameras need float props a0, a1 (degrees),
+//            period, phase. A camera sits on a wall tile and blocks nothing itself.
 //            hide = a bush or dark corner (a hiding spot); it blocks nothing.
 //   guards   type post (point; props face, sweep in degrees, spin) or
 //            patrol (polyline = there and back, polygon = loop). Layer order = guard order.
+//            String prop role = officer makes an officer. Type dog (point; int prop handler =
+//            the guard it walks with, counted from 1 in layer order) is a dog.
 //   spawns   points of type unit named shadow | lure | sapper, and one rectangle of type lz.
 // Objects are stamped over the walls layer, so a door placed on a wall replaces it.
 
 import { PROTO_TILE_PX as T } from './constants';
-import type { Building, Door, Generator, Launcher, TileCode, Tower, UnitId } from './types';
+import type { Building, Camera, Door, Generator, Launcher, TileCode, Tower, UnitId } from './types';
 
 const D = Math.PI / 180;
 
 export type GuardDef =
-  | { kind: 'patrol'; route: [number, number][]; loop: boolean }
-  | { kind: 'post'; at: [number, number]; face: number; sweep?: number; spin?: boolean };
+  | { kind: 'patrol'; route: [number, number][]; loop: boolean; officer?: boolean }
+  | { kind: 'post'; at: [number, number]; face: number; sweep?: number; spin?: boolean; officer?: boolean }
+  | { kind: 'dog'; at: [number, number]; handler: number };
 
 /** Inclusive tile bounds. */
 export interface TileRect {
@@ -40,6 +44,7 @@ export interface MissionMap {
   doors: Door[];
   generator: Generator;
   towers: Tower[];
+  cameras: Camera[];
   launchers: Launcher[];
   guards: GuardDef[];
   spawns: Record<UnitId, [number, number]>;
@@ -142,6 +147,7 @@ export function parseTiledMap(json: unknown): MissionMap {
   const buildings: Building[] = [];
   const doors: Door[] = [];
   const towers: Tower[] = [];
+  const cameras: Camera[] = [];
   const launchers: Launcher[] = [];
   const hides: TileRect[] = [];
   let generator: Generator | null = null;
@@ -174,6 +180,18 @@ export function parseTiledMap(json: unknown): MissionMap {
         });
         stamp(b.x, b.y, 1, 1, 'T');
         break;
+      case 'camera':
+        cameras.push({
+          x: b.x,
+          y: b.y,
+          a0: num(o, 'a0') * D,
+          a1: num(o, 'a1') * D,
+          period: num(o, 'period'),
+          phase: num(o, 'phase', 0),
+          susp: 0,
+          ang: 0,
+        });
+        break;
       case 'launcher':
         launchers.push({ x: b.x, y: b.y, w: b.w, h: b.h, name: o.name, done: false });
         stamp(b.x, b.y, b.w, b.h, 'L');
@@ -188,8 +206,26 @@ export function parseTiledMap(json: unknown): MissionMap {
   if (!generator) fail('needs a generator');
   if (launchers.length === 0) fail('needs at least one launcher');
 
+  for (const c of cameras) {
+    if (cells[c.y * cols + c.x] !== '#') fail(`camera at (${c.x}, ${c.y}) must sit on a wall tile`);
+  }
+
   // guards
-  const guards: GuardDef[] = objects('guards').map((o): GuardDef => {
+  const officer = (o: TObject): { officer?: boolean } => {
+    const r = props(o).role;
+    if (r === undefined || r === 'guard') return {};
+    if (r === 'officer') return { officer: true };
+    return fail(`unknown role "${String(r)}" on "${o.name}" (id ${o.id})`);
+  };
+  const guardObjs = objects('guards');
+  const guards: GuardDef[] = guardObjs.map((o): GuardDef => {
+    if (kind(o) === 'dog') {
+      if (!o.point) fail(`dog "${o.name}" (id ${o.id}) must be a point`);
+      const h = num(o, 'handler');
+      const hd = guardObjs[h - 1];
+      if (!Number.isInteger(h) || !hd || kind(hd) === 'dog') fail(`dog "${o.name}" (id ${o.id}): handler ${h} is not a guard`);
+      return { kind: 'dog', at: tileOfPx(o.x, o.y), handler: h - 1 };
+    }
     if (kind(o) === 'post') {
       if (!o.point) fail(`post "${o.name}" (id ${o.id}) must be a point`);
       const p = props(o);
@@ -199,12 +235,13 @@ export function parseTiledMap(json: unknown): MissionMap {
         face: num(o, 'face'),
         ...(typeof p.sweep === 'number' ? { sweep: p.sweep } : {}),
         ...(p.spin === true ? { spin: true } : {}),
+        ...officer(o),
       };
     }
     if (kind(o) === 'patrol') {
       const pts = o.polygon ?? o.polyline;
       if (!pts || pts.length < 2) return fail(`patrol "${o.name}" (id ${o.id}) needs a polyline or polygon of 2+ points`);
-      return { kind: 'patrol', route: pts.map((p) => tileOfPx(o.x + p.x, o.y + p.y)), loop: !!o.polygon };
+      return { kind: 'patrol', route: pts.map((p) => tileOfPx(o.x + p.x, o.y + p.y)), loop: !!o.polygon, ...officer(o) };
     }
     return fail(`unknown guard type "${kind(o)}" on "${o.name}" (id ${o.id})`);
   });
@@ -235,6 +272,7 @@ export function parseTiledMap(json: unknown): MissionMap {
     doors,
     generator: generator!,
     towers,
+    cameras,
     launchers,
     guards,
     spawns: spawns as Record<UnitId, [number, number]>,

@@ -2,8 +2,12 @@ import { describe, expect, test } from 'vitest';
 import { HIT_FLASH, THROW_BUSY } from '@/sim';
 import {
   type AnimState,
+  BARK_SHOW,
   CYCLE_TILES,
+  DOG_CYCLE,
+  type DogAnimState,
   dirOf,
+  dogFrameName,
   draggedFrameName,
   frameName,
   type GuardAnimState,
@@ -166,5 +170,31 @@ describe('dragged body', () => {
     // dragger to the sim +x of the body: the render (head along -X) turns half a circle
     expect(draggedFrameName(0, 0, { dragged: 2 })).toBe('dragged_d4_f0');
     expect(draggedFrameName(Math.PI / 2, 0.6, { dragged: 2 })).toBe('dragged_d6_f1');
+  });
+});
+
+describe('dog frames (Phase 3)', () => {
+  const dogAnims = { idle: 12, walk: 12, run: 12, sniff: 8, bark: 6, death: 10 };
+  const dog: DogAnimState = {
+    ang: 0, down: false, downAt: null, moving: false, running: false, walked: 0, t: 10, alert: false, barkAt: null, sniffing: false,
+  };
+  const g = (s: Partial<DogAnimState>): string => dogFrameName({ ...dog, ...s }, dogAnims);
+
+  test('trots, gallops when running, by ground covered', () => {
+    expect(g({ moving: true, walked: DOG_CYCLE.walk / 2 })).toBe('walk_d0_f6');
+    expect(g({ moving: true, running: true, walked: DOG_CYCLE.run / 4, ang: 90 * D })).toBe('run_d2_f3');
+  });
+
+  test('barks over BARK_SHOW, then holds the alert stance', () => {
+    expect(g({ alert: true, barkAt: 10 - BARK_SHOW / 2 })).toBe('bark_d0_f3');
+    expect(g({ alert: true, barkAt: 10 - BARK_SHOW - 0.1 })).toBe('bark_d0_f0');
+  });
+
+  test('sniffs standing at a decoy; dies once and lies still', () => {
+    expect(g({ sniffing: true })).toMatch(/^sniff_d0_f\d$/);
+    expect(g({ sniffing: true, moving: true, walked: 0 })).toBe('walk_d0_f0');
+    expect(g({ down: true, downAt: 10 - ONE_SHOT.death / 2 })).toBe('death_d0_f5');
+    expect(g({ down: true, downAt: 0 })).toBe('death_d0_f9');
+    expect(g({ down: true })).toBe('death_d0_f9');
   });
 });

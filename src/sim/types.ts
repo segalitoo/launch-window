@@ -73,12 +73,35 @@ export interface Tower {
   ang: number;
 }
 
+/** A security camera on a wall. Sweeps like a searchlight with a short cone and runs on the
+ *  generator. Seeing an operator for CAM_SUSP_TIME raises the alarm. */
+export interface Camera {
+  x: number;
+  y: number;
+  a0: number;
+  a1: number;
+  period: number;
+  phase: number;
+  susp: number;
+  ang: number;
+}
+
 export type GuardKind = 'post' | 'patrol';
+/** guard: the usual. officer: sees through Noa's uniform, walks slower. dog: follows its
+ *  handler, has no cone, smells operators close by and barks; only a gun or a blast stops it. */
+export type GuardRole = 'guard' | 'officer' | 'dog';
 export type GuardState = 'patrol' | 'investigate' | 'search' | 'return' | 'combat' | 'down';
 
 export interface Guard extends Vec {
   i: number;
   kind: GuardKind;
+  role: GuardRole;
+  /** Dogs: index of the guard it walks with (-1 = none). */
+  handler: number;
+  /** Dogs: seconds left sniffing at a decoy (nothing else is smelled meanwhile). */
+  distract: number;
+  /** Dogs: seconds until the next bark while it smells someone. */
+  barkCD: number;
   state: GuardState;
   ang: number;
   susp: number;
@@ -207,6 +230,7 @@ export type SimEvent =
   | { type: 'smoke'; x: number; y: number }
   | { type: 'disguise'; unit: UnitId; on: boolean }
   | { type: 'tripped'; guard: number }
+  | { type: 'bark'; guard: number; x: number; y: number }
   | { type: 'blast'; x: number; y: number }
   | { type: 'noise'; x: number; y: number; heard: number }
   | { type: 'moveOrdered'; unit: UnitId; x: number; y: number }
@@ -222,6 +246,7 @@ export interface GameState {
   doors: Door[];
   generator: Generator;
   towers: Tower[];
+  cameras: Camera[];
   launchers: Launcher[];
   /** Landing zone, inclusive tile bounds. */
   lz: { x0: number; y0: number; x1: number; y1: number };

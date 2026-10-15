@@ -1,0 +1,31 @@
+{
+  "unit": "dog",
+  "coat": "a",
+  "frame": [
+    96,
+    72
+  ],
+  "anchor": [
+    48,
+    62
+  ],
+  "supersample": 2,
+  "anims": {
+    "idle": 12,
+    "walk": 12,
+    "run": 12,
+    "sniff": 8,
+    "bark": 6,
+    "death": 10
+  },
+  "sources": {
+    "idle": "formula pose",
+    "walk": "formula pose",
+    "run": "formula pose",
+    "sniff": "formula pose",
+    "bark": "formula pose",
+    "death": "formula pose"
+  },
+  "dirs": 8,
+  "dir_rule": "direction d = sim angle d * 45 degrees, 0 = sim +x"
+}

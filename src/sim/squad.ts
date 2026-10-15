@@ -102,6 +102,10 @@ export function orderTakedown(s: GameState, u: Unit, g: Guard): boolean {
     message(s, 'Only Yoav can take down guards.');
     return false;
   }
+  if (g.role === 'dog') {
+    message(s, 'The knife will not work on the dog. Shoot it, or use a decoy.', 'warn');
+    return false;
+  }
   clearOrder(u);
   u.order = { type: 'takedown', guard: g, repath: 0 };
   return true;
@@ -237,6 +241,10 @@ function throwItem(s: GameState, u: Unit, wx: number, wy: number, kind: 'decoy' 
 /** Noa watches a guard through the binoculars for BINO_TIME; his route stays shown after. */
 export function orderBinoculars(s: GameState, u: Unit, g: Guard): boolean {
   if (!u.alive || u.id !== 'lure' || g.state === 'down') return false;
+  if (g.role === 'dog') {
+    message(s, 'The dog has no route of its own. It walks with its handler.');
+    return false;
+  }
   if (g.revealed) {
     message(s, 'Noa already knows his route.');
     return false;

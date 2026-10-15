@@ -71,14 +71,14 @@ KHAKI = (0.34, 0.28, 0.16)
 # Every unit is the same rig and body plan; a spec changes the kit.
 #   cloth / cloth_dark: uniform and webbing; cloth2 = second camouflage colour (noise mix)
 #   accent: boots, gloves, pouches; weapon: rifle body; face: None = balaclava in cloth colour
-#   head: helmet_nvg | helmet | helmet_headset | cap | beret; tape = squad colour on the helmet back
+#   head: helmet_nvg | helmet | helmet_headset | cap | beret | peaked; beret: its colour; tape = squad colour on the helmet back
 #   pack: None | "pack" (small assault pack) | "ruck" (tall rucksack); antenna: whip height in m (0 = none)
 #   gun: "carbine" (bullpup) | "shotgun" (long, thin, pump); kit: extra gear by name (see build_operator)
 OPERATOR = {
     "height": 1.80, "width": 1.15, "cloth": OLIVE, "cloth_dark": OLIVE_DARK, "cloth2": None,
     "accent": TAN, "gloves": TAN, "weapon": TAN, "face": None, "head": "helmet_nvg",
     "tape": None, "carrier": True, "pack": "pack", "antenna": 0.48, "kneepads": True,
-    "gun": "carbine", "kit": (), "helmet_cover": None,
+    "gun": "carbine", "kit": (), "helmet_cover": None, "beret": None,
     "anims": ["idle", "run", "crawl_idle", "crawl", "takedown", "grab", "drag", "death", "hit", "aim"],
 }
 SQUAD_ANIMS = ["idle", "run", "crawl_idle", "crawl", "death", "hit", "aim"]
@@ -112,6 +112,21 @@ UNITS = {
               "carrier": False, "pack": None, "antenna": 0, "kneepads": False,
               "anims": ["idle", "walk", "run", "death", "knockout", "dragged"]},
 }
+# The officer (Phase 3): a guard who sees through Noa's uniform. Three looks for Ran to pick
+# from (assets/raw/gen/OFFICER-01_looks.png); each keeps the guard's body and rifle and changes
+# the head, so he differs from the guards by silhouette (lesson 27), plus one colour cue.
+# At game size under the night grade only A reads apart; B and C's peaked cap merges with the
+# guard's cap. "officer" is the one the game uses.
+GUARD = UNITS["guard"]
+UNITS.update({
+    # A: maroon beret (flat head, no brim) and a darker grey-green tunic
+    "officer_a": {**GUARD, "head": "beret", "beret": (0.22, 0.035, 0.03), "cloth": (0.17, 0.18, 0.14), "cloth_dark": (0.09, 0.09, 0.07)},
+    # B: tall peaked cap (the highest head on the map) and a darker khaki tunic
+    "officer_b": {**GUARD, "head": "peaked", "cloth": (0.25, 0.20, 0.11), "cloth_dark": (0.12, 0.10, 0.06)},
+    # C: peaked cap on the guard khaki, and a pale belt and shoulder strap that catch the light
+    "officer_c": {**GUARD, "head": "peaked", "cloth_dark": (0.55, 0.50, 0.40)},
+})
+UNITS["officer"] = UNITS["officer_a"]
 
 
 # ---------- mesh helpers ----------
@@ -230,6 +245,7 @@ def build_operator(spec):
         "tape": iso.material("tape", spec["tape"] or BLACK, rough=0.6),
         "metal": iso.material("metal", (0.30, 0.30, 0.28), rough=0.45),
         "hair": iso.material("hair", (0.05, 0.035, 0.02), rough=0.8),
+        "beret": iso.material("beret", spec["beret"] or spec["cloth_dark"], rough=0.85),
         "cover": iso.material("cover", (spec["helmet_cover"] or cloth, tuple(c * 1.1 for c in (spec["helmet_cover"] or cloth))), noise_scale=9, bump=0.1),
     }
     bones = bones_for(h)
@@ -315,7 +331,11 @@ def build_operator(spec):
         on("head", "cap", lambda bm: limb(bm, head_c + Vector((0, 0, 0.04 * s)), head_c + Vector((0, 0, 0.13 * s)), 0.115 * s, 0.10 * s, segs=10), "olive")
         on("head", "brim", lambda bm: box(bm, head_c + Vector((0.12 * s, 0, 0.05 * s)), (0.09, 0.17 * s, 0.015)), "olive")
     if head == "beret":  # soft, pulled down to one side
-        on("head", "beret", lambda bm: ball(bm, head_c + Vector((-0.01, -0.03, 0.08 * s)), 0.125 * s, sz=0.45), "dark")
+        on("head", "beret", lambda bm: ball(bm, head_c + Vector((-0.01, -0.03, 0.08 * s)), 0.125 * s, sz=0.45), "beret")
+    if head == "peaked":  # officer's peaked cap: a crown that flares out, a black visor
+        on("head", "crown", lambda bm: limb(bm, head_c + Vector((0, 0, 0.03 * s)), head_c + Vector((-0.01, 0, 0.17 * s)), 0.112 * s, 0.140 * s, segs=12), "olive")
+        on("head", "band", lambda bm: limb(bm, head_c + Vector((0, 0, 0.03 * s)), head_c + Vector((0, 0, 0.07 * s)), 0.116 * s, 0.118 * s, segs=12), "dark")
+        on("head", "visor", lambda bm: box(bm, head_c + Vector((0.13 * s, 0, 0.04 * s)), (0.09, 0.19 * s, 0.015), rot_y=math.radians(-12)), "black")
     if "bun" in kit:  # hair bun under the back rim of the helmet
         on("head", "bun", lambda bm: ball(bm, head_c + Vector((-0.13 * s, 0, -0.03 * s)), 0.05, segs=8), "hair")
     if spec["tape"]:

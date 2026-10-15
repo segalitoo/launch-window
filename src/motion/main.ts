@@ -19,9 +19,12 @@ import {
   TAKEDOWN_REACH,
   TAKEDOWN_SIDE,
   THROW_BUSY,
+  BARK_EVERY,
+  DOG_DISTRACT,
+  OFFICER_PACE,
 } from '@/sim';
 import { toScreen } from '@/render/iso';
-import { type AnimState, draggedFrameName, frameName, guardFrameName, ONE_SHOT, TAKEDOWN_IMPACT } from '@/render/unitAnim';
+import { type AnimState, type DogAnimState, dogFrameName, draggedFrameName, frameName, guardFrameName, ONE_SHOT, TAKEDOWN_IMPACT } from '@/render/unitAnim';
 import './motion.css';
 
 const NIGHT = [0.36, 0.43, 0.6];
@@ -131,7 +134,7 @@ function drawCard(ctx: CanvasRenderingContext2D, ground: HTMLCanvasElement, card
 
 // ---------- the library ----------
 
-function cards(yoav: Atlas, noa: Atlas, itai: Atlas, guard: Atlas, noaUniform: Atlas): Card[] {
+function cards(yoav: Atlas, noa: Atlas, itai: Atlas, guard: Atlas, noaUniform: Atlas, officer: Atlas, dog: Atlas): Card[] {
   const base: AnimState = {
     ang: 0, alive: true, crawl: false, moving: false, carrying: false, walked: 0,
     t: 0, diedAt: null, takedownAt: null, grabAt: null, hitT: 0,
@@ -142,6 +145,10 @@ function cards(yoav: Atlas, noa: Atlas, itai: Atlas, guard: Atlas, noaUniform: A
   const loop = (t: number, len: number): number => t % (0.5 + len + 1.3);
   const unit = (atlas: Atlas, frame: string, x = 0, yy = 0, shadow = true): Sprite => ({ atlas, frame, x, y: yy, shadow });
   const ahead = (dir: number, d: number): [number, number] => [Math.cos(ang(dir)) * d, Math.sin(ang(dir)) * d];
+  const of = (s: Partial<Parameters<typeof guardFrameName>[0]>): string =>
+    guardFrameName({ ang: 0, down: false, moving: false, running: false, walked: 0, t: 0, downAt: null, ...s }, officer.anims);
+  const df = (s: Partial<DogAnimState>): string =>
+    dogFrameName({ ang: 0, down: false, downAt: null, moving: false, running: false, walked: 0, t: 0, alert: false, barkAt: null, sniffing: false, ...s }, dog.anims);
   const gf = (s: Partial<Parameters<typeof guardFrameName>[0]>): string =>
     guardFrameName({ ang: 0, down: false, moving: false, running: false, walked: 0, t: 0, downAt: null, ...s }, guard.anims);
 
@@ -283,6 +290,35 @@ function cards(yoav: Atlas, noa: Atlas, itai: Atlas, guard: Atlas, noaUniform: A
         const down = k >= 0.5;
         return [unit(guard, gf({ ang: ang(d), down, t: k, downAt: down ? 0.5 : null }), 0, 0, !down)];
       } },
+    // Phase 3 enemies
+    { group: 'Officer', name: 'Walk', note: `Maroon beret. Patrols at ${(SPEED_PATROL * OFFICER_PACE).toFixed(1)} tiles/s and sees through Noa's uniform.`, shows: [[officer, 'walk']],
+      sprites: (t, d) => [unit(officer, of({ ang: ang(d), moving: true, walked: t * SPEED_PATROL * OFFICER_PACE }))] },
+    { group: 'Officer', name: 'Taken down', note: 'The same knife takedown as a guard.', shows: [[yoav, 'takedown'], [officer, 'knockout']],
+      sprites: (t, d) => {
+        const k = loop(t, ONE_SHOT.takedown);
+        const [gx, gy] = ahead(d, 0.42);
+        const down = k >= 0.5;
+        return [
+          unit(yoav, y({ ang: ang(d), t: k, takedownAt: down ? 0.5 : null }), 0, 0),
+          unit(officer, of({ ang: ang(d), down, t: k, downAt: down ? 0.5 : null, koAt: down ? 0.5 : null }), gx, gy, k < 0.5 + TAKEDOWN_IMPACT),
+        ];
+      } },
+    { group: 'Dog', name: 'Idle', note: 'Heels at its handler. Smells operators within 3 tiles, even hidden or crawling.', shows: [[dog, 'idle']],
+      sprites: (t, d) => [unit(dog, df({ ang: ang(d), t }))] },
+    { group: 'Dog', name: 'Trot', note: `Keeping up with its handler, ${SPEED_PATROL.toFixed(1)} tiles/s.`, shows: [[dog, 'walk']],
+      sprites: (t, d) => [unit(dog, df({ ang: ang(d), moving: true, walked: t * SPEED_PATROL }))] },
+    { group: 'Dog', name: 'Run', note: `Catching up, or to a decoy, ${SPEED_COMBAT.toFixed(1)} tiles/s.`, shows: [[dog, 'run']],
+      sprites: (t, d) => [unit(dog, df({ ang: ang(d), moving: true, running: true, walked: t * SPEED_COMBAT }))] },
+    { group: 'Dog', name: 'Bark', note: `Smells someone: barks every ${BARK_EVERY} s, its handler and guards close by come to look.`, shows: [[dog, 'bark']],
+      sprites: (t, d) => [unit(dog, df({ ang: ang(d), t, alert: true, barkAt: t - (t % BARK_EVERY) }))] },
+    { group: 'Dog', name: 'Sniff', note: `A decoy keeps it sniffing for ${DOG_DISTRACT} s, smelling nothing else.`, shows: [[dog, 'sniff']],
+      sprites: (t, d) => [unit(dog, df({ ang: ang(d), t, sniffing: true }))] },
+    { group: 'Dog', name: 'Death', note: 'Only a shot or a blast stops it.', shows: [[dog, 'death']],
+      sprites: (t, d) => {
+        const k = loop(t, ONE_SHOT.death);
+        const down = k >= 0.5;
+        return [unit(dog, df({ ang: ang(d), down, t: k, downAt: down ? 0.5 : null }), 0, 0, !down)];
+      } },
   ];
 }
 
@@ -298,8 +334,8 @@ async function main(): Promise<void> {
   const [yoav, noa, itai, guard, day] = await Promise.all([
     loadAtlas('yoav'), loadAtlas('noa'), loadAtlas('itai'), loadAtlas('guard'), loadImage('yard/yard_day.jpg'),
   ]);
-  const noaUniform = await loadAtlas('noa_uniform');
-  const list = cards(yoav, noa, itai, guard, noaUniform);
+  const [noaUniform, officer, dog] = await Promise.all([loadAtlas('noa_uniform'), loadAtlas('officer'), loadAtlas('dog')]);
+  const list = cards(yoav, noa, itai, guard, noaUniform, officer, dog);
   const ground = graded(day, NIGHT, false);
   const grid = document.getElementById('grid')!;
   const sel = (id: string): HTMLSelectElement => document.getElementById(id) as HTMLSelectElement;

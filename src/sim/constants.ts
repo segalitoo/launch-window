@@ -131,6 +131,28 @@ export const BLAST_KILL = 1.5;
 /** Hit points an operator loses in his own blast. */
 export const BLAST_HURT = 2;
 
+// Enemies (Phase 3, decided with Ran). Not prototype values.
+/** The officer walks his route slower than a guard. He sees through Noa's uniform. */
+export const OFFICER_PACE = 0.75;
+/** The dog smells an operator within this many tiles, walls block it; hiding, crawling, smoke
+ *  and the uniform do not. It barks (BARK_EVERY) and guards within BARK_HEAR of it, always
+ *  its handler, come to look. It reacts after DOG_REACT. A decoy within DECOY_HEAR keeps it
+ *  sniffing there for DOG_DISTRACT, real seconds. */
+export const DOG_SMELL = 3;
+export const DOG_REACT = 0.5;
+export const BARK_EVERY = 3;
+export const BARK_HEAR = 5;
+export const DOG_DISTRACT = 5;
+/** How close the dog keeps to its handler, and how often it re-plans the way to him. */
+export const DOG_HEEL = 1;
+export const DOG_REPATH = 0.5;
+/** Cameras: a short cone that sweeps like a searchlight and runs on the generator. One second
+ *  in view raises the alarm (real seconds, like combat). */
+export const CAM_LEN = 5;
+export const CAM_FOV = deg(50);
+export const CAM_SUSP_TIME = 1;
+export const CAM_DECAY = 1;
+
 // Guards
 export const SPEED_PATROL = move(40); // 40 px/s in the prototype
 export const SPEED_INVESTIGATE = move(62); // 62 px/s in the prototype

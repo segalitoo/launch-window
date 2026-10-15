@@ -2,7 +2,7 @@
 
 import { ALARM_TIME_SCALE, SMOKE_TIME } from './constants';
 import { clearAlarm, hearNoise, updateGuard } from './guards';
-import { checkWires, endGame, inLZ, updateTowers } from './mission';
+import { checkWires, endGame, inLZ, updateCameras, updateTowers } from './mission';
 import { updateUnit } from './squad';
 import type { GameState } from './types';
 
@@ -19,6 +19,7 @@ export function step(s: GameState, dt: number): void {
   }
   for (const u of s.squad) updateUnit(s, u, dt);
   updateTowers(s, dt);
+  updateCameras(s, dt);
   for (const g of s.guards) updateGuard(s, g, dt);
   checkWires(s);
   if (s.over) return;
@@ -29,7 +30,7 @@ export function step(s: GameState, dt: number): void {
     if (p.kind === 'smoke') {
       s.smokes.push({ x: p.x1, y: p.y1, left: SMOKE_TIME });
       s.events.push({ type: 'smoke', x: p.x1, y: p.y1 });
-    } else hearNoise(s, p.x1, p.y1);
+    } else hearNoise(s, p.x1, p.y1, undefined, { decoy: true });
   }
   for (const c of s.smokes) c.left -= dt;
   s.smokes = s.smokes.filter((c) => c.left > 0);

@@ -146,3 +146,48 @@ export function draggedFrameName(towardCarrier: number, walked: number, anims: R
   const n = anims['dragged'] ?? 1;
   return `dragged_d${dirOf(towardCarrier - Math.PI)}_f${Math.floor(walked / 0.5) % n}`;
 }
+
+/** The dog (tools/blender/render_dog.py): tiles per trot and gallop cycle, matched to the
+ *  formula legs (a 22 degree trot swing is 0.8 m a cycle, the gallop about 1.6 m). It runs
+ *  above DOG_RUN tiles/s (catching up with its handler, or to a decoy). */
+export const DOG_CYCLE = { walk: 0.5, run: 1.0 } as const;
+export const DOG_RUN = 1.3;
+/** One bark (two snaps) plays over this; between barks the dog holds the alert stance. */
+export const BARK_SHOW = 0.5;
+/** The sniffing loop at a decoy, in seconds. */
+export const SNIFF_LOOP = 1.2;
+
+export interface DogAnimState {
+  ang: number;
+  down: boolean;
+  downAt: number | null;
+  moving: boolean;
+  running: boolean;
+  walked: number;
+  t: number;
+  /** Smelling an operator: the alert stance, and the bark when it barks. */
+  alert: boolean;
+  barkAt: number | null;
+  /** At a decoy (Guard.distract): nose to the ground. */
+  sniffing: boolean;
+}
+
+export function dogFrameName(s: DogAnimState, anims: Readonly<Record<string, number>>): string {
+  const d = dirOf(s.ang);
+  const n = (anim: string): number => anims[anim] ?? 1;
+  const name = (anim: string, f: number): string => `${anim}_d${d}_f${f}`;
+  if (s.down) {
+    const f = s.downAt === null ? n('death') - 1 : Math.floor(((s.t - s.downAt) / ONE_SHOT.death) * n('death'));
+    return name('death', Math.min(n('death') - 1, f));
+  }
+  if (s.barkAt != null && s.t - s.barkAt >= 0 && s.t - s.barkAt < BARK_SHOW) {
+    return name('bark', Math.min(n('bark') - 1, Math.floor(((s.t - s.barkAt) / BARK_SHOW) * n('bark'))));
+  }
+  if (s.moving) {
+    const anim = s.running ? 'run' : 'walk';
+    return name(anim, Math.floor((s.walked / DOG_CYCLE[anim]) * n(anim)) % n(anim));
+  }
+  if (s.alert) return name('bark', 0);
+  if (s.sniffing) return name('sniff', Math.floor(((((s.t % SNIFF_LOOP) + SNIFF_LOOP) % SNIFF_LOOP) / SNIFF_LOOP) * n('sniff')) % n('sniff'));
+  return name('idle', idleFrame(s.t, n('idle')));
+}
