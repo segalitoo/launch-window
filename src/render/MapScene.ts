@@ -4,6 +4,7 @@
 import Phaser from 'phaser';
 import {
   BINO_TIME,
+  type MissionMap,
   CAM_FOV,
   CAM_LEN,
   castRay,
@@ -71,6 +72,8 @@ const CAM_HEIGHT = 30;
 const UNIT_GRADE = [0.62, 0.68, 0.82] as const;
 const MAP_TOP_MARGIN = 80; // room for tall blocks on the back row
 const PAINTED_AREAS = ['yard'];
+/** A test map's exit zone: pale, apart from the green landing zone and the amber threats. */
+const EXIT_COLOR = 0xece4d3;
 
 /** Placeholder colours get the same night tint as the painted art (docs/visual-language.md, 6). */
 const NIGHT = [0.36, 0.43, 0.6] as const;
@@ -132,13 +135,19 @@ export class MapScene extends Phaser.Scene {
   /** Soft contact shadows under rendered units, above the ground, below every structure. */
   private shadows!: Phaser.GameObjects.Graphics;
 
-  constructor(hooks: SceneHooks) {
+  /** A test map (Phase 3), or null for the mission. The painted art is the mission's only. */
+  private map: MissionMap | null;
+  private areas: readonly string[];
+
+  constructor(hooks: SceneHooks, map: MissionMap | null = null) {
     super('map');
     this.hooks = hooks;
+    this.map = map;
+    this.areas = map ? [] : PAINTED_AREAS;
   }
 
   preload(): void {
-    for (const name of PAINTED_AREAS) PaintedArea.preload(this, name);
+    for (const name of this.areas) PaintedArea.preload(this, name);
     UnitSprites.preload(this);
     GuardSprites.preload(this);
   }
@@ -147,7 +156,7 @@ export class MapScene extends Phaser.Scene {
     this.newGame();
     this.ground = this.add.graphics().setDepth(-OVERLAY_DEPTH);
     const { cols, rows } = this.game$.state.grid;
-    this.painted = PAINTED_AREAS.map((name) => new PaintedArea(this, name, -OVERLAY_DEPTH + 1, cols, rows));
+    this.painted = this.areas.map((name) => new PaintedArea(this, name, -OVERLAY_DEPTH + 1, cols, rows));
     this.overlay = this.add.graphics().setDepth(OVERLAY_DEPTH);
     this.beams = this.add.graphics().setDepth(OVERLAY_DEPTH - 2).setBlendMode(Phaser.BlendModes.ADD);
     this.unitArt = new UnitSprites(this, toTintHex(UNIT_GRADE), OVERLAY_DEPTH - 1);
@@ -162,7 +171,7 @@ export class MapScene extends Phaser.Scene {
   }
 
   private newGame(): void {
-    this.game$ = new Game(1);
+    this.game$ = new Game(1, this.map ?? undefined);
     this.ctl = new Controller(this.game$);
     this.staticVersion = -1;
     this.powerCutAt = null;
@@ -392,6 +401,15 @@ export class MapScene extends Phaser.Scene {
     g.fillPoints(poly(lz), true);
     g.lineStyle(2, LZ_COLOR, 0.8);
     g.strokePoints(poly(lz), true);
+    // a test map's exit
+    const e = this.game$.state.exit;
+    if (e) {
+      const ex = footprint(e.x0, e.y0, e.x1 - e.x0 + 1, e.y1 - e.y0 + 1);
+      g.fillStyle(EXIT_COLOR, 0.16);
+      g.fillPoints(poly(ex), true);
+      g.lineStyle(2, EXIT_COLOR, 0.9);
+      g.strokePoints(poly(ex), true);
+    }
 
     for (const b of this.blocks) b.destroy();
     this.blocks = [];

@@ -212,7 +212,8 @@ export interface Smoke {
   left: number;
 }
 
-export type GameResult = 'win' | 'launch' | 'down';
+/** spotted: an alarm on a strict map (a test map, where any alarm fails the run). */
+export type GameResult = 'win' | 'launch' | 'down' | 'spotted';
 
 export type MessageKind = '' | 'alarm' | 'ok' | 'warn';
 
@@ -250,6 +251,12 @@ export interface GameState {
   launchers: Launcher[];
   /** Landing zone, inclusive tile bounds. */
   lz: { x0: number; y0: number; x1: number; y1: number };
+  /** mission: rig every launcher, then everyone back to the LZ. exit: every operator in the
+   *  exit zone (test maps, Phase 3). */
+  goal: 'mission' | 'exit';
+  exit: { x0: number; y0: number; x1: number; y1: number } | null;
+  /** Any alarm ends the run (test maps). */
+  strict: boolean;
   /** Hiding spots (bushes, dark corners), inclusive tile bounds. */
   hides: HideSpot[];
   guards: Guard[];

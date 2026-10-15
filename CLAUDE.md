@@ -89,6 +89,8 @@ Keep this list current. Node 22 (`.nvmrc`); Vercel builds with Node 22.
 - `npm run build` type-check the app, type-check `src/sim` without DOM types, then build to `dist/`
 - `npm run preview` serve the production build
 - Motion library: `/motion.html` on the dev server or any preview link shows every unit animation and interaction at game speed, under the night grade, with its source (motion capture clip or formula). Review animation changes there.
+- Test maps: `/tests.html` lists the 9 tool puzzles; `/?map=<id>` opens one. `python3 tools/test_maps.py` rebuilds `maps/tests/*.tmj` from the layouts in that file (it overwrites Tiled edits); `src/testMaps.test.ts` solves each by script.
+- Play log: the end screen has Copy play log and Copy all runs (the last 10, kept in the browser), for the rebalance.
 - Edit the map: open `maps/night-lantern.tmj` in Tiled. Layers and object types are listed at the top of `src/sim/tiled.ts`. Save, and the dev server reloads it; `npm test` catches a broken map with a clear message.
 - `~/Downloads/Tiled.app/Contents/MacOS/tmxrasterizer maps/night-lantern.tmj /tmp/map.png` draw the map as Tiled sees it, without opening Tiled (Tiled 1.12.2 lives in ~/Downloads)
 - `python3 tools/editor_tiles.py` rebuild `maps/editor-tiles.png` (tile 6 = fence, Phase 3), the colour squares Tiled shows (never used in the game)

@@ -1,0 +1,23 @@
+:root {
+  color-scheme: dark;
+  --ink: #0b0f11;
+  --panel: #11171a;
+  --line: #26323a;
+  --text: #ece4d3;
+  --muted: #8d989b;
+  --threat: #ffb547;
+}
+html, body { margin: 0; background: var(--ink); color: var(--text); font: 14px/1.5 ui-monospace, Menlo, monospace; }
+.top { padding: 20px 16px 8px; max-width: 760px; margin: 0 auto; }
+.top h1 { margin: 0 0 6px; font-size: 20px; }
+.top .sub { margin: 0 0 10px; color: var(--muted); }
+.top a { color: var(--threat); }
+.list { display: flex; flex-direction: column; gap: 8px; padding: 8px 16px 32px; max-width: 760px; margin: 0 auto; }
+.test { display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--who); border-radius: 4px; color: inherit; text-decoration: none; }
+.test:hover { border-color: var(--muted); border-left-color: var(--who); }
+.num { color: var(--muted); min-width: 1.5em; }
+.body { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.who { color: var(--who); font-size: 12px; }
+.name { font-weight: 700; }
+.brief { color: var(--muted); font-size: 13px; }
+.play { color: var(--threat); white-space: nowrap; }

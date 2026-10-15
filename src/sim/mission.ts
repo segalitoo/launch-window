@@ -39,6 +39,7 @@ export function raiseAlarm(s: GameState, x: number, y: number, src: Guard | null
   if (first) {
     s.stats.alarms++;
     message(s, reason, 'alarm');
+    if (s.strict) endGame(s, 'spotted');
   }
   s.events.push({ type: 'alarmRaised', x, y, first, reason });
   s.alarm.active = true;
@@ -164,6 +165,15 @@ export function endGame(s: GameState, result: GameResult, u?: Unit): void {
   if (s.over) return;
   s.over = result;
   s.events.push(u ? { type: 'gameOver', result, unit: u.id } : { type: 'gameOver', result });
+}
+
+/** In the exit zone of a test map. */
+export function inExit(s: GameState, u: Unit): boolean {
+  const z = s.exit;
+  if (!z) return false;
+  const tx = tileOf(u.x);
+  const ty = tileOf(u.y);
+  return tx >= z.x0 && tx <= z.x1 && ty >= z.y0 && ty <= z.y1;
 }
 
 export function inLZ(s: GameState, u: Unit): boolean {

@@ -1,15 +1,22 @@
 import Phaser from 'phaser';
 import { MapScene } from '@/render/MapScene';
 import { Hud } from '@/ui/hud';
+import { testMap } from './testMaps';
 import './style.css';
 
-const root = document.getElementById('app')!;
-const hud = new Hud(root, (key) => scene.press(key));
+// ?map=<id> opens a test map (Phase 3, tests.html lists them); otherwise the mission
+const test = testMap(new URLSearchParams(location.search).get('map'));
 
-const scene = new MapScene({
-  onEvents: (events) => hud.onEvents(events),
-  onFrame: (s, c) => hud.onFrame(s, c),
-});
+const root = document.getElementById('app')!;
+const hud = new Hud(root, (key) => scene.press(key), test);
+
+const scene = new MapScene(
+  {
+    onEvents: (events, s) => hud.onEvents(events, s),
+    onFrame: (s, c) => hud.onFrame(s, c),
+  },
+  test?.map ?? null,
+);
 
 const game = new Phaser.Game({
   type: Phaser.AUTO,
