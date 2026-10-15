@@ -20,13 +20,15 @@ export {
   orderBinoculars,
   orderUniform,
   throwSmoke,
-  firePistol,
+  fireGun,
+  gunRange,
+  toggleSilencer,
   setCrawl,
   speedOf,
   throwDecoy,
   toggleCrawl,
 } from './squad';
-export type { PistolResult, ThrowResult } from './squad';
+export type { FireResult, ThrowResult } from './squad';
 export { inLZ } from './mission';
 export { random, mulberry32 } from './rng';
 export { angDiff, center, dist, tileOf } from './math';

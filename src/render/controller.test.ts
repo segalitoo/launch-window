@@ -57,7 +57,7 @@ describe('Controller (tap rules from the prototype)', () => {
     expect(c.mode).toBe(null);
   });
 
-  test('F aims the pistol at a tapped guard in range; a tap on nothing cancels', () => {
+  test('F aims the selected operator\'s gun at a tapped guard in range; a tap on nothing cancels', () => {
     const c = new Controller(new Game());
     const s = c.game.state;
     const g = s.guards[1]!; // post at (12, 12)
@@ -65,13 +65,27 @@ describe('Controller (tap rules from the prototype)', () => {
     yoav.x = 11.5;
     yoav.y = 12.5;
     c.key('f');
-    expect(c.mode).toBe('pistol');
+    expect(c.mode).toBe('fire');
     c.tap(0, 0, none);
     expect(c.mode).toBe(null);
     c.key('f');
     c.tap(g.x, g.y, { ...none, guard: g });
     expect(yoav.order?.type).toBe('shoot');
     expect(c.mode).toBe(null);
+  });
+
+  test('H toggles the silencer; V and B pick Noa for smoke and binoculars; U changes her clothes', () => {
+    const c = new Controller(new Game());
+    expect(c.sel.silenced).toBe(true);
+    c.key('h');
+    expect(c.sel.silenced).toBe(false);
+    c.key('v');
+    expect(c.sel.id).toBe('lure');
+    expect(c.mode).toBe('smoke');
+    c.key('b');
+    expect(c.mode).toBe('bino');
+    c.key('u');
+    expect(c.sel.order?.type).toBe('uniform');
   });
 
   test('space pauses, keys 1 to 3 select', () => {

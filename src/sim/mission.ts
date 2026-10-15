@@ -68,8 +68,8 @@ export function takedown(s: GameState, u: Unit, g: Guard): void {
   s.events.push({ type: 'takedown', unit: u.id, guard: g.i });
 }
 
-/** Yoav's silenced pistol: the guard falls and stays down. */
-export function pistolKill(s: GameState, u: Unit, g: Guard): void {
+/** An operator's shot: the guard falls and stays down. */
+export function gunKill(s: GameState, u: Unit, g: Guard, loud: boolean): void {
   g.state = 'down';
   g.dead = true;
   g.ko = 0;
@@ -77,7 +77,7 @@ export function pistolKill(s: GameState, u: Unit, g: Guard): void {
   g.susp = 0;
   g.seeing = null;
   s.stats.takedowns++;
-  s.events.push({ type: 'pistol', unit: u.id, guard: g.i });
+  s.events.push({ type: 'fired', unit: u.id, guard: g.i, loud });
 }
 
 /** A knocked-out guard who was not tied gets up and raises the alarm where he lies. */

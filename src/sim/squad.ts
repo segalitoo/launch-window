@@ -12,9 +12,12 @@ import {
   GRAB_RANGE,
   INTERACT_REACH,
   BINO_TIME,
-  PISTOL_AIM,
-  PISTOL_HEAR,
-  PISTOL_RANGE,
+  CARBINE_RANGE,
+  GUN_AIM,
+  SHOTGUN_RANGE,
+  SILENCED_AIM,
+  SILENCED_HEAR,
+  SILENCED_RANGE,
   TAKEDOWN_RANGE,
   TAKEDOWN_REPATH,
   THROW_BUSY,
@@ -25,7 +28,7 @@ import {
 import { hearNoise } from './guards';
 import { walkable } from './grid';
 import { center, dist, pathLength } from './math';
-import { message, pistolKill, takedown } from './mission';
+import { gunKill, message, raiseAlarm, takedown } from './mission';
 import { moveAlong, pathTo } from './pathfinding';
 import type { GameState, Guard, InteractTarget, Unit, Vec } from './types';
 import { detects, losClear, smokeBlocks } from './vision';
@@ -165,27 +168,35 @@ export function orderTie(s: GameState, u: Unit, body: Guard): boolean {
   return true;
 }
 
-export type PistolResult = 'aiming' | 'empty' | 'range' | 'blocked' | 'invalid';
+export type FireResult = 'aiming' | 'range' | 'blocked' | 'invalid';
 
-/** Yoav aims the silenced pistol at a guard; the shot leaves after PISTOL_AIM. */
-export function firePistol(s: GameState, u: Unit, g: Guard): PistolResult {
-  if (!u.alive || u.id !== 'shadow' || g.state === 'down') return 'invalid';
-  if (u.rounds <= 0) {
-    message(s, 'Yoav is out of rounds.', 'warn');
-    return 'empty';
-  }
-  if (dist(u, g) > PISTOL_RANGE) {
-    message(s, 'Too far for the pistol. Get closer.', 'warn');
+/** How far an operator's gun reaches now: Itai's shotgun is short; a silencer halves it. */
+export const gunRange = (u: Unit): number =>
+  (u.id === 'sapper' ? SHOTGUN_RANGE : CARBINE_RANGE) * (u.silenced ? SILENCED_RANGE : 1);
+
+/** An operator aims at a guard and fires when the aim is done (GUN_AIM, or SILENCED_AIM
+ *  standing still). Loud raises the alarm; silenced is heard SILENCED_HEAR tiles away. */
+export function fireGun(s: GameState, u: Unit, g: Guard): FireResult {
+  if (!u.alive || g.state === 'down') return 'invalid';
+  if (dist(u, g) > gunRange(u)) {
+    message(s, u.silenced ? 'Too far with the silencer. Get closer, or take it off.' : 'Too far. Get closer.', 'warn');
     return 'range';
   }
-  if (!losClear(s.grid, u.x, u.y, g.x, g.y)) {
+  if (!losClear(s.grid, u.x, u.y, g.x, g.y) || smokeBlocks(s, u.x, u.y, g.x, g.y)) {
     message(s, 'No clear shot.', 'warn');
     return 'blocked';
   }
   clearOrder(u);
-  u.order = { type: 'shoot', guard: g, t: 0 };
+  u.order = { type: 'shoot', guard: g, t: 0, dur: u.silenced ? SILENCED_AIM : GUN_AIM, loud: !u.silenced };
   u.ang = Math.atan2(g.y - u.y, g.x - u.x);
   return 'aiming';
+}
+
+/** Fits the silencer or takes it off. */
+export function toggleSilencer(s: GameState, u: Unit): void {
+  if (!u.alive) return;
+  u.silenced = !u.silenced;
+  message(s, u.silenced ? `${u.name}: silencer on.` : `${u.name}: silencer off. Shots will raise the alarm.`, u.silenced ? '' : 'warn');
 }
 
 export type ThrowResult = 'thrown' | 'empty' | 'range' | 'invalid';
@@ -346,11 +357,12 @@ export function updateUnit(s: GameState, u: Unit, dt: number): void {
       else {
         u.ang = Math.atan2(g.y - u.y, g.x - u.x);
         o.t += dt;
-        if (o.t >= PISTOL_AIM) {
-          if (dist(u, g) <= PISTOL_RANGE && losClear(s.grid, u.x, u.y, g.x, g.y)) {
-            u.rounds--;
-            pistolKill(s, u, g);
-            hearNoise(s, g.x, g.y, PISTOL_HEAR);
+        if (o.t >= o.dur) {
+          const range = (u.id === 'sapper' ? SHOTGUN_RANGE : CARBINE_RANGE) * (o.loud ? 1 : SILENCED_RANGE);
+          if (dist(u, g) <= range && losClear(s.grid, u.x, u.y, g.x, g.y) && !smokeBlocks(s, u.x, u.y, g.x, g.y)) {
+            gunKill(s, u, g, o.loud);
+            if (o.loud) raiseAlarm(s, u.x, u.y, null, `${u.name} opened fire!`);
+            else hearNoise(s, g.x, g.y, SILENCED_HEAR);
           } else message(s, 'Lost the shot.', 'warn');
           clearOrder(u);
         }

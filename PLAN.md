@@ -71,11 +71,11 @@ Character pipeline:
 | Yoav, Shadow | Drag body | A body in a patrol's view | Built |
 | Yoav, Shadow | Tie up | Downed guards wake after 100 s (60 s at the 60% pace) and raise the alarm, unless tied | Built |
 | Yoav, Shadow | Hiding spots | Bushes and dark corners: still or crawling, only a guard very close sees you | Built (placeholder art) |
-| Yoav, Shadow | Silenced pistol, 3 rounds | A guard he cannot reach (6 tiles, heard 2 tiles away) | Built |
+| All three | Guns (Ran, Phase 3): unlimited ammo. Carbines 8 tiles, Itai's shotgun 3. Loud raises the alarm; a silencer (toggle) halves the range and needs a 2 s aim, heard 2 tiles away | Emergencies, a guard nobody can reach | Built (replaced Yoav's 3-round pistol) |
 | Noa, Lure | Noise decoy | Pull guards off a path | Built |
-| Noa, Lure | Binoculars | Show one guard's full patrol route | New |
-| Noa, Lure | Smoke grenade | Block all sight in an area for 8 s | New |
-| Noa, Lure | Captured uniform | Walk past regular guards | New |
+| Noa, Lure | Binoculars | Show one guard's full patrol route (tap a guard in sight, 1 s; stays shown) | Built |
+| Noa, Lure | Smoke grenade | Block all sight in an area: 2 grenades, 13 s (8 s at the 60% pace), guards and searchlights | Built |
+| Noa, Lure | Captured uniform | Walk past regular guards; seen through when crawling, dragging, within 1 tile, or in an alarm | Built |
 | Itai, Sapper | Breach door, cut power, plant charge | Locked routes, searchlights, the objective | Built |
 | Itai, Sapper | Wire cutters | Cut a new hole in the outer fence | New |
 | Itai, Sapper | Tripwire | Takes out the next guard who walks through | New |
@@ -136,7 +136,7 @@ About 144 hours. Re-plan at each gate.
 ### Phase 3. Toolkit and enemies (32 h)
 
 - [x] Yoav: tie up, hiding spots, silenced pistol (5 hiding spots on the map, placeholder bushes until Phase 4; Yoav's aim pose; guards get up when they wake)
-- [ ] Noa: binoculars, smoke, captured uniform
+- [x] Noa: binoculars, smoke, captured uniform (plus guns for all three, Ran's addition: loud or silenced)
 - [ ] Itai: wire cutters, tripwire, remote charge
 - [ ] Officer, dog, camera
 - [ ] Backpack inventory panel, placeholder art

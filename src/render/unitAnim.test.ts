@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { HIT_FLASH, PISTOL_AIM, THROW_BUSY } from '@/sim';
+import { HIT_FLASH, THROW_BUSY } from '@/sim';
 import {
   type AnimState,
   CYCLE_TILES,
@@ -144,9 +144,13 @@ describe("Yoav's tools (Phase 3)", () => {
     expect(f({ tieT: ONE_SHOT.grab * 0.5 })).toBe('grab_d0_f2');
     expect(f({ tieT: 1.9 })).toBe('grab_d0_f3');
   });
-  test('aiming plays "aim" when rendered, and stays idle without it', () => {
-    expect(f({ aimT: 0.1 })).toBe('idle_d0_f0');
-    expect(frameName({ ...base, aimT: PISTOL_AIM * 0.99 }, { ...anims, aim: 4 })).toBe('aim_d0_f3');
+  test('aiming: raise, then hold however long the aim; the kick right after the shot', () => {
+    const withAim = { ...anims, aim: 3 };
+    expect(f({ aimT: 0.1 })).toBe('idle_d0_f0'); // no aim rendered: stays idle
+    expect(frameName({ ...base, aimT: 0.1 }, withAim)).toBe('aim_d0_f0');
+    expect(frameName({ ...base, aimT: 1.9 }, withAim)).toBe('aim_d0_f1');
+    expect(frameName({ ...base, firedAt: base.t - 0.05 }, withAim)).toBe('aim_d0_f2');
+    expect(frameName({ ...base, firedAt: base.t - 0.5 }, withAim)).toBe('idle_d0_f0');
   });
   test('a guard who wakes plays the knockout backwards, then stands', () => {
     const ga = { idle: 1, walk: 8, run: 8, death: 6, knockout: 6 };

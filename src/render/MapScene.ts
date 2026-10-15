@@ -3,7 +3,7 @@
 
 import Phaser from 'phaser';
 import {
-  castRay,
+  BINO_TIME,
   coneLength,
   FOV,
   Game,
@@ -12,8 +12,12 @@ import {
   hidden,
   type InteractTarget,
   NEAR_FRACTION,
-  PISTOL_RANGE,
+  gunRange,
   type SimEvent,
+  sightRay,
+  SMOKE_RADIUS,
+  SMOKE_TIME,
+  UNIFORM_TIME,
   tileAt,
   type TileCode,
   TIE_DUR,
@@ -93,7 +97,9 @@ export class MapScene extends Phaser.Scene {
   /** Hiding spots (Phase 3 placeholder until the Phase 4 map art): over the painting, under the units. */
   private hideGfx!: Phaser.GameObjects.Graphics;
   /** Pistol shots on screen: a short tracer, sim time. */
-  private tracers: { x0: number; y0: number; x1: number; y1: number; t: number }[] = [];
+  private tracers: { x0: number; y0: number; x1: number; y1: number; t: number; loud: boolean }[] = [];
+  /** Smoke clouds: above the units and the art, under the overlay. */
+  private smokeGfx!: Phaser.GameObjects.Graphics;
   /** Searchlight light: added over the art (and the units in it), under the overlay. */
   private beams!: Phaser.GameObjects.Graphics;
   private bodies = new Map<object, Phaser.GameObjects.Graphics>();
@@ -134,6 +140,7 @@ export class MapScene extends Phaser.Scene {
     this.guardArt = new GuardSprites(this, toTintHex(UNIT_GRADE));
     this.shadows = this.add.graphics().setDepth(-OVERLAY_DEPTH + 2);
     this.hideGfx = this.add.graphics().setDepth(-OVERLAY_DEPTH + 1.8);
+    this.smokeGfx = this.add.graphics().setDepth(OVERLAY_DEPTH - 3);
     this.input.addPointer(1);
     this.setupInput();
     this.scale.on('resize', () => this.fitCamera(!this.userMoved));
@@ -337,10 +344,10 @@ export class MapScene extends Phaser.Scene {
       this.guardArt.onEvents(events, s.t);
       this.hooks.onEvents(events, s, this.ctl);
       for (const e of events) {
-        if (e.type !== 'pistol') continue;
+        if (e.type !== 'fired') continue;
         const u = s.squad.find((q) => q.id === e.unit)!;
         const g = s.guards[e.guard]!;
-        this.tracers.push({ x0: u.x, y0: u.y, x1: g.x, y1: g.y, t: s.t });
+        this.tracers.push({ x0: u.x, y0: u.y, x1: g.x, y1: g.y, t: s.t, loud: e.loud });
       }
     }
     if (s.staticVersion !== this.staticVersion) this.drawStatic(s);
@@ -487,12 +494,22 @@ export class MapScene extends Phaser.Scene {
         o.strokePath();
       }
     }
-    // tool modes: the pistol's reach, the bodies Yoav can tie
-    const yoav = s.squad.find((u) => u.id === 'shadow')!;
-    if (this.ctl.mode === 'pistol' && yoav.alive) {
-      const p = toScreen(yoav.x, yoav.y);
-      o.lineStyle(1.5, ALARM_COLOR, 0.7);
-      o.strokeEllipse(p.x, p.y, PISTOL_RANGE * 2 * 32 * Math.SQRT2, PISTOL_RANGE * 2 * 16 * Math.SQRT2);
+    // tool modes: the gun's reach (red when the shot will be loud), the bodies Yoav can tie
+    if (this.ctl.mode === 'fire' && sel.alive) {
+      const p = toScreen(sel.x, sel.y);
+      const r = gunRange(sel);
+      o.lineStyle(1.5, sel.silenced ? 0xd8e4f0 : ALARM_COLOR, 0.75);
+      o.strokeEllipse(p.x, p.y, r * 2 * 32 * Math.SQRT2, r * 2 * 16 * Math.SQRT2);
+    }
+    if (this.ctl.mode === 'smoke' && sel.alive) {
+      const p = toScreen(sel.x, sel.y);
+      o.lineStyle(1.5, 0xc8ccd0, 0.7);
+      o.strokeEllipse(p.x, p.y, 8 * 64, 8 * 32); // throw range, 8 tiles like the decoy
+    }
+    // routes Noa has seen through the binoculars
+    for (const g of s.guards) {
+      if (!g.revealed || g.state === 'down') continue;
+      this.drawRoute(o, g);
     }
     if (this.ctl.mode === 'tie') {
       o.lineStyle(1.5, ROPE_COLOR, 0.9);
@@ -507,18 +524,29 @@ export class MapScene extends Phaser.Scene {
     for (const tr of this.tracers) {
       const a = toScreen(tr.x0, tr.y0, 12);
       const b = toScreen(tr.x1, tr.y1, 10);
-      o.lineStyle(1.5, 0xfff2b0, 1 - (s.t - tr.t) / TRACER_TIME);
+      const k = 1 - (s.t - tr.t) / TRACER_TIME;
+      o.lineStyle(tr.loud ? 2.5 : 1.5, 0xfff2b0, k);
       o.lineBetween(a.x, a.y, b.x, b.y);
+      if (tr.loud) {
+        // a muzzle flash: a loud shot should look loud
+        o.fillStyle(0xffd27a, k);
+        o.fillCircle(a.x, a.y, 4);
+      }
     }
+    this.drawSmoke(s);
     // interaction progress
     for (const u of s.squad) {
-      if (u.order?.type === 'tie' && u.order.started) {
+      const bar = (k: number, col: number): void => {
         const m = this.markerOf(u, UNIT_LIFT + 18);
         o.fillStyle(0x000000, 0.6);
         o.fillRect(m.x - 14, m.y - 3, 28, 6);
-        o.fillStyle(ROPE_COLOR, 1);
-        o.fillRect(m.x - 13, m.y - 2, 26 * Math.min(1, u.order.t / TIE_DUR), 4);
-      }
+        o.fillStyle(col, 1);
+        o.fillRect(m.x - 13, m.y - 2, 26 * Math.min(1, k), 4);
+      };
+      if (u.order?.type === 'tie' && u.order.started) bar(u.order.t / TIE_DUR, ROPE_COLOR);
+      if (u.order?.type === 'binoculars') bar(u.order.t / BINO_TIME, CONE_COLOR);
+      if (u.order?.type === 'uniform') bar(u.order.t / UNIFORM_TIME, 0x8ef0d0);
+      if (u.order?.type === 'shoot' && !u.order.loud) bar(u.order.t / u.order.dur, 0xd8e4f0);
       if (u.order?.type === 'interact' && u.order.started) {
         const m = this.markerOf(u, UNIT_LIFT + 18);
         o.fillStyle(0x000000, 0.6);
@@ -541,6 +569,65 @@ export class MapScene extends Phaser.Scene {
     s.squad.forEach((u) => this.drawUnit(u, u === sel, s.t));
   }
 
+  /** A guard's route as Noa saw it: patrols get their path with waypoint dots, posts the arc
+   *  they sweep (or a full circle when they spin). */
+  private drawRoute(o: Phaser.GameObjects.Graphics, g: Guard): void {
+    o.lineStyle(1.5, CONE_COLOR, 0.8);
+    if (g.kind === 'patrol') {
+      const pts = g.route.map((p) => toScreen(p.x, p.y));
+      for (let i = 1; i < pts.length; i++) this.dashed(o, pts[i - 1]!, pts[i]!);
+      if (g.loop && pts.length > 2) this.dashed(o, pts.at(-1)!, pts[0]!);
+      o.fillStyle(CONE_COLOR, 0.9);
+      for (const p of pts) o.fillCircle(p.x, p.y, 2.5);
+    } else if (g.post) {
+      const c = toScreen(g.post.x, g.post.y);
+      const r = 2.2;
+      const span = g.spin ? Math.PI * 2 : Math.max(g.sweep * 2, 0.3);
+      const steps = 24;
+      for (let i = 0; i <= steps; i += 2) {
+        const a0 = g.face - span / 2 + (span * i) / steps;
+        const a1 = g.face - span / 2 + (span * Math.min(steps, i + 1)) / steps;
+        const p0 = toScreen(g.post.x + Math.cos(a0) * r, g.post.y + Math.sin(a0) * r);
+        const p1 = toScreen(g.post.x + Math.cos(a1) * r, g.post.y + Math.sin(a1) * r);
+        o.lineBetween(p0.x, p0.y, p1.x, p1.y);
+      }
+      o.fillStyle(CONE_COLOR, 0.9);
+      o.fillCircle(c.x, c.y, 2.5);
+    }
+  }
+
+  private dashed(o: Phaser.GameObjects.Graphics, a: Point, b: Point): void {
+    const len = Math.hypot(b.x - a.x, b.y - a.y);
+    const n = Math.max(1, Math.floor(len / 8));
+    for (let i = 0; i < n; i += 2) {
+      const k0 = i / n;
+      const k1 = Math.min(1, (i + 1) / n);
+      o.lineBetween(a.x + (b.x - a.x) * k0, a.y + (b.y - a.y) * k0, a.x + (b.x - a.x) * k1, a.y + (b.y - a.y) * k1);
+    }
+  }
+
+  /** Smoke clouds: soft grey puffs that drift and thin out at the end. Visual only; the sim
+   *  decides what the cloud blocks (SMOKE_RADIUS). */
+  private drawSmoke(s: GameState): void {
+    const g = this.smokeGfx.clear();
+    for (const c of s.smokes) {
+      const age = SMOKE_TIME - c.left;
+      const fade = Math.min(1, age / 0.6) * Math.min(1, c.left / 2);
+      for (let i = 0; i < 9; i++) {
+        // puffs on a fixed pattern per cloud, slowly drifting
+        const a = i * 2.4 + c.x * 1.7;
+        const r = (i % 3) * 0.55 + 0.35;
+        const x = c.x + Math.cos(a + age * 0.15) * r * (SMOKE_RADIUS / 2);
+        const y = c.y + Math.sin(a + age * 0.15) * r * (SMOKE_RADIUS / 2);
+        const p = toScreen(x, y, 14 + (i % 4) * 6);
+        g.fillStyle(0x8a9298, 0.32 * fade);
+        g.fillEllipse(p.x, p.y, 58, 40);
+        g.fillStyle(0xb4bbc0, 0.18 * fade);
+        g.fillEllipse(p.x - 4, p.y - 5, 34, 22);
+      }
+    }
+  }
+
   /** A searchlight: light, not a flat shape. Haze near the tower, a bright pool where it
    *  hits the ground, a brighter core down the middle; clipped by walls like a cone. A thin
    *  edge on the overlay keeps the area it sees exact (art rule 6). */
@@ -550,7 +637,7 @@ export class MapScene extends Phaser.Scene {
     for (let i = 0; i <= CONE_RAYS; i++) {
       const a = ang - TOWER_FOV / 2 + (TOWER_FOV * i) / CONE_RAYS;
       dirs.push(a);
-      rays.push(castRay(s.grid, at.x, at.y, a, TOWER_LEN));
+      rays.push(sightRay(s, at.x, at.y, a, TOWER_LEN));
     }
     const pt = (a: number, d: number): Point => toScreen(at.x + Math.cos(a) * d, at.y + Math.sin(a) * d);
     // brightness at a point: along the beam, faint haze rising to the pool near the far end
@@ -605,7 +692,7 @@ export class MapScene extends Phaser.Scene {
     const inner: Point[] = [toScreen(at.x, at.y)];
     for (let i = 0; i <= CONE_RAYS; i++) {
       const a = ang - fov / 2 + (fov * i) / CONE_RAYS;
-      const d = castRay(s.grid, at.x, at.y, a, len);
+      const d = sightRay(s, at.x, at.y, a, len);
       far.push(toScreen(at.x + Math.cos(a) * d, at.y + Math.sin(a) * d));
       if (near !== null) {
         const dn = Math.min(d, near);

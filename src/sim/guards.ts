@@ -45,7 +45,7 @@ export function goReturn(s: GameState, g: Guard): void {
   if (!g.path.length) g.state = 'patrol';
 }
 
-/** A noise at (x, y): a landed decoy, or a pistol shot (radius PISTOL_HEAR). Guards in
+/** A noise at (x, y): a landed decoy, or a silenced shot (radius SILENCED_HEAR). Guards in
  *  earshot walk over, or search in place if the walk is long. */
 export function hearNoise(s: GameState, x: number, y: number, radius = DECOY_HEAR): void {
   let n = 0;

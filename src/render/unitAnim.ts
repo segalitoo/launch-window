@@ -1,7 +1,7 @@
 // Which frame a rendered unit shows. Pure, no Phaser, so it is tested in Node.
 // Animations come from tools/blender/render_unit.py.
 
-import { HIT_FLASH, PISTOL_AIM, THROW_BUSY } from '@/sim';
+import { HIT_FLASH, THROW_BUSY } from '@/sim';
 
 /** Ground covered by one cycle, in tiles. Run and walk match the strides in
  *  render_unit.py, so the feet do not slide. The sim's normal move is a run
@@ -21,6 +21,11 @@ export const ONE_SHOT = { takedown: 0.8, grab: 0.6, death: 0.75, knockout: 0.8 }
  *  quick small hand moves; played slower it reads as careful work, not fidgeting. */
 export const WORK_IN = 0.35;
 export const WORK_LOOP = 0.7;
+
+/** Aim frames (raise, hold, kick): the gun comes up in AIM_RAISE, holds however long the
+ *  aim takes (0.5 s loud, 2 s silenced), and the kick shows for AIM_KICK after the shot. */
+export const AIM_RAISE = 0.2;
+export const AIM_KICK = 0.15;
 
 /** Seconds into the takedown before the guard's own animation starts. The knife takedown is
  *  one hand-keyed pair (tools/blender/render_takedown.py), so both start together. */
@@ -54,8 +59,10 @@ export interface AnimState {
   workT?: number | null;
   /** Seconds into tying a guard (Yoav): his grab squat, held at the bottom. */
   tieT?: number | null;
-  /** Seconds into aiming the pistol (Yoav); the 'aim' animation if rendered. */
+  /** Seconds into aiming the gun; the 'aim' animation if rendered. */
   aimT?: number | null;
+  /** When he last fired (sim time): the kick frame plays just after. */
+  firedAt?: number | null;
 }
 
 export function frameName(s: AnimState, anims: Readonly<Record<string, number>>): string {
@@ -76,7 +83,8 @@ export function frameName(s: AnimState, anims: Readonly<Record<string, number>>)
   if (active('grab', s.grabAt)) return shot('grab', s.grabAt);
   if (s.hitT > 0) return name('hit', Math.min(n('hit') - 1, Math.floor((1 - s.hitT / HIT_FLASH) * n('hit'))));
   if (s.tieT != null) return name('grab', Math.min(n('grab') - 1, Math.floor((s.tieT / ONE_SHOT.grab) * n('grab'))));
-  if (s.aimT != null && anims['aim']) return name('aim', Math.min(n('aim') - 1, Math.floor((s.aimT / PISTOL_AIM) * n('aim'))));
+  if (anims['aim'] && s.firedAt != null && s.t - s.firedAt >= 0 && s.t - s.firedAt < AIM_KICK) return name('aim', n('aim') - 1);
+  if (s.aimT != null && anims['aim']) return name('aim', s.aimT < AIM_RAISE ? 0 : Math.min(1, n('aim') - 1));
   if ((s.busy ?? 0) > 0 && anims['throw']) {
     return name('throw', Math.min(n('throw') - 1, Math.floor((1 - (s.busy ?? 0) / THROW_BUSY) * n('throw'))));
   }

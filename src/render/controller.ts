@@ -5,7 +5,7 @@
 import {
   clearOrder,
   dropBody,
-  firePistol,
+  fireGun,
   type Game,
   type Guard,
   type InteractTarget,
@@ -15,7 +15,11 @@ import {
   orderMove,
   orderTakedown,
   orderTie,
+  orderBinoculars,
+  orderUniform,
   throwDecoy,
+  throwSmoke,
+  toggleSilencer,
   tileOf,
   toggleCrawl,
   type Unit,
@@ -28,8 +32,9 @@ export interface TapHit {
   object: InteractTarget | null; // door, generator or launcher block under the pointer
 }
 
-/** A tool waiting for its target tap: Noa's decoy, Yoav's tie or pistol. */
-export type ToolMode = 'throw' | 'tie' | 'pistol' | null;
+/** A tool waiting for its target tap: Noa's decoy, smoke or binoculars, Yoav's tie, or
+ *  anyone's gun. */
+export type ToolMode = 'throw' | 'smoke' | 'bino' | 'tie' | 'fire' | null;
 
 export class Controller {
   selected = 0;
@@ -67,18 +72,28 @@ export class Controller {
       if (r !== 'range') this.throwMode = false;
       return;
     }
+    if (this.mode === 'smoke' && sel.id === 'lure' && sel.alive) {
+      const r = throwSmoke(s, sel, x, y);
+      if (r !== 'range') this.mode = null;
+      return;
+    }
+    if (this.mode === 'bino' && sel.id === 'lure' && sel.alive) {
+      if (hit.guard) orderBinoculars(s, sel, hit.guard);
+      this.mode = null;
+      return;
+    }
     if (this.mode === 'tie' && sel.id === 'shadow' && sel.alive) {
       // the next tap picks the body; anywhere else cancels
       if (hit.body) orderTie(s, sel, hit.body);
       this.mode = null;
       return;
     }
-    if (this.mode === 'pistol' && sel.id === 'shadow' && sel.alive) {
+    if (this.mode === 'fire' && sel.alive) {
       if (!hit.guard) {
         this.mode = null;
         return;
       }
-      const r = firePistol(s, sel, hit.guard);
+      const r = fireGun(s, sel, hit.guard);
       if (r !== 'range' && r !== 'blocked') this.mode = null; // out of reach: pick another
       return;
     }
@@ -103,6 +118,15 @@ export class Controller {
     orderMove(s, sel, x, y);
   }
 
+  /** Selects operator `id` and toggles a tool mode for him. */
+  private pick(id: Unit['id'], want: ToolMode): void {
+    const i = this.game.state.squad.findIndex((u) => u.id === id);
+    if (this.selected !== i) this.select(i);
+    if (!this.sel.alive) return;
+    if (want === 'smoke' && this.sel.smokes <= 0) return;
+    this.mode = this.mode === want ? null : want;
+  }
+
   /** Returns true when the key was used. */
   key(k: string): boolean {
     const s = this.game.state;
@@ -115,14 +139,19 @@ export class Controller {
       const i = s.squad.findIndex((u) => u.id === 'lure');
       if (this.selected !== i) this.select(i);
       if (this.sel.alive && this.sel.charges > 0) this.throwMode = !this.throwMode;
-    } else if (k === 'g' || k === 'f') {
-      // Yoav's tie (G) and pistol (F): select him and wait for the target tap
-      const i = s.squad.findIndex((u) => u.id === 'shadow');
+    } else if (k === 'g') {
+      // Yoav's tie: select him and wait for the body tap
+      this.pick('shadow', 'tie');
+    } else if (k === 'v' || k === 'b') {
+      this.pick('lure', k === 'v' ? 'smoke' : 'bino');
+    } else if (k === 'u') {
+      const i = s.squad.findIndex((u) => u.id === 'lure');
       if (this.selected !== i) this.select(i);
-      const want: ToolMode = k === 'g' ? 'tie' : 'pistol';
-      if (!this.sel.alive || (want === 'pistol' && this.sel.rounds <= 0)) return true;
-      this.mode = this.mode === want ? null : want;
-    } else if (k === ' ') this.paused = !this.paused;
+      orderUniform(s, this.sel);
+    } else if (k === 'f') {
+      // the selected operator's gun
+      if (this.sel.alive) this.mode = this.mode === 'fire' ? null : 'fire';
+    } else if (k === 'h') toggleSilencer(s, this.sel); else if (k === ' ') this.paused = !this.paused;
     else if (k === 'escape') this.mode = null;
     else if (k === 's') clearOrder(this.sel);
     else return false;

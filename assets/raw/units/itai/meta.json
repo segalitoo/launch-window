@@ -16,6 +16,7 @@
     "crawl": 12,
     "death": 10,
     "hit": 3,
+    "aim": 3,
     "work_in": 5,
     "work": 8
   },
@@ -26,6 +27,7 @@
     "crawl": "formula pose",
     "death": "motion capture, CMU 90_18",
     "hit": "formula pose",
+    "aim": "formula pose",
     "work_in": "motion capture, CMU 77_08",
     "work": "motion capture, CMU 77_08"
   },

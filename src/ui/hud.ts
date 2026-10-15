@@ -2,7 +2,7 @@
 // a status line, toasts from sim events, a key hint, the touch bar and the end message.
 // The real squad panel, inventory and minimap come in Phase 6.
 
-import type { GameState, SimEvent } from '@/sim';
+import type { GameState, SimEvent, UnitId } from '@/sim';
 import type { Controller } from '@/render/controller';
 
 const fmt = (sec: number): string => {
@@ -16,22 +16,29 @@ const END_TEXT = {
   down: 'Operator down. Mission failed.',
 } as const;
 
-/** Touch bar buttons: label and the key they press. */
-const BAR = [
-  ['crawl', 'c', 'Crawl'],
-  ['decoy', 't', 'Decoy'],
-  ['tie', 'g', 'Tie'],
-  ['pistol', 'f', 'Pistol'],
-  ['drop', 'x', 'Drop'],
-  ['stop', 's', 'Stop'],
-  ['pause', ' ', 'Pause'],
-] as const;
+/** Touch bar: [id, key it presses, label, operator whose tool it is (null = shared)].
+ *  Two rows: the selected operator's own tools above the shared orders, so a phone never
+ *  holds more than six buttons in a row (Phase 3 added a tool row). */
+const BAR: readonly (readonly [string, string, string, UnitId | null])[] = [
+  ['tie', 'g', 'Tie', 'shadow'],
+  ['decoy', 't', 'Decoy', 'lure'],
+  ['smoke', 'v', 'Smoke', 'lure'],
+  ['bino', 'b', 'Binoc.', 'lure'],
+  ['uniform', 'u', 'Uniform', 'lure'],
+  ['crawl', 'c', 'Crawl', null],
+  ['fire', 'f', 'Fire', null],
+  ['silencer', 'h', 'Silent', null],
+  ['drop', 'x', 'Drop', null],
+  ['stop', 's', 'Stop', null],
+  ['pause', ' ', 'Pause', null],
+];
 
 export class Hud {
   private status: HTMLElement;
   private toasts: HTMLElement;
   private end: HTMLElement;
   private buttons = new Map<string, HTMLButtonElement>();
+  private toolRow!: HTMLElement;
   private last = '';
 
   /** `press` sends a key to the scene, the same path as the keyboard. */
@@ -42,9 +49,10 @@ export class Hud {
         <div class="status" id="status"></div>
         <div class="toasts" id="toasts" aria-live="polite"></div>
         <p class="hint">Tap a unit to select (1 2 3). Tap the map to move. Tap a guard: Yoav takes him down.
-        <span class="keys">C crawl · T decoy · G tie · F pistol · X drop body · S stop · Space pause · drag to pan, scroll or pinch to zoom.</span>
+        <span class="keys">C crawl · F fire · H silencer · X drop body · S stop · Space pause · Yoav: G tie · Noa: T decoy, V smoke, B binoculars, U uniform · drag to pan, scroll or pinch to zoom.</span>
         <span class="touch-keys">Drag to pan, pinch to zoom.</span></p>
-        <nav class="bar" aria-label="Orders">${BAR.map(([id, , label]) => `<button type="button" data-id="${id}">${label}</button>`).join('')}</nav>
+        <nav class="bar tools" aria-label="Tools">${BAR.filter((b) => b[3]).map(([id, , label]) => `<button type="button" data-id="${id}">${label}</button>`).join('')}</nav>
+        <nav class="bar" aria-label="Orders">${BAR.filter((b) => !b[3]).map(([id, , label]) => `<button type="button" data-id="${id}">${label}</button>`).join('')}</nav>
         <button type="button" class="end" id="end" hidden></button>
       </div>`,
     );
@@ -52,6 +60,7 @@ export class Hud {
     this.toasts = root.querySelector('#toasts')!;
     this.end = root.querySelector('#end')!;
     this.end.addEventListener('click', () => press('r'));
+    this.toolRow = root.querySelector('.bar.tools')!;
     for (const [id, key] of BAR) {
       const b = root.querySelector<HTMLButtonElement>(`.bar [data-id="${id}"]`)!;
       // pointerdown, not click: no 300 ms wait, and the canvas never sees the tap
@@ -78,10 +87,12 @@ export class Hud {
       s.alarm.active ? 'ALARM ×2' : 'quiet',
       `launchers ${rigged}/3`,
       `power ${s.generator.on ? 'on' : 'cut'}`,
-      `${sel.name}${sel.crawl ? ' (crawl)' : ''}${sel.carrying ? ' (dragging)' : ''}${sel.id === 'lure' ? ` · decoys ${sel.charges}` : ''}${sel.id === 'shadow' ? ` · rounds ${sel.rounds}` : ''}`,
+      `${sel.name}${sel.crawl ? ' (crawl)' : ''}${sel.carrying ? ' (dragging)' : ''}${sel.id === 'lure' ? ` · decoys ${sel.charges} · smoke ${sel.smokes}${sel.disguised ? ' · in uniform' : ''}` : ''} · ${sel.silenced ? 'silenced' : 'LOUD'}`,
       c.throwMode ? 'THROW: tap a spot' : '',
       c.mode === 'tie' ? 'TIE: tap a body' : '',
-      c.mode === 'pistol' ? 'PISTOL: tap a guard' : '',
+      c.mode === 'fire' ? `FIRE${sel.silenced ? '' : ' (LOUD)'}: tap a guard` : '',
+      c.mode === 'smoke' ? 'SMOKE: tap a spot' : '',
+      c.mode === 'bino' ? 'BINOCULARS: tap a guard' : '',
       c.paused ? 'PAUSED' : '',
     ].filter(Boolean);
     const text = parts.join('  ·  ');
@@ -96,9 +107,21 @@ export class Hud {
     on('crawl', sel.crawl);
     on('decoy', c.throwMode);
     on('tie', c.mode === 'tie');
-    on('pistol', c.mode === 'pistol');
-    const yoav = s.squad.find((u) => u.id === 'shadow')!;
-    this.buttons.get('pistol')!.disabled = !yoav.alive || yoav.rounds <= 0;
+    on('fire', c.mode === 'fire');
+    on('smoke', c.mode === 'smoke');
+    on('bino', c.mode === 'bino');
+    on('uniform', sel.disguised);
+    on('silencer', sel.silenced);
+    this.buttons.get('smoke')!.disabled = sel.smokes <= 0;
+    // only the selected operator's tools show; the row hides when he has none
+    let tools = 0;
+    for (const [id, , , who] of BAR) {
+      if (!who) continue;
+      const show = who === sel.id;
+      this.buttons.get(id)!.style.display = show ? '' : 'none';
+      if (show) tools++;
+    }
+    this.toolRow.style.display = tools ? '' : 'none';
     on('pause', c.paused);
     this.buttons.get('drop')!.disabled = !sel.carrying;
     const over = s.over;

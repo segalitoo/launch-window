@@ -1,9 +1,9 @@
-// Yoav's Phase 3 tools: tie up (downed guards wake otherwise), hiding spots, silenced pistol.
+// Yoav's Phase 3 tools: tie up (downed guards wake otherwise) and hiding spots. Guns: guns.test.ts.
 
 import { describe, expect, test } from 'vitest';
-import { PISTOL_AIM, PISTOL_RANGE, PISTOL_ROUNDS, TIE_DUR, WAKE_TIME } from './constants';
+import { TIE_DUR, WAKE_TIME } from './constants';
 import { takedown } from './mission';
-import { firePistol, orderGrab, orderTie } from './squad';
+import { orderGrab, orderTie } from './squad';
 import { Script } from './testkit';
 import { detects, hidden } from './vision';
 
@@ -121,51 +121,5 @@ describe('hiding spots', () => {
     k.place('shadow', x, y);
     k.game.run(t.period * 2);
     expect(k.s.stats.alarms).toBe(0);
-  });
-});
-
-describe('silenced pistol', () => {
-  test('Yoav aims, then the guard drops for good; one round used', () => {
-    const k = new Script();
-    const g = k.guard(POST_WEST);
-    g.ang = 0; // looking east, away from Yoav
-    const u = k.place('shadow', 11, 12); // right behind him
-    expect(firePistol(k.s, u, g)).toBe('aiming');
-    k.game.run(PISTOL_AIM - 0.1);
-    expect(g.state).not.toBe('down');
-    k.game.run(0.2);
-    expect(g.state).toBe('down');
-    expect(g.dead).toBe(true);
-    expect(u.rounds).toBe(PISTOL_ROUNDS - 1);
-    k.place('shadow', 2, 2);
-    k.game.run(WAKE_TIME * 2);
-    expect(g.state).toBe('down'); // the dead never wake
-  });
-
-  test('out of range, no line of sight, no rounds, or not Yoav: no shot', () => {
-    const k = new Script();
-    const g = k.guard(POST_WEST);
-    const u = k.place('shadow', Math.floor(g.x) - Math.ceil(PISTOL_RANGE) - 1, Math.floor(g.y));
-    expect(firePistol(k.s, u, g)).toBe('range');
-    expect(firePistol(k.s, k.unit('lure'), g)).toBe('invalid');
-    k.place('shadow', 11, 12);
-    u.rounds = 0;
-    expect(firePistol(k.s, u, g)).toBe('empty');
-  });
-
-  test('the shot is heard close by: a guard within earshot investigates', () => {
-    const k = new Script();
-    const target = k.guard(POST_WEST);
-    target.ang = 0;
-    const other = k.guard(2);
-    other.x = target.x + 1.5;
-    other.y = target.y;
-    other.path = [];
-    other.state = 'patrol';
-    const u = k.place('shadow', 11, 12);
-    firePistol(k.s, u, target);
-    k.game.run(PISTOL_AIM + 0.05);
-    expect(target.dead).toBe(true);
-    expect(['investigate', 'search', 'combat']).toContain(other.state);
   });
 });

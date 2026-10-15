@@ -126,7 +126,7 @@ export type Order =
   | { type: 'takedown'; guard: Guard; repath: number }
   | { type: 'grab'; body: Guard }
   | { type: 'tie'; body: Guard; started: boolean; t: number }
-  | { type: 'shoot'; guard: Guard; t: number }
+  | { type: 'shoot'; guard: Guard; t: number; dur: number; loud: boolean }
   | { type: 'binoculars'; guard: Guard; t: number }
   | { type: 'uniform'; t: number }
   | {
@@ -155,8 +155,8 @@ export interface Unit extends Vec {
   ang: number;
   hitT: number;
   charges: number;
-  /** Silenced pistol rounds (Yoav). */
-  rounds: number;
+  /** Silencer fitted on the gun: quiet, but half range and a long aim. */
+  silenced: boolean;
   /** Smoke grenades (Noa). */
   smokes: number;
   /** Wearing the captured uniform (Noa). */
@@ -192,7 +192,7 @@ export type SimEvent =
   | { type: 'alarmCleared' }
   | { type: 'takedown'; unit: UnitId; guard: number }
   | { type: 'shot'; guard: number; unit: UnitId }
-  | { type: 'pistol'; unit: UnitId; guard: number }
+  | { type: 'fired'; unit: UnitId; guard: number; loud: boolean }
   | { type: 'tied'; unit: UnitId; guard: number }
   | { type: 'woke'; guard: number }
   | { type: 'revealed'; guard: number }

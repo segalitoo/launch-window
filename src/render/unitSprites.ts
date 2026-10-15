@@ -9,6 +9,8 @@ import { draggedFrameName, frameName, guardFrameName } from './unitAnim';
 
 /** Units that have rendered art: unit id → atlas name in assets/build/units/. */
 export const UNIT_ART: Partial<Record<UnitId, string>> = { shadow: 'yoav', lure: 'noa', sapper: 'itai' };
+/** Noa in the captured uniform (Phase 3): the same animations, guard clothes. */
+export const DISGUISE_ART: Partial<Record<UnitId, string>> = { lure: 'noa_uniform' };
 
 /** Heights (px at 100% zoom) sampled for the hidden-unit test: boots, belt, helmet.
  *  Prone, everything is close to the ground. */
@@ -42,7 +44,7 @@ export class UnitSprites {
   private takedowns = new Map<UnitId, number>();
 
   static preload(scene: Phaser.Scene): void {
-    for (const name of new Set(Object.values(UNIT_ART))) {
+    for (const name of new Set([...Object.values(UNIT_ART), ...Object.values(DISGUISE_ART)])) {
       scene.load.multiatlas(name, `units/${name}.json`, 'units/');
       scene.load.json(`${name}_meta`, `units/${name}.json`);
     }
@@ -67,8 +69,13 @@ export class UnitSprites {
 
   /** Sim events that start one-shot animations. `t` is the sim time. */
   onEvents(events: readonly SimEvent[], t: number): void {
-    for (const ev of events) if (ev.type === 'takedown') this.takedowns.set(ev.unit, t);
+    for (const ev of events) {
+      if (ev.type === 'takedown') this.takedowns.set(ev.unit, t);
+      else if (ev.type === 'fired') this.shots.set(ev.unit, t);
+    }
   }
+  /** Shots fired, waiting for that unit's next draw (the kick frame). */
+  private shots = new Map<UnitId, number>();
 
   /** Draws the unit at sim time `t`. `hidden` shows the squad-colour silhouette above
    *  the structure that hides it; `inCover` draws him see-through in a hiding spot. */
@@ -104,11 +111,18 @@ export class UnitSprites {
         workT: u.order?.type === 'interact' && u.order.started ? u.order.t : null,
         tieT: u.order?.type === 'tie' && u.order.started ? u.order.t : null,
         aimT: u.order?.type === 'shoot' ? u.order.t : null,
+        firedAt: this.shots.get(u.id) ?? null,
       },
       e.meta.anims,
     );
     const p = toScreen(u.x, u.y);
     // lying down (prone or dead) sorts with low ground props, not with standing figures
+    // the captured uniform swaps the atlas; frame names are the same
+    const art = (u.disguised && DISGUISE_ART[u.id]) || UNIT_ART[u.id]!;
+    if (e.img.texture.key !== art) {
+      e.img.setTexture(art, frame);
+      e.ghost.setTexture(art, frame);
+    }
     // in a hiding spot he shows see-through: the player knows he is hidden
     e.img.setFrame(frame).setPosition(p.x, p.y).setDepth(depthOf(u.x, u.y, u.alive && !u.crawl ? 13 : 2)).setAlpha(inCover && u.alive ? 0.55 : 1);
     e.ghost.setVisible(hidden && u.alive);

@@ -1,0 +1,34 @@
+{
+  "unit": "noa_uniform",
+  "frame": [
+    96,
+    72
+  ],
+  "anchor": [
+    48,
+    62
+  ],
+  "supersample": 2,
+  "anims": {
+    "idle": 12,
+    "run": 12,
+    "crawl_idle": 1,
+    "crawl": 12,
+    "death": 10,
+    "hit": 3,
+    "aim": 3,
+    "throw": 8
+  },
+  "sources": {
+    "idle": "motion capture, CMU 111_28",
+    "run": "motion capture, CMU 09_01",
+    "crawl_idle": "formula pose",
+    "crawl": "formula pose",
+    "death": "motion capture, CMU 90_18",
+    "hit": "formula pose",
+    "aim": "formula pose",
+    "throw": "motion capture, CMU 113_24"
+  },
+  "dirs": 8,
+  "dir_rule": "direction d = sim angle d * 45 degrees, 0 = sim +x"
+}

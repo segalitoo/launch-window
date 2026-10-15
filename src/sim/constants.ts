@@ -91,11 +91,17 @@ export const HIT_FLASH = 0.3;
 export const WAKE_TIME = wait(60);
 /** Kneeling to tie a downed guard, real seconds (work, like Itai's). */
 export const TIE_DUR = 2;
-export const PISTOL_ROUNDS = 3;
-/** Silenced pistol: range in tiles, aim time in real seconds, and how far the shot is heard. */
-export const PISTOL_RANGE = 6;
-export const PISTOL_AIM = 0.5;
-export const PISTOL_HEAR = 2;
+
+// Guns (Phase 3, Ran): every operator can shoot, unlimited ammo, every shot that leaves hits.
+// Yoav and Noa carry carbines, Itai a shotgun (short, never misses). A loud shot raises the
+// alarm. A silencer can be fitted or taken off at any time: quiet (heard SILENCED_HEAR tiles
+// away), but half the range and a long aim standing still, so guards often see you first.
+export const CARBINE_RANGE = 8;
+export const SHOTGUN_RANGE = 3;
+export const SILENCED_RANGE = 0.5; // times the gun's range
+export const GUN_AIM = 0.5; // real seconds
+export const SILENCED_AIM = 2;
+export const SILENCED_HEAR = 2;
 
 // Noa's tools (Phase 3, decided with Ran). Not prototype values.
 /** Looking through the binoculars at a guard: real seconds; his route stays shown after. */

@@ -81,7 +81,7 @@ OPERATOR = {
     "gun": "carbine", "kit": (), "helmet_cover": None,
     "anims": ["idle", "run", "crawl_idle", "crawl", "takedown", "grab", "drag", "death", "hit", "aim"],
 }
-SQUAD_ANIMS = ["idle", "run", "crawl_idle", "crawl", "death", "hit"]
+SQUAD_ANIMS = ["idle", "run", "crawl_idle", "crawl", "death", "hit", "aim"]
 UNITS = {
     # Visual language 6c/6d. tape = squad colour on the back of the helmet (UI colour, linear).
     "yoav": {**OPERATOR, "tape": (0.15, 0.55, 1.0)},
@@ -94,6 +94,13 @@ UNITS = {
     # Itai, the sapper (concept CH-06): helmet with NVG, a tall rucksack with a ladder on the
     # left and a breaching bar on the right, a charge bag on the left hip, black shotgun.
     # Tallest and widest, so he reads as the heavy one.
+    # Noa in the captured uniform (Phase 3): the guard's khaki, soft cap, bare face and dark
+    # rifle, no radio pack, so she passes for one of them; she keeps her bun and the mint tape
+    # so the player always finds her.
+    "noa_uniform": {**OPERATOR, "height": 1.68, "width": 1.05, "cloth": KHAKI, "cloth_dark": (0.20, 0.17, 0.10),
+                    "accent": BLACK, "gloves": SKIN, "weapon": (0.05, 0.045, 0.04), "face": SKIN, "head": "cap",
+                    "tape": (0.27, 0.87, 0.63), "carrier": False, "pack": None, "antenna": 0, "kneepads": False,
+                    "kit": ("bun",), "anims": SQUAD_ANIMS + ["throw"]},
     "itai": {**OPERATOR, "height": 1.88, "width": 1.25, "tape": (0.58, 0.48, 1.0), "pack": "ruck",
              "antenna": 0, "weapon": BLACK, "gun": "shotgun", "kit": ("ladder", "bar", "charge_bag"),
              "anims": SQUAD_ANIMS + ["work_in", "work"]},

@@ -11,7 +11,6 @@ import {
   TIME_LIMIT,
   UNIT_HP,
   UNIT_START_ANG,
-  PISTOL_ROUNDS,
   SMOKE_CHARGES,
 } from './constants';
 import { createGrid } from './grid';
@@ -79,7 +78,7 @@ function makeGuard(d: GuardDef, i: number): Guard {
 }
 
 function makeUnit(
-  o: { id: UnitId; name: string; call: string; color: string; speed: number; charges?: number; rounds?: number; smokes?: number },
+  o: { id: UnitId; name: string; call: string; color: string; speed: number; charges?: number; smokes?: number },
   tx: number,
   ty: number,
 ): Unit {
@@ -96,7 +95,7 @@ function makeUnit(
     ang: UNIT_START_ANG,
     hitT: 0,
     charges: 0,
-    rounds: 0,
+    silenced: true,
     smokes: 0,
     disguised: false,
     ...o,
@@ -111,7 +110,7 @@ export function buildMission(seed = 1, map: MissionMap = NIGHT_LANTERN): GameSta
   const unit = (id: UnitId, o: Omit<Parameters<typeof makeUnit>[0], 'id'>): Unit =>
     makeUnit({ id, ...o }, ...map.spawns[id]);
   const squad: Unit[] = [
-    unit('shadow', { name: 'Yoav', call: 'Shadow', color: '#6cc4ff', speed: SPEED_SHADOW, rounds: PISTOL_ROUNDS }),
+    unit('shadow', { name: 'Yoav', call: 'Shadow', color: '#6cc4ff', speed: SPEED_SHADOW }),
     unit('lure', { name: 'Noa', call: 'Lure', color: '#8ef0d0', speed: SPEED_LURE, charges: DECOY_CHARGES, smokes: SMOKE_CHARGES }),
     unit('sapper', { name: 'Itai', call: 'Sapper', color: '#c9b8ff', speed: SPEED_SAPPER }),
   ];
