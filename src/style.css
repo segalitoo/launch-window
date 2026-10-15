@@ -26,11 +26,26 @@ html, body { margin: 0; height: 100%; background: var(--ink); color: var(--text)
 .bar button { flex: 1 1 0; min-width: 0; padding: 0 2px; max-width: 88px; min-height: 44px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 4px; font: inherit; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 .bar button.on { border-color: var(--threat); color: var(--threat); }
 .bar button:disabled { color: var(--muted); opacity: 0.5; }
+.pack { align-self: center; display: flex; align-items: stretch; gap: 6px; pointer-events: auto; max-width: 100%; }
+.pack:empty { display: none; }
+.pack .who { writing-mode: vertical-rl; transform: rotate(180deg); display: flex; align-items: center; justify-content: center; padding: 4px 2px; background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--who); border-radius: 4px; color: var(--who); font-size: 11px; letter-spacing: 0.05em; }
+.pack .item { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; width: 64px; height: 60px; padding: 4px 2px 3px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 4px; font: inherit; cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+.pack .item svg { width: 26px; height: 26px; }
+.pack .item .label { font-size: 10px; line-height: 1; }
+.pack .item .key { position: absolute; top: 3px; left: 5px; font-size: 10px; color: var(--muted); }
+.pack .item .count { position: absolute; top: 2px; right: 4px; font-size: 12px; font-weight: 700; color: var(--threat); }
+.pack .item.on { border-color: var(--threat); color: var(--threat); }
+.pack .item:disabled { color: var(--muted); opacity: 0.45; cursor: default; }
+.pack .item:disabled .count { color: var(--muted); }
+.pack .item:not(:disabled):hover { border-color: var(--muted); }
 .touch-keys { display: none; }
 @media (pointer: coarse) {
   .bar { display: flex; }
   .keys { display: none; }
   .touch-keys { display: inline; }
+  .pack { align-self: stretch; justify-content: center; }
+  .pack .item { flex: 1 1 0; width: auto; min-width: 56px; max-width: 88px; }
+  .pack .item .key { display: none; }
 }
 .end { pointer-events: auto; color: inherit; font-family: inherit; cursor: pointer; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 16px 20px; font-size: 15px; text-align: center; width: max-content; max-width: calc(100% - 32px); }
 [hidden] { display: none !important; }

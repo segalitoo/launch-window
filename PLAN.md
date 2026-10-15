@@ -139,7 +139,7 @@ About 144 hours. Re-plan at each gate.
 - [x] Noa: binoculars, smoke, captured uniform (plus guns for all three, Ran's addition: loud or silenced)
 - [x] Itai: wire cutters, tripwire, remote charge
 - [x] Officer, dog, camera (officer look A and dog coat A shown to Ran as OFFICER-01 and DOG-01)
-- [ ] Backpack inventory panel, placeholder art
+- [x] Backpack inventory panel, placeholder art (replaces the tool row on every screen: line icons, counts, keys; used-up items stay greyed with 0; Ran, Phase 3)
 - [ ] A small test map per tool, then rebalance the main mission and timer
 
 ### Phase 4. Map art, area by area (32 h)
