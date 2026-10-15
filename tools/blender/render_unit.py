@@ -79,7 +79,7 @@ OPERATOR = {
     "accent": TAN, "gloves": TAN, "weapon": TAN, "face": None, "head": "helmet_nvg",
     "tape": None, "carrier": True, "pack": "pack", "antenna": 0.48, "kneepads": True,
     "gun": "carbine", "kit": (), "helmet_cover": None,
-    "anims": ["idle", "run", "crawl_idle", "crawl", "takedown", "grab", "drag", "death", "hit"],
+    "anims": ["idle", "run", "crawl_idle", "crawl", "takedown", "grab", "drag", "death", "hit", "aim"],
 }
 SQUAD_ANIMS = ["idle", "run", "crawl_idle", "crawl", "death", "hit"]
 UNITS = {
@@ -624,6 +624,24 @@ def hit_pose(f, n):
     return a, -0.01
 
 
+def aim_pose(f, n):
+    """Yoav's silenced shot (Phase 3): the carbine comes up to the shoulder, holds on the
+    target, kicks. IK puts the rear hand at the right cheek and the support hand ahead on
+    the centre line, so the weapon (placed between the hands) points at the target; with
+    rotations alone the hands stay shoulder-width apart and the gun lay across the chest."""
+    raise_, kick = [(0.5, 0.0), (1.0, 0.0), (1.0, 1.0)][f]
+    lerp = lambda a, b: tuple(x + (y - x) * raise_ for x, y in zip(a, b))
+    back = -0.04 * kick
+    rear = lerp((0.16, -0.12, 1.12), (0.18 + back, -0.06, 1.36 + 0.02 * kick))
+    front = lerp((0.42, -0.02, 1.04), (0.58 + back, -0.02, 1.30 + 0.03 * kick))
+    a = {"spine": 6 - 4 * kick, "head": -6 + 3 * kick, "shin.L": -4, "shin.R": -10, "thigh.R": -8, "thigh.L": 6}
+    ik = {"fore.R": (rear, (0.02, -0.45, 1.05)), "fore.L": (front, (0.25, 0.35, 1.05))}
+    return a, -0.01, 0.0, ik
+
+
+aim_pose.weapon = "hands"
+
+
 # Motion capture, CMU clips (assets/raw/mocap/README.md). Ran, Phase 2: movement must feel natural.
 #   run: 09_01, one stride 2.55 m (1.6 tiles) in 0.77 s, foot plant to foot plant
 #   death: 90_18, a backward fall, 0.75 s from standing to lying still
@@ -648,6 +666,8 @@ ANIMS = {
     "death": (Mocap("90_18", 75, 165, 10, loop=False, arms="mocap", root_xy=True, face=(1, 75)), 10),
     "hit": (hit_pose, 3),
     "dragged": (dragged_pose, 2),
+    # Yoav's pistol (Phase 3): raise, aim, kick, played over the sim's aim time
+    "aim": (aim_pose, 3),
     "knockout": ("pair", 12),
     # Noa's decoy throw (113_24): right arm cocked behind the head, whipped through and
     # followed through; feet planted, carbine slung. Played over the sim's throw window.
@@ -764,6 +784,7 @@ def main():
                     pb.rotation_euler = (0, 0, 0)
                     pb.location = (0, 0, 0)
                 pose(rig, *fn(f, n))
+                hands_weapon(rig, getattr(fn, "weapon", "chest"))  # after the pose: it follows the hands
             for d in dirs:
                 rig.rotation_euler = (0, 0, -math.radians(45 * d))
                 bpy.context.view_layer.update()

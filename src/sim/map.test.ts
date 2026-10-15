@@ -59,4 +59,11 @@ describe('mission map', () => {
   test('every unit and guard starts on a walkable tile', () => {
     for (const e of [...s.squad, ...s.guards]) expect(walkable(g, Math.floor(e.x), Math.floor(e.y))).toBe(true);
   });
+
+  test('hiding spots (Phase 3) stand on open ground', () => {
+    expect(s.hides.length).toBe(5);
+    for (const h of s.hides) {
+      for (let y = h.y0; y <= h.y1; y++) for (let x = h.x0; x <= h.x1; x++) expect(walkable(g, x, y), `${x},${y}`).toBe(true);
+    }
+  });
 });

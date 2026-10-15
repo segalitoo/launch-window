@@ -7,6 +7,8 @@ import {
   CRAWL_MULT,
   DRAG_MULT,
   DUR_DOOR,
+  PISTOL_AIM,
+  TIE_DUR,
   HIT_FLASH,
   SPEED_COMBAT,
   SPEED_LURE,
@@ -175,6 +177,25 @@ function cards(yoav: Atlas, noa: Atlas, itai: Atlas, guard: Atlas): Card[] {
         const k = t % 1.5;
         return [unit(yoav, y({ ang: ang(d), hitT: k < HIT_FLASH ? HIT_FLASH - k : 0 }))];
       } },
+    { group: 'Yoav', name: 'Tie up', note: `G, then tap a body: kneels for ${TIE_DUR} s. A tied guard never wakes.`, shows: [[yoav, 'grab'], [guard, 'knockout']],
+      sprites: (t, d) => {
+        const k = loop(t, TIE_DUR) - 0.5;
+        const [bx, by] = ahead(d, 0.7);
+        return [
+          unit(yoav, y({ ang: ang(d), t, tieT: k >= 0 && k < TIE_DUR ? k : null })),
+          unit(guard, gf({ ang: ang(d) + Math.PI, down: true, koAt: -10 }), bx, by, false),
+        ];
+      } },
+    { group: 'Yoav', name: 'Silenced pistol', note: `F, then tap a guard: aims ${PISTOL_AIM} s and fires. 3 rounds, 6 tiles, heard 2 tiles away.`, shows: [[yoav, 'aim'], [guard, 'death']],
+      sprites: (t, d) => {
+        const k = loop(t, PISTOL_AIM + ONE_SHOT.death) - 0.5;
+        const hit = k >= PISTOL_AIM;
+        const [gx, gy] = ahead(d, 2.5);
+        return [
+          unit(yoav, y({ ang: ang(d), t, aimT: k >= 0 && k < PISTOL_AIM ? k : null })),
+          unit(guard, gf({ ang: ang(d), down: hit, t: k, downAt: hit ? PISTOL_AIM : null }), gx, gy, !hit),
+        ];
+      } },
     { group: 'Yoav', name: 'Death', note: 'Operator down.', shows: [[yoav, 'death']],
       sprites: (t, d) => {
         const k = loop(t, ONE_SHOT.death);
@@ -233,6 +254,11 @@ function cards(yoav: Atlas, noa: Atlas, itai: Atlas, guard: Atlas): Card[] {
       sprites: (t, d) => [unit(guard, gf({ ang: ang(d), moving: true, walked: t * SPEED_PATROL }))] },
     { group: 'Guard', name: 'Run', note: `Investigate and combat, up to ${SPEED_COMBAT.toFixed(1)} tiles/s.`, shows: [[guard, 'run']],
       sprites: (t, d) => [unit(guard, gf({ ang: ang(d), moving: true, running: true, walked: t * SPEED_COMBAT }))] },
+    { group: 'Guard', name: 'Wakes up', note: 'Knocked out and not tied: gets up after 100 s and raises the alarm.', shows: [[guard, 'knockout']],
+      sprites: (t, d) => {
+        const k = loop(t, ONE_SHOT.knockout) - 0.5;
+        return [unit(guard, k < 0 ? gf({ ang: ang(d), down: true, koAt: -10 }) : gf({ ang: ang(d), t: k, wokeAt: 0 }), 0, 0, k >= 0)];
+      } },
     { group: 'Guard', name: 'Death', note: 'Shot: falls backward.', shows: [[guard, 'death']],
       sprites: (t, d) => {
         const k = loop(t, ONE_SHOT.death);

@@ -9,15 +9,19 @@ import {
   Game,
   type GameState,
   type Guard,
+  hidden,
   type InteractTarget,
   NEAR_FRACTION,
+  PISTOL_RANGE,
   type SimEvent,
   tileAt,
   type TileCode,
+  TIE_DUR,
   TOWER_FOV,
   TOWER_LEN,
   type Unit,
   type Vec,
+  WAKE_TIME,
 } from '@/sim';
 import { Controller, type TapHit } from './controller';
 import { depthOf, footprint, mapBounds, type Point, toScreen, toTile } from './iso';
@@ -44,6 +48,10 @@ const CONE_RAYS = 28;
 const TAP_SLOP = 8; // px a pointer may move before a tap becomes a pan
 const MAX_ZOOM = 2.5;
 const OVERLAY_DEPTH = 1e9;
+/** Tie marks and the tie bar: a pale rope colour, apart from the squad and alarm colours. */
+const ROPE_COLOR = 0xd8c9a3;
+/** How long a pistol tracer stays on screen, sim seconds. */
+const TRACER_TIME = 0.15;
 /** Night grade for units, lighter than the environment's (visual language 6b). */
 const UNIT_GRADE = [0.62, 0.68, 0.82] as const;
 const MAP_TOP_MARGIN = 80; // room for tall blocks on the back row
@@ -82,6 +90,10 @@ export class MapScene extends Phaser.Scene {
   private ground!: Phaser.GameObjects.Graphics;
   private blocks: Phaser.GameObjects.Graphics[] = [];
   private overlay!: Phaser.GameObjects.Graphics;
+  /** Hiding spots (Phase 3 placeholder until the Phase 4 map art): over the painting, under the units. */
+  private hideGfx!: Phaser.GameObjects.Graphics;
+  /** Pistol shots on screen: a short tracer, sim time. */
+  private tracers: { x0: number; y0: number; x1: number; y1: number; t: number }[] = [];
   /** Searchlight light: added over the art (and the units in it), under the overlay. */
   private beams!: Phaser.GameObjects.Graphics;
   private bodies = new Map<object, Phaser.GameObjects.Graphics>();
@@ -121,6 +133,7 @@ export class MapScene extends Phaser.Scene {
     this.unitArt = new UnitSprites(this, toTintHex(UNIT_GRADE), OVERLAY_DEPTH - 1);
     this.guardArt = new GuardSprites(this, toTintHex(UNIT_GRADE));
     this.shadows = this.add.graphics().setDepth(-OVERLAY_DEPTH + 2);
+    this.hideGfx = this.add.graphics().setDepth(-OVERLAY_DEPTH + 1.8);
     this.input.addPointer(1);
     this.setupInput();
     this.scale.on('resize', () => this.fitCamera(!this.userMoved));
@@ -172,7 +185,7 @@ export class MapScene extends Phaser.Scene {
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
       this.pointers.set(p.id, { x: p.x, y: p.y });
       if (p.rightButtonDown()) {
-        this.ctl.throwMode = false;
+        this.ctl.mode = null;
         return;
       }
       if (this.pointers.size === 1) {
@@ -323,6 +336,12 @@ export class MapScene extends Phaser.Scene {
       this.unitArt.onEvents(events, s.t);
       this.guardArt.onEvents(events, s.t);
       this.hooks.onEvents(events, s, this.ctl);
+      for (const e of events) {
+        if (e.type !== 'pistol') continue;
+        const u = s.squad.find((q) => q.id === e.unit)!;
+        const g = s.guards[e.guard]!;
+        this.tracers.push({ x0: u.x, y0: u.y, x1: g.x, y1: g.y, t: s.t });
+      }
     }
     if (s.staticVersion !== this.staticVersion) this.drawStatic(s);
     this.drawDynamic(s);
@@ -333,6 +352,7 @@ export class MapScene extends Phaser.Scene {
 
   private drawStatic(s: GameState): void {
     this.staticVersion = s.staticVersion;
+    this.drawHides(s);
     const g = this.ground.clear();
     const { cols, rows, deco } = s.grid;
     for (let y = 0; y < rows; y++) {
@@ -449,8 +469,56 @@ export class MapScene extends Phaser.Scene {
         o.strokeEllipse(p.x, p.y, 8 * 64, 8 * 32); // decoy range, 8 tiles
       }
     }
+    // knocked-out guards: a ring that empties until he wakes; tied ones get a rope mark
+    for (const g of s.guards) {
+      if (g.state !== 'down' || g.dead || g.carried) continue;
+      const p = toScreen(g.x, g.y, 6);
+      if (g.tied) {
+        o.lineStyle(2, ROPE_COLOR, 0.95);
+        o.lineBetween(p.x - 4, p.y - 3, p.x + 4, p.y + 3);
+        o.lineBetween(p.x - 4, p.y + 3, p.x + 4, p.y - 3);
+      } else if (g.ko > 0) {
+        const k = g.ko / WAKE_TIME;
+        o.fillStyle(0x000000, 0.55);
+        o.fillCircle(p.x, p.y, 6);
+        o.lineStyle(2, k < 0.25 ? ALARM_COLOR : CONE_COLOR, 1);
+        o.beginPath();
+        o.arc(p.x, p.y, 5, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * k, false);
+        o.strokePath();
+      }
+    }
+    // tool modes: the pistol's reach, the bodies Yoav can tie
+    const yoav = s.squad.find((u) => u.id === 'shadow')!;
+    if (this.ctl.mode === 'pistol' && yoav.alive) {
+      const p = toScreen(yoav.x, yoav.y);
+      o.lineStyle(1.5, ALARM_COLOR, 0.7);
+      o.strokeEllipse(p.x, p.y, PISTOL_RANGE * 2 * 32 * Math.SQRT2, PISTOL_RANGE * 2 * 16 * Math.SQRT2);
+    }
+    if (this.ctl.mode === 'tie') {
+      o.lineStyle(1.5, ROPE_COLOR, 0.9);
+      for (const g of s.guards) {
+        if (g.state !== 'down' || g.dead || g.tied || g.carried) continue;
+        const p = toScreen(g.x, g.y);
+        o.strokeEllipse(p.x, p.y, 30, 15);
+      }
+    }
+    // pistol tracers
+    this.tracers = this.tracers.filter((tr) => s.t - tr.t < TRACER_TIME);
+    for (const tr of this.tracers) {
+      const a = toScreen(tr.x0, tr.y0, 12);
+      const b = toScreen(tr.x1, tr.y1, 10);
+      o.lineStyle(1.5, 0xfff2b0, 1 - (s.t - tr.t) / TRACER_TIME);
+      o.lineBetween(a.x, a.y, b.x, b.y);
+    }
     // interaction progress
     for (const u of s.squad) {
+      if (u.order?.type === 'tie' && u.order.started) {
+        const m = this.markerOf(u, UNIT_LIFT + 18);
+        o.fillStyle(0x000000, 0.6);
+        o.fillRect(m.x - 14, m.y - 3, 28, 6);
+        o.fillStyle(ROPE_COLOR, 1);
+        o.fillRect(m.x - 13, m.y - 2, 26 * Math.min(1, u.order.t / TIE_DUR), 4);
+      }
       if (u.order?.type === 'interact' && u.order.started) {
         const m = this.markerOf(u, UNIT_LIFT + 18);
         o.fillStyle(0x000000, 0.6);
@@ -616,7 +684,28 @@ export class MapScene extends Phaser.Scene {
     // silhouette only when most of him is covered: a low wall over the boots leaves him readable
     const depth = depthOf(u.x, u.y, u.crawl ? 2 : 13);
     const covered = this.unitArt.samples(u).filter((q) => isHidden([q], depth, this.occluders)).length;
-    this.unitArt.draw(u, t, covered >= 2, col);
+    this.unitArt.draw(u, t, covered >= 2, col, hidden(this.game$.state, u));
+  }
+
+  /** Placeholder hiding spots: a dark patch with low scrub, over the painting. Phase 4 paints
+   *  the real bushes and corners into the map art. */
+  private drawHides(s: GameState): void {
+    const g = this.hideGfx.clear();
+    for (const h of s.hides) {
+      for (let y = h.y0; y <= h.y1; y++) {
+        for (let x = h.x0; x <= h.x1; x++) {
+          g.fillStyle(0x05080a, 0.35);
+          g.fillPoints(poly(footprint(x, y)), true);
+          for (const [dx, dy, r] of [[0.3, 0.3, 7], [0.7, 0.4, 6], [0.45, 0.75, 8]] as const) {
+            const p = toScreen(x + dx, y + dy);
+            g.fillStyle(0x161f17, 0.9);
+            g.fillEllipse(p.x, p.y - 2, r * 2, r * 1.3);
+            g.fillStyle(0x26332a, 0.9);
+            g.fillEllipse(p.x - 1, p.y - 4, r * 1.3, r * 0.8);
+          }
+        }
+      }
+    }
   }
 
   private drawPlaceholderUnit(gr: Phaser.GameObjects.Graphics, u: Unit, col: number, selected: boolean): void {

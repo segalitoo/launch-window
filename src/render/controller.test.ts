@@ -42,6 +42,38 @@ describe('Controller (tap rules from the prototype)', () => {
     expect(c.game.state.projectiles).toHaveLength(1);
   });
 
+  test('G selects Yoav and waits for a body to tie; the tap orders it and ends the mode', () => {
+    const c = new Controller(new Game());
+    const s = c.game.state;
+    c.select(1);
+    expect(c.key('g')).toBe(true);
+    expect(c.sel.id).toBe('shadow');
+    expect(c.mode).toBe('tie');
+    const body = s.guards[0]!;
+    body.state = 'down';
+    body.ko = 50;
+    c.tap(body.x, body.y, { ...none, body });
+    expect(c.sel.order?.type).toBe('tie');
+    expect(c.mode).toBe(null);
+  });
+
+  test('F aims the pistol at a tapped guard in range; a tap on nothing cancels', () => {
+    const c = new Controller(new Game());
+    const s = c.game.state;
+    const g = s.guards[1]!; // post at (12, 12)
+    const yoav = s.squad[0]!;
+    yoav.x = 11.5;
+    yoav.y = 12.5;
+    c.key('f');
+    expect(c.mode).toBe('pistol');
+    c.tap(0, 0, none);
+    expect(c.mode).toBe(null);
+    c.key('f');
+    c.tap(g.x, g.y, { ...none, guard: g });
+    expect(yoav.order?.type).toBe('shoot');
+    expect(c.mode).toBe(null);
+  });
+
   test('space pauses, keys 1 to 3 select', () => {
     const c = new Controller(new Game());
     c.key(' ');

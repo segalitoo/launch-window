@@ -71,8 +71,8 @@ export class UnitSprites {
   }
 
   /** Draws the unit at sim time `t`. `hidden` shows the squad-colour silhouette above
-   *  the structure that hides it. */
-  draw(u: Unit, t: number, hidden: boolean, colour: number): void {
+   *  the structure that hides it; `inCover` draws him see-through in a hiding spot. */
+  draw(u: Unit, t: number, hidden: boolean, colour: number, inCover = false): void {
     const e = this.entry(u);
     if (!e) return;
     const moved = Math.hypot(u.x - e.last.x, u.y - e.last.y);
@@ -102,12 +102,15 @@ export class UnitSprites {
         hitT: u.alive ? u.hitT : 0,
         busy: u.busy,
         workT: u.order?.type === 'interact' && u.order.started ? u.order.t : null,
+        tieT: u.order?.type === 'tie' && u.order.started ? u.order.t : null,
+        aimT: u.order?.type === 'shoot' ? u.order.t : null,
       },
       e.meta.anims,
     );
     const p = toScreen(u.x, u.y);
     // lying down (prone or dead) sorts with low ground props, not with standing figures
-    e.img.setFrame(frame).setPosition(p.x, p.y).setDepth(depthOf(u.x, u.y, u.alive && !u.crawl ? 13 : 2));
+    // in a hiding spot he shows see-through: the player knows he is hidden
+    e.img.setFrame(frame).setPosition(p.x, p.y).setDepth(depthOf(u.x, u.y, u.alive && !u.crawl ? 13 : 2)).setAlpha(inCover && u.alive ? 0.55 : 1);
     e.ghost.setVisible(hidden && u.alive);
     if (hidden) e.ghost.setFrame(frame).setPosition(p.x, p.y).setTint(colour).setTintMode(Phaser.TintModes.FILL);
   }
@@ -171,6 +174,7 @@ interface GuardEntry {
   carrierLast?: { x: number; y: number };
   koAt: number | null;
   onBack: boolean;
+  wokeAt: number | null;
 }
 
 /** Rendered guards: idle, walk, run, death (shot), knockout (struck from behind) and
@@ -182,8 +186,13 @@ export class GuardSprites {
 
   /** Sim events that start one-shots. `t` is the sim time. */
   onEvents(events: readonly SimEvent[], t: number): void {
-    for (const ev of events) if (ev.type === 'takedown') this.takedowns.set(ev.guard, t);
+    for (const ev of events) {
+      if (ev.type === 'takedown') this.takedowns.set(ev.guard, t);
+      else if (ev.type === 'woke') this.wakes.set(ev.guard, t);
+    }
   }
+  /** Guards who woke up, waiting for their next draw. */
+  private wakes = new Map<number, number>();
   private meta!: UnitMeta;
 
   static preload(scene: Phaser.Scene): void {
@@ -218,6 +227,12 @@ export class GuardSprites {
       e.koAt = ko;
       this.takedowns.delete(g.i);
     }
+    const woke = this.wakes.get(g.i);
+    if (woke !== undefined) {
+      // he gets up from where he lay: the next knockout starts fresh
+      Object.assign(e, { wokeAt: woke, downAt: null, koAt: null, onBack: false });
+      this.wakes.delete(g.i);
+    }
     const moved = Math.hypot(g.x - e.last.x, g.y - e.last.y);
     e.last = { x: g.x, y: g.y };
     // paused: keep the pose; otherwise moving means he moved since the last frame
@@ -237,6 +252,7 @@ export class GuardSprites {
         downAt: e.downAt,
         koAt: e.koAt,
         onBack: e.onBack,
+        wokeAt: e.wokeAt,
       },
       this.meta.anims,
     );
@@ -263,7 +279,7 @@ export class GuardSprites {
     let e = this.entries[g.i];
     const fresh = {
       guard: g, walked: 0, last: { x: g.x, y: g.y }, lastT: t, moving: false, downAt: null,
-      carrierLast: undefined, koAt: null, onBack: false,
+      carrierLast: undefined, koAt: null, onBack: false, wokeAt: null,
     };
     if (e && e.guard !== g) Object.assign(e, fresh); // new game
     if (!e) {

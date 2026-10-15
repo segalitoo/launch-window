@@ -10,7 +10,7 @@
  "tilewidth": 24,
  "tileheight": 24,
  "nextlayerid": 6,
- "nextobjectid": 25,
+ "nextobjectid": 30,
  "compressionlevel": -1,
  "properties": [
   {
@@ -2983,6 +2983,61 @@
      "y": 432,
      "width": 72,
      "height": 24,
+     "rotation": 0,
+     "visible": true
+    },
+    {
+     "id": 25,
+     "name": "West scrub",
+     "type": "hide",
+     "x": 96,
+     "y": 216,
+     "width": 48,
+     "height": 72,
+     "rotation": 0,
+     "visible": true
+    },
+    {
+     "id": 26,
+     "name": "NW dark corner",
+     "type": "hide",
+     "x": 264,
+     "y": 120,
+     "width": 48,
+     "height": 48,
+     "rotation": 0,
+     "visible": true
+    },
+    {
+     "id": 27,
+     "name": "Crate corner",
+     "type": "hide",
+     "x": 504,
+     "y": 552,
+     "width": 48,
+     "height": 72,
+     "rotation": 0,
+     "visible": true
+    },
+    {
+     "id": 28,
+     "name": "East corridor",
+     "type": "hide",
+     "x": 1032,
+     "y": 312,
+     "width": 24,
+     "height": 72,
+     "rotation": 0,
+     "visible": true
+    },
+    {
+     "id": 29,
+     "name": "Compound crates",
+     "type": "hide",
+     "x": 888,
+     "y": 432,
+     "width": 48,
+     "height": 48,
      "rotation": 0,
      "visible": true
     }

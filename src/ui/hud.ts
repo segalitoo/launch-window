@@ -20,6 +20,8 @@ const END_TEXT = {
 const BAR = [
   ['crawl', 'c', 'Crawl'],
   ['decoy', 't', 'Decoy'],
+  ['tie', 'g', 'Tie'],
+  ['pistol', 'f', 'Pistol'],
   ['drop', 'x', 'Drop'],
   ['stop', 's', 'Stop'],
   ['pause', ' ', 'Pause'],
@@ -40,7 +42,7 @@ export class Hud {
         <div class="status" id="status"></div>
         <div class="toasts" id="toasts" aria-live="polite"></div>
         <p class="hint">Tap a unit to select (1 2 3). Tap the map to move. Tap a guard: Yoav takes him down.
-        <span class="keys">C crawl · T decoy · X drop body · S stop · Space pause · drag to pan, scroll or pinch to zoom.</span>
+        <span class="keys">C crawl · T decoy · G tie · F pistol · X drop body · S stop · Space pause · drag to pan, scroll or pinch to zoom.</span>
         <span class="touch-keys">Drag to pan, pinch to zoom.</span></p>
         <nav class="bar" aria-label="Orders">${BAR.map(([id, , label]) => `<button type="button" data-id="${id}">${label}</button>`).join('')}</nav>
         <button type="button" class="end" id="end" hidden></button>
@@ -76,8 +78,10 @@ export class Hud {
       s.alarm.active ? 'ALARM ×2' : 'quiet',
       `launchers ${rigged}/3`,
       `power ${s.generator.on ? 'on' : 'cut'}`,
-      `${sel.name}${sel.crawl ? ' (crawl)' : ''}${sel.carrying ? ' (dragging)' : ''}${sel.id === 'lure' ? ` · decoys ${sel.charges}` : ''}`,
+      `${sel.name}${sel.crawl ? ' (crawl)' : ''}${sel.carrying ? ' (dragging)' : ''}${sel.id === 'lure' ? ` · decoys ${sel.charges}` : ''}${sel.id === 'shadow' ? ` · rounds ${sel.rounds}` : ''}`,
       c.throwMode ? 'THROW: tap a spot' : '',
+      c.mode === 'tie' ? 'TIE: tap a body' : '',
+      c.mode === 'pistol' ? 'PISTOL: tap a guard' : '',
       c.paused ? 'PAUSED' : '',
     ].filter(Boolean);
     const text = parts.join('  ·  ');
@@ -91,6 +95,10 @@ export class Hud {
     };
     on('crawl', sel.crawl);
     on('decoy', c.throwMode);
+    on('tie', c.mode === 'tie');
+    on('pistol', c.mode === 'pistol');
+    const yoav = s.squad.find((u) => u.id === 'shadow')!;
+    this.buttons.get('pistol')!.disabled = !yoav.alive || yoav.rounds <= 0;
     on('pause', c.paused);
     this.buttons.get('drop')!.disabled = !sel.carrying;
     const over = s.over;

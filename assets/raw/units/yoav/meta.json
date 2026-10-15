@@ -18,7 +18,8 @@
     "grab": 8,
     "drag": 16,
     "death": 10,
-    "hit": 3
+    "hit": 3,
+    "aim": 3
   },
   "sources": {
     "idle": "motion capture, CMU 111_28",
@@ -29,7 +30,8 @@
     "grab": "motion capture, CMU 26_09",
     "drag": "motion capture, CMU 81_08",
     "death": "motion capture, CMU 90_18",
-    "hit": "formula pose"
+    "hit": "formula pose",
+    "aim": "formula pose"
   },
   "dirs": 8,
   "dir_rule": "direction d = sim angle d * 45 degrees, 0 = sim +x"

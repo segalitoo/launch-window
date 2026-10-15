@@ -23,7 +23,7 @@ html, body { margin: 0; height: 100%; background: var(--ink); color: var(--text)
 .toast.warn { border-left-color: var(--threat); }
 .hint { margin: auto 0 0; align-self: flex-start; max-width: 70ch; background: var(--panel); border: 1px solid var(--line); border-radius: 3px; padding: 6px 10px; color: var(--muted); }
 .bar { display: none; align-self: stretch; justify-content: center; gap: 6px; pointer-events: auto; padding-bottom: env(safe-area-inset-bottom); }
-.bar button { flex: 1 1 0; max-width: 88px; min-height: 44px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 4px; font: inherit; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+.bar button { flex: 1 1 0; min-width: 0; padding: 0 2px; max-width: 88px; min-height: 44px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 4px; font: inherit; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 .bar button.on { border-color: var(--threat); color: var(--threat); }
 .bar button:disabled { color: var(--muted); opacity: 0.5; }
 .touch-keys { display: none; }

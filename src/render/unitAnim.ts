@@ -1,7 +1,7 @@
 // Which frame a rendered unit shows. Pure, no Phaser, so it is tested in Node.
 // Animations come from tools/blender/render_unit.py.
 
-import { HIT_FLASH, THROW_BUSY } from '@/sim';
+import { HIT_FLASH, PISTOL_AIM, THROW_BUSY } from '@/sim';
 
 /** Ground covered by one cycle, in tiles. Run and walk match the strides in
  *  render_unit.py, so the feet do not slide. The sim's normal move is a run
@@ -52,6 +52,10 @@ export interface AnimState {
   busy?: number;
   /** Seconds into an interaction that has started (null or missing = not working). */
   workT?: number | null;
+  /** Seconds into tying a guard (Yoav): his grab squat, held at the bottom. */
+  tieT?: number | null;
+  /** Seconds into aiming the pistol (Yoav); the 'aim' animation if rendered. */
+  aimT?: number | null;
 }
 
 export function frameName(s: AnimState, anims: Readonly<Record<string, number>>): string {
@@ -71,6 +75,8 @@ export function frameName(s: AnimState, anims: Readonly<Record<string, number>>)
   if (active('takedown', s.takedownAt)) return shot('takedown', s.takedownAt);
   if (active('grab', s.grabAt)) return shot('grab', s.grabAt);
   if (s.hitT > 0) return name('hit', Math.min(n('hit') - 1, Math.floor((1 - s.hitT / HIT_FLASH) * n('hit'))));
+  if (s.tieT != null) return name('grab', Math.min(n('grab') - 1, Math.floor((s.tieT / ONE_SHOT.grab) * n('grab'))));
+  if (s.aimT != null && anims['aim']) return name('aim', Math.min(n('aim') - 1, Math.floor((s.aimT / PISTOL_AIM) * n('aim'))));
   if ((s.busy ?? 0) > 0 && anims['throw']) {
     return name('throw', Math.min(n('throw') - 1, Math.floor((1 - (s.busy ?? 0) / THROW_BUSY) * n('throw'))));
   }
@@ -99,6 +105,8 @@ export interface GuardAnimState {
   koAt?: number | null;
   /** Dragged and dropped: he lies on his back, as he was dragged. */
   onBack?: boolean;
+  /** When he got up after being knocked out (Phase 3): the knockout played backwards. */
+  wokeAt?: number | null;
 }
 
 export function guardFrameName(s: GuardAnimState, anims: Readonly<Record<string, number>>): string {
@@ -113,6 +121,10 @@ export function guardFrameName(s: GuardAnimState, anims: Readonly<Record<string,
     }
     const f = s.downAt === null ? n('death') - 1 : Math.floor(((s.t - s.downAt) / ONE_SHOT.death) * n('death'));
     return `death_d${d}_f${Math.min(n('death') - 1, f)}`;
+  }
+  if (s.wokeAt != null && s.t - s.wokeAt < ONE_SHOT.knockout) {
+    const f = Math.floor(((s.t - s.wokeAt) / ONE_SHOT.knockout) * n('knockout'));
+    return `knockout_d${d}_f${Math.max(0, n('knockout') - 1 - f)}`;
   }
   if (!s.moving) return `idle_d${d}_f${idleFrame(s.t, n('idle'))}`;
   const anim = s.running ? 'run' : 'walk';

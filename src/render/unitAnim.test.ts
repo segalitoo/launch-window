@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { HIT_FLASH, THROW_BUSY } from '@/sim';
+import { HIT_FLASH, PISTOL_AIM, THROW_BUSY } from '@/sim';
 import {
   type AnimState,
   CYCLE_TILES,
@@ -135,6 +135,25 @@ describe('guard animation frames', () => {
     expect(g({ down: true, downAt: 5 })).toBe('death_d0_f0');
     expect(g({ down: true, downAt: 0 })).toBe('death_d0_f5');
     expect(g({ down: true })).toBe('death_d0_f5');
+  });
+});
+
+describe("Yoav's tools (Phase 3)", () => {
+  test('tying: his grab squat, held at the bottom until he is done', () => {
+    expect(f({ tieT: 0 })).toBe('grab_d0_f0');
+    expect(f({ tieT: ONE_SHOT.grab * 0.5 })).toBe('grab_d0_f2');
+    expect(f({ tieT: 1.9 })).toBe('grab_d0_f3');
+  });
+  test('aiming plays "aim" when rendered, and stays idle without it', () => {
+    expect(f({ aimT: 0.1 })).toBe('idle_d0_f0');
+    expect(frameName({ ...base, aimT: PISTOL_AIM * 0.99 }, { ...anims, aim: 4 })).toBe('aim_d0_f3');
+  });
+  test('a guard who wakes plays the knockout backwards, then stands', () => {
+    const ga = { idle: 1, walk: 8, run: 8, death: 6, knockout: 6 };
+    const g0: GuardAnimState = { ang: 0, down: false, moving: false, running: false, walked: 0, t: 10, downAt: null };
+    expect(guardFrameName({ ...g0, wokeAt: 10 }, ga)).toBe('knockout_d0_f5');
+    expect(guardFrameName({ ...g0, wokeAt: 10 - ONE_SHOT.knockout * 0.99 }, ga)).toBe('knockout_d0_f0');
+    expect(guardFrameName({ ...g0, wokeAt: 10 - ONE_SHOT.knockout - 0.01 }, ga)).toBe('idle_d0_f0');
   });
 });
 
