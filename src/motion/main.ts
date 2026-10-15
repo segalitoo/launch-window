@@ -7,6 +7,9 @@ import {
   CRAWL_MULT,
   DRAG_MULT,
   DUR_DOOR,
+  GUN_AIM,
+  SILENCED_AIM,
+  TIE_DUR,
   HIT_FLASH,
   SPEED_COMBAT,
   SPEED_LURE,
@@ -128,7 +131,7 @@ function drawCard(ctx: CanvasRenderingContext2D, ground: HTMLCanvasElement, card
 
 // ---------- the library ----------
 
-function cards(yoav: Atlas, noa: Atlas, itai: Atlas, guard: Atlas): Card[] {
+function cards(yoav: Atlas, noa: Atlas, itai: Atlas, guard: Atlas, noaUniform: Atlas): Card[] {
   const base: AnimState = {
     ang: 0, alive: true, crawl: false, moving: false, carrying: false, walked: 0,
     t: 0, diedAt: null, takedownAt: null, grabAt: null, hitT: 0,
@@ -159,6 +162,24 @@ function cards(yoav: Atlas, noa: Atlas, itai: Atlas, guard: Atlas): Card[] {
         } },
     ];
   };
+  /** Shooting: silenced first (long aim, quiet), then loud (quick, raises the alarm). */
+  const fireCard = (group: string, a: Atlas, fr: (st: Partial<AnimState>) => string): Card => ({
+    group, name: 'Fire', note: `F, then tap a guard. Silenced: aims ${SILENCED_AIM} s, half range, heard 2 tiles away. Loud (H takes the silencer off): ${GUN_AIM} s, raises the alarm.`,
+    shows: [[a, 'aim'], [guard, 'death']],
+    sprites: (t, d) => {
+      const cycle = SILENCED_AIM + GUN_AIM + 2 * (ONE_SHOT.death + 1.3) + 1;
+      const k0 = (t % cycle) - 0.5;
+      const loud = k0 > SILENCED_AIM + ONE_SHOT.death + 1.3;
+      const aim = loud ? GUN_AIM : SILENCED_AIM;
+      const k = loud ? k0 - (SILENCED_AIM + ONE_SHOT.death + 1.3) : k0;
+      const hit = k >= aim;
+      const [gx, gy] = ahead(d, 2.5);
+      return [
+        unit(a, fr({ ang: ang(d), t: k, aimT: k >= 0 && k < aim ? k : null, firedAt: hit ? aim : null })),
+        unit(guard, gf({ ang: ang(d), down: hit, t: k, downAt: hit ? aim : null }), gx, gy, !hit),
+      ];
+    },
+  });
   const nf = (st: Partial<AnimState>): string => frameName({ ...base, ...st }, noa.anims);
   const itf = (st: Partial<AnimState>): string => frameName({ ...base, ...st }, itai.anims);
   return [
@@ -175,6 +196,16 @@ function cards(yoav: Atlas, noa: Atlas, itai: Atlas, guard: Atlas): Card[] {
         const k = t % 1.5;
         return [unit(yoav, y({ ang: ang(d), hitT: k < HIT_FLASH ? HIT_FLASH - k : 0 }))];
       } },
+    { group: 'Yoav', name: 'Tie up', note: `G, then tap a body: kneels for ${TIE_DUR} s. A tied guard never wakes.`, shows: [[yoav, 'grab'], [guard, 'knockout']],
+      sprites: (t, d) => {
+        const k = loop(t, TIE_DUR) - 0.5;
+        const [bx, by] = ahead(d, 0.7);
+        return [
+          unit(yoav, y({ ang: ang(d), t, tieT: k >= 0 && k < TIE_DUR ? k : null })),
+          unit(guard, gf({ ang: ang(d) + Math.PI, down: true, koAt: -10 }), bx, by, false),
+        ];
+      } },
+    fireCard('Yoav', yoav, y),
     { group: 'Yoav', name: 'Death', note: 'Operator down.', shows: [[yoav, 'death']],
       sprites: (t, d) => {
         const k = loop(t, ONE_SHOT.death);
@@ -187,12 +218,20 @@ function cards(yoav: Atlas, noa: Atlas, itai: Atlas, guard: Atlas): Card[] {
         const k = loop(t, THROW_BUSY) - 0.5;
         return [unit(noa, nf({ ang: ang(d), t, busy: k >= 0 && k < THROW_BUSY ? THROW_BUSY - k : 0 }))];
       } },
+    fireCard('Noa', noa, nf),
+    { group: 'Noa', name: 'Captured uniform', note: 'U: 2 s to change. Guards look past her unless she crawls, drags a body, comes within 1 tile, or there is an alarm.', shows: [[noaUniform, 'idle'], [noaUniform, 'run']],
+      sprites: (t, d) => {
+        const k = t % 4;
+        const f = (st: Partial<AnimState>): string => frameName({ ...base, ...st }, noaUniform.anims);
+        return [unit(noaUniform, k < 2 ? f({ ang: ang(d), t }) : f({ ang: ang(d), moving: true, walked: t * SPEED_LURE }))];
+      } },
     ...squad('Itai', itai, SPEED_SAPPER, 'Rucksack with a ladder and a breaching bar, charge bag, black shotgun.'),
     { group: 'Itai', name: 'Work', note: `Squats and works with both hands: a door takes ${DUR_DOOR} s.`, shows: [[itai, 'work_in'], [itai, 'work']],
       sprites: (t, d) => {
         const k = loop(t, DUR_DOOR) - 0.5;
         return [unit(itai, itf({ ang: ang(d), t, workT: k >= 0 && k < DUR_DOOR ? k : null }))];
       } },
+    fireCard('Itai', itai, itf),
 
     { group: 'Interactions', name: 'Takedown', note: 'From the back-right: hand over the mouth, knife raised, thrust into the side, lowered to the ground.', shows: [[yoav, 'takedown'], [guard, 'knockout']],
       sprites: (t, d) => {
@@ -233,6 +272,11 @@ function cards(yoav: Atlas, noa: Atlas, itai: Atlas, guard: Atlas): Card[] {
       sprites: (t, d) => [unit(guard, gf({ ang: ang(d), moving: true, walked: t * SPEED_PATROL }))] },
     { group: 'Guard', name: 'Run', note: `Investigate and combat, up to ${SPEED_COMBAT.toFixed(1)} tiles/s.`, shows: [[guard, 'run']],
       sprites: (t, d) => [unit(guard, gf({ ang: ang(d), moving: true, running: true, walked: t * SPEED_COMBAT }))] },
+    { group: 'Guard', name: 'Wakes up', note: 'Knocked out and not tied: gets up after 100 s and raises the alarm.', shows: [[guard, 'knockout']],
+      sprites: (t, d) => {
+        const k = loop(t, ONE_SHOT.knockout) - 0.5;
+        return [unit(guard, k < 0 ? gf({ ang: ang(d), down: true, koAt: -10 }) : gf({ ang: ang(d), t: k, wokeAt: 0 }), 0, 0, k >= 0)];
+      } },
     { group: 'Guard', name: 'Death', note: 'Shot: falls backward.', shows: [[guard, 'death']],
       sprites: (t, d) => {
         const k = loop(t, ONE_SHOT.death);
@@ -254,7 +298,8 @@ async function main(): Promise<void> {
   const [yoav, noa, itai, guard, day] = await Promise.all([
     loadAtlas('yoav'), loadAtlas('noa'), loadAtlas('itai'), loadAtlas('guard'), loadImage('yard/yard_day.jpg'),
   ]);
-  const list = cards(yoav, noa, itai, guard);
+  const noaUniform = await loadAtlas('noa_uniform');
+  const list = cards(yoav, noa, itai, guard, noaUniform);
   const ground = graded(day, NIGHT, false);
   const grid = document.getElementById('grid')!;
   const sel = (id: string): HTMLSelectElement => document.getElementById(id) as HTMLSelectElement;

@@ -10,11 +10,12 @@ import {
   orderInteract,
   orderMove,
   orderTakedown,
+  orderTie,
   setCrawl,
   throwDecoy,
 } from './squad';
 import { Script, idle } from './testkit';
-import type { InteractTarget } from './types';
+import type { Guard, InteractTarget } from './types';
 
 const POST_WEST = 1; // post guard at (12, 12), facing west
 const YARD = 3; // generator yard post guard at (18, 23)
@@ -27,6 +28,12 @@ const target = (k: Script, tx: number, ty: number): InteractTarget => {
   const t = objectAt(k.s, tx, ty);
   if (!t) throw new Error(`nothing to interact with at ${tx},${ty}`);
   return t;
+};
+
+/** Yoav ties a downed guard, or he wakes after WAKE_TIME and raises the alarm (Phase 3). */
+const tie = (k: Script, g: Guard, label: string): void => {
+  expect(orderTie(k.s, k.unit('shadow'), g)).toBe(true);
+  k.until(label, () => g.tied, 15);
 };
 
 const noAlarm = (k: Script): void => {
@@ -60,6 +67,7 @@ function generatorYardRun(k: Script): void {
   orderMove(s, yoav, 12.5, 28.5);
   k.until('body outside the wall', () => idle(yoav), 20);
   dropBody(yoav);
+  tie(k, yard, 'yard guard tied');
 
   setCrawl(itai, false);
   orderInteract(s, itai, target(k, 15, 23));
@@ -83,6 +91,7 @@ function compoundRun(k: Script): void {
   setCrawl(yoav, false);
   orderTakedown(s, yoav, south);
   k.until('south patrol down', () => south.state === 'down', 15);
+  tie(k, south, 'south patrol tied');
 
   orderInteract(s, itai, target(k, 35, 22));
   orderMove(s, noa, 43.5, 14.5); // corridor east of the compound wall
@@ -95,6 +104,7 @@ function compoundRun(k: Script): void {
   k.until('spinning guard searches', () => spinner.state === 'search', 10);
   orderTakedown(s, yoav, spinner);
   k.until('spinning guard down', () => spinner.state === 'down', 15);
+  tie(k, spinner, 'spinning guard tied');
 
   orderInteract(s, itai, target(k, 32, 18));
   k.until('TEL-3 rigged', () => s.launchers[2]!.done, 40);
@@ -114,10 +124,12 @@ function finishRun(k: Script): void {
   k.until('loop patrol walks south, back to Yoav', () => loop.y > 15.5 && loop.x > 40, 10);
   orderTakedown(s, yoav, loop);
   k.until('loop patrol down', () => loop.state === 'down', 15);
+  tie(k, loop, 'loop patrol tied');
 
   orderInteract(s, itai, target(k, 37, 12));
   orderTakedown(s, yoav, gatePost); // he faces the west gate, Yoav comes from the east
   k.until('gate post down', () => gatePost.state === 'down', 30);
+  tie(k, gatePost, 'gate post tied');
   k.until('TEL-2 rigged', () => s.launchers[1]!.done, 40);
   orderInteract(s, itai, target(k, 30, 9));
   k.until('TEL-1 rigged', () => s.launchers[0]!.done, 40);

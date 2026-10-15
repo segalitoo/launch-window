@@ -4,9 +4,10 @@
 //
 // Layers:
 //   ground   tile layer, tile id = sim deco (0 sand, 1 road, 2 slab, 3 yard)
-//   walls    tile layer, tile 4 = wall '#', tile 5 = crate 'c', empty = open
-//   objects  rectangles, type building | door | generator | tower | launcher;
+//   walls    tile layer, tile 4 = wall '#', tile 5 = crate 'c', tile 6 = fence 'F', empty = open
+//   objects  rectangles, type building | door | generator | tower | launcher | hide;
 //            the name is the label. Towers need float props a0, a1 (degrees), period, phase.
+//            hide = a bush or dark corner (a hiding spot); it blocks nothing.
 //   guards   type post (point; props face, sweep in degrees, spin) or
 //            patrol (polyline = there and back, polygon = loop). Layer order = guard order.
 //   spawns   points of type unit named shadow | lure | sapper, and one rectangle of type lz.
@@ -43,6 +44,7 @@ export interface MissionMap {
   guards: GuardDef[];
   spawns: Record<UnitId, [number, number]>;
   lz: TileRect;
+  hides: TileRect[];
 }
 
 interface TProp {
@@ -81,7 +83,7 @@ interface TMap {
 }
 
 const UNIT_IDS: readonly UnitId[] = ['shadow', 'lure', 'sapper'];
-const WALL_TILES: Record<number, TileCode> = { 4: '#', 5: 'c' };
+const WALL_TILES: Record<number, TileCode> = { 4: '#', 5: 'c', 6: 'F' };
 
 export function parseTiledMap(json: unknown): MissionMap {
   const m = json as TMap;
@@ -141,6 +143,7 @@ export function parseTiledMap(json: unknown): MissionMap {
   const doors: Door[] = [];
   const towers: Tower[] = [];
   const launchers: Launcher[] = [];
+  const hides: TileRect[] = [];
   let generator: Generator | null = null;
   for (const o of objects('objects')) {
     const b = box(o);
@@ -174,6 +177,9 @@ export function parseTiledMap(json: unknown): MissionMap {
       case 'launcher':
         launchers.push({ x: b.x, y: b.y, w: b.w, h: b.h, name: o.name, done: false });
         stamp(b.x, b.y, b.w, b.h, 'L');
+        break;
+      case 'hide':
+        hides.push({ x0: b.x, y0: b.y, x1: b.x + b.w - 1, y1: b.y + b.h - 1 });
         break;
       default:
         fail(`unknown object type "${kind(o)}" on "${o.name}" (id ${o.id})`);
@@ -233,5 +239,6 @@ export function parseTiledMap(json: unknown): MissionMap {
     guards,
     spawns: spawns as Record<UnitId, [number, number]>,
     lz: lz!,
+    hides,
   };
 }

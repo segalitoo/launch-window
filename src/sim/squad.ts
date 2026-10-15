@@ -7,21 +7,34 @@ import {
   DECOY_RANGE,
   DRAG_MULT,
   DUR_DOOR,
+  DUR_FENCE,
   DUR_GENERATOR,
   DUR_LAUNCHER,
   GRAB_RANGE,
   INTERACT_REACH,
+  PLANT_TIME,
+  BINO_TIME,
+  CARBINE_RANGE,
+  GUN_AIM,
+  SHOTGUN_RANGE,
+  SILENCED_AIM,
+  SILENCED_HEAR,
+  SILENCED_RANGE,
   TAKEDOWN_RANGE,
   TAKEDOWN_REPATH,
   THROW_BUSY,
   THROW_FLIGHT,
+  TIE_DUR,
+  UNIFORM_TIME,
+  WIRE_TIME,
 } from './constants';
-import { walkable } from './grid';
-import { center, dist, pathLength } from './math';
-import { message, takedown } from './mission';
+import { hearNoise } from './guards';
+import { tileAt, walkable } from './grid';
+import { center, dist, pathLength, tileOf } from './math';
+import { blast, gunKill, message, raiseAlarm, takedown } from './mission';
 import { moveAlong, pathTo } from './pathfinding';
 import type { GameState, Guard, InteractTarget, Unit, Vec } from './types';
-import { detects } from './vision';
+import { detects, losClear, smokeBlocks } from './vision';
 
 export const speedOf = (u: Unit): number => u.speed * (u.crawl ? CRAWL_MULT : 1) * (u.carrying ? DRAG_MULT : 1);
 
@@ -38,11 +51,12 @@ export function objectAt(s: GameState, tx: number, ty: number): InteractTarget |
   if (tx >= g.x && tx < g.x + g.w && ty >= g.y && ty < g.y + g.h) return { kind: 'generator', o: g };
   const l = s.launchers.find((l) => tx >= l.x && tx < l.x + l.w && ty >= l.y && ty < l.y + l.h);
   if (l) return { kind: 'launcher', o: l };
+  if (tileAt(s.grid, tx, ty) === 'F') return { kind: 'fence', o: { x: tx, y: ty } };
   return null;
 }
 
 const footprint = (t: InteractTarget): { x: number; y: number; w: number; h: number } =>
-  t.kind === 'door' ? { x: t.o.x, y: t.o.y, w: 1, h: 1 } : t.o;
+  t.kind === 'door' || t.kind === 'fence' ? { x: t.o.x, y: t.o.y, w: 1, h: 1 } : t.o;
 
 /** The walkable tile around an object with the shortest walk for this unit,
  *  so Itai never takes the long way round. */
@@ -116,6 +130,7 @@ export function orderInteract(s: GameState, u: Unit, target: InteractTarget): bo
       door: 'Locked. Itai can breach it.',
       generator: 'Itai can cut the power here.',
       launcher: 'Only Itai can plant the charges.',
+      fence: 'Itai can cut the fence.',
     };
     message(s, msg[target.kind]);
     return false;
@@ -135,17 +150,75 @@ export function orderInteract(s: GameState, u: Unit, target: InteractTarget): bo
   }
   clearOrder(u);
   u.path = r.path;
-  const dur = target.kind === 'door' ? DUR_DOOR : target.kind === 'generator' ? DUR_GENERATOR : DUR_LAUNCHER;
+  const dur = { door: DUR_DOOR, generator: DUR_GENERATOR, launcher: DUR_LAUNCHER, fence: DUR_FENCE }[target.kind];
   u.order = { type: 'interact', target, spot: r.spot, started: false, t: 0, dur };
   return true;
+}
+
+/** Yoav ties a knocked-out guard so he never wakes. */
+export function orderTie(s: GameState, u: Unit, body: Guard): boolean {
+  if (!u.alive || u.id !== 'shadow') return false;
+  if (body.state !== 'down' || body.dead) return false;
+  if (body.tied) {
+    message(s, 'He is already tied.');
+    return false;
+  }
+  if (body.carried) {
+    message(s, 'Put the body down first.', 'warn');
+    return false;
+  }
+  clearOrder(u);
+  u.path = pathTo(s.grid, u, body.x, body.y) ?? [];
+  u.order = { type: 'tie', body, started: false, t: 0 };
+  return true;
+}
+
+export type FireResult = 'aiming' | 'range' | 'blocked' | 'invalid';
+
+/** How far an operator's gun reaches now: Itai's shotgun is short; a silencer halves it. */
+export const gunRange = (u: Unit): number =>
+  (u.id === 'sapper' ? SHOTGUN_RANGE : CARBINE_RANGE) * (u.silenced ? SILENCED_RANGE : 1);
+
+/** An operator aims at a guard and fires when the aim is done (GUN_AIM, or SILENCED_AIM
+ *  standing still). Loud raises the alarm; silenced is heard SILENCED_HEAR tiles away. */
+export function fireGun(s: GameState, u: Unit, g: Guard): FireResult {
+  if (!u.alive || g.state === 'down') return 'invalid';
+  if (dist(u, g) > gunRange(u)) {
+    message(s, u.silenced ? 'Too far with the silencer. Get closer, or take it off.' : 'Too far. Get closer.', 'warn');
+    return 'range';
+  }
+  if (!losClear(s.grid, u.x, u.y, g.x, g.y) || smokeBlocks(s, u.x, u.y, g.x, g.y)) {
+    message(s, 'No clear shot.', 'warn');
+    return 'blocked';
+  }
+  clearOrder(u);
+  u.order = { type: 'shoot', guard: g, t: 0, dur: u.silenced ? SILENCED_AIM : GUN_AIM, loud: !u.silenced };
+  u.ang = Math.atan2(g.y - u.y, g.x - u.x);
+  return 'aiming';
+}
+
+/** Fits the silencer or takes it off. */
+export function toggleSilencer(s: GameState, u: Unit): void {
+  if (!u.alive) return;
+  u.silenced = !u.silenced;
+  message(s, u.silenced ? `${u.name}: silencer on.` : `${u.name}: silencer off. Shots will raise the alarm.`, u.silenced ? '' : 'warn');
 }
 
 export type ThrowResult = 'thrown' | 'empty' | 'range' | 'invalid';
 
 export function throwDecoy(s: GameState, u: Unit, wx: number, wy: number): ThrowResult {
+  return throwItem(s, u, wx, wy, 'decoy');
+}
+
+/** Noa's smoke grenade: thrown like the decoy; the cloud blocks all sight through it. */
+export function throwSmoke(s: GameState, u: Unit, wx: number, wy: number): ThrowResult {
+  return throwItem(s, u, wx, wy, 'smoke');
+}
+
+function throwItem(s: GameState, u: Unit, wx: number, wy: number, kind: 'decoy' | 'smoke'): ThrowResult {
   if (!u.alive || u.id !== 'lure') return 'invalid';
-  if (u.charges <= 0) {
-    message(s, 'Noa is out of decoys.', 'warn');
+  if ((kind === 'decoy' ? u.charges : u.smokes) <= 0) {
+    message(s, kind === 'decoy' ? 'Noa is out of decoys.' : 'Noa is out of smoke.', 'warn');
     return 'empty';
   }
   if (Math.hypot(wx - u.x, wy - u.y) > DECOY_RANGE) {
@@ -153,11 +226,82 @@ export function throwDecoy(s: GameState, u: Unit, wx: number, wy: number): Throw
     return 'range';
   }
   clearOrder(u);
-  u.charges--;
+  if (kind === 'decoy') u.charges--;
+  else u.smokes--;
   u.busy = THROW_BUSY;
   u.ang = Math.atan2(wy - u.y, wx - u.x);
-  s.projectiles.push({ x0: u.x, y0: u.y, x1: wx, y1: wy, t: 0, dur: THROW_FLIGHT });
+  s.projectiles.push({ x0: u.x, y0: u.y, x1: wx, y1: wy, t: 0, dur: THROW_FLIGHT, kind });
   return 'thrown';
+}
+
+/** Noa watches a guard through the binoculars for BINO_TIME; his route stays shown after. */
+export function orderBinoculars(s: GameState, u: Unit, g: Guard): boolean {
+  if (!u.alive || u.id !== 'lure' || g.state === 'down') return false;
+  if (g.revealed) {
+    message(s, 'Noa already knows his route.');
+    return false;
+  }
+  if (!losClear(s.grid, u.x, u.y, g.x, g.y) || smokeBlocks(s, u.x, u.y, g.x, g.y)) {
+    message(s, 'Noa cannot see him from here.', 'warn');
+    return false;
+  }
+  clearOrder(u);
+  u.order = { type: 'binoculars', guard: g, t: 0 };
+  u.ang = Math.atan2(g.y - u.y, g.x - u.x);
+  return true;
+}
+
+/** Itai sets a tripwire at his feet (WIRE_TIME kneeling). */
+export function orderWire(s: GameState, u: Unit): boolean {
+  if (!u.alive || u.id !== 'sapper') return false;
+  if (u.wires <= 0) {
+    message(s, 'Itai is out of tripwires.', 'warn');
+    return false;
+  }
+  if (s.wires.some((w) => w.x === tileOf(u.x) && w.y === tileOf(u.y))) {
+    message(s, 'There is a wire here already.');
+    return false;
+  }
+  clearOrder(u);
+  u.order = { type: 'wire', t: 0 };
+  return true;
+}
+
+/** Itai plants the remote charge at his feet (PLANT_TIME kneeling). */
+export function orderPlant(s: GameState, u: Unit): boolean {
+  if (!u.alive || u.id !== 'sapper') return false;
+  if (u.remote) {
+    message(s, 'The charge is already planted. Set it off first.');
+    return false;
+  }
+  if (u.remotes <= 0) {
+    message(s, 'Itai has no remote charge left.', 'warn');
+    return false;
+  }
+  clearOrder(u);
+  u.order = { type: 'plant', t: 0 };
+  return true;
+}
+
+/** Sets off Itai's planted charge, wherever he is. */
+export function detonate(s: GameState, u: Unit): boolean {
+  if (!u.alive || u.id !== 'sapper' || !u.remote) return false;
+  const at = u.remote;
+  u.remote = null;
+  blast(s, at.x, at.y);
+  return true;
+}
+
+/** Noa puts the captured uniform on, or takes it off: UNIFORM_TIME standing still. */
+export function orderUniform(s: GameState, u: Unit): boolean {
+  if (!u.alive || u.id !== 'lure') return false;
+  if (u.carrying) {
+    message(s, 'Put the body down first.', 'warn');
+    return false;
+  }
+  clearOrder(u);
+  u.order = { type: 'uniform', t: 0 };
+  return true;
 }
 
 export function toggleCrawl(u: Unit): void {
@@ -187,6 +331,10 @@ function finishInteract(s: GameState, target: InteractTarget): void {
     target.o.on = false;
     s.staticVersion++;
     message(s, 'Power cut. Searchlights are dark.', 'ok');
+  } else if (target.kind === 'fence') {
+    s.grid.cells[target.o.y * s.grid.cols + target.o.x] = '.';
+    s.staticVersion++;
+    message(s, 'Fence cut. A new way in.', 'ok');
   } else {
     target.o.done = true;
     const left = s.launchers.filter((l) => !l.done).length;
@@ -234,6 +382,82 @@ export function updateUnit(s: GameState, u: Unit, dt: number): void {
         if (!p || !p.length) clearOrder(u);
         else u.path = p;
       }
+    } else if (o.type === 'tie') {
+      const b = o.body;
+      if (b.state !== 'down' || b.carried || b.tied) clearOrder(u);
+      else if (o.started || dist(u, b) <= GRAB_RANGE) {
+        o.started = true;
+        u.path = [];
+        u.ang = Math.atan2(b.y - u.y, b.x - u.x);
+        o.t += dt;
+        if (o.t >= TIE_DUR) {
+          b.tied = true;
+          s.events.push({ type: 'tied', unit: u.id, guard: b.i });
+          clearOrder(u);
+        }
+        return;
+      } else if (!u.path.length) {
+        const p = pathTo(s.grid, u, b.x, b.y);
+        if (!p || !p.length) clearOrder(u);
+        else u.path = p;
+      }
+    } else if (o.type === 'shoot') {
+      const g = o.guard;
+      if (g.state === 'down') clearOrder(u);
+      else {
+        u.ang = Math.atan2(g.y - u.y, g.x - u.x);
+        o.t += dt;
+        if (o.t >= o.dur) {
+          const range = (u.id === 'sapper' ? SHOTGUN_RANGE : CARBINE_RANGE) * (o.loud ? 1 : SILENCED_RANGE);
+          if (dist(u, g) <= range && losClear(s.grid, u.x, u.y, g.x, g.y) && !smokeBlocks(s, u.x, u.y, g.x, g.y)) {
+            gunKill(s, u, g, o.loud);
+            if (o.loud) raiseAlarm(s, u.x, u.y, null, `${u.name} opened fire!`);
+            else hearNoise(s, g.x, g.y, SILENCED_HEAR);
+          } else message(s, 'Lost the shot.', 'warn');
+          clearOrder(u);
+        }
+        return;
+      }
+    } else if (o.type === 'binoculars') {
+      const g = o.guard;
+      if (g.state === 'down') clearOrder(u);
+      else {
+        u.ang = Math.atan2(g.y - u.y, g.x - u.x);
+        o.t += dt;
+        if (o.t >= BINO_TIME) {
+          if (losClear(s.grid, u.x, u.y, g.x, g.y) && !smokeBlocks(s, u.x, u.y, g.x, g.y)) {
+            g.revealed = true;
+            s.events.push({ type: 'revealed', guard: g.i });
+          } else message(s, 'Lost sight of him.', 'warn');
+          clearOrder(u);
+        }
+        return;
+      }
+    } else if (o.type === 'wire' || o.type === 'plant') {
+      o.t += dt;
+      if (o.t >= (o.type === 'wire' ? WIRE_TIME : PLANT_TIME)) {
+        const at = { x: tileOf(u.x), y: tileOf(u.y) };
+        if (o.type === 'wire') {
+          s.wires.push(at);
+          u.wires--;
+          message(s, `Tripwire set. ${u.wires} left.`, 'ok');
+        } else {
+          u.remote = center(at.x, at.y);
+          u.remotes--;
+          message(s, 'Charge planted. Set it off from anywhere.', 'ok');
+        }
+        clearOrder(u);
+      }
+      return;
+    } else if (o.type === 'uniform') {
+      o.t += dt;
+      if (o.t >= UNIFORM_TIME) {
+        u.disguised = !u.disguised;
+        s.events.push({ type: 'disguise', unit: u.id, on: u.disguised });
+        message(s, u.disguised ? 'Noa is in the captured uniform.' : 'Noa took the uniform off.');
+        clearOrder(u);
+      }
+      return;
     } else if (o.type === 'interact') {
       if (!o.started) {
         if (!u.path.length) {

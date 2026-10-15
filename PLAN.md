@@ -13,7 +13,7 @@ Rebuild Launch Window as one finished isometric mission in the style of Commando
 | Workflow | Git repo + Claude Code on Ran's Mac | Real art files and many source files outgrow a single page. |
 | Time | 8 h a week, as two 4 h sessions | Each session ends with something playable. |
 | Scope | One mission, Operation Night Lantern, to full quality | A second mission waits until v1 is done. |
-| Toolkit | Full proposal (assumed) | Not confirmed yet. See the toolkit section. |
+| Toolkit | Full proposal, in priority order (Ran, Phase 3) | Yoav first, then the others. If time runs short, the last ones drop. |
 | Pace | The world moves at 60% of the prototype (`PACE` in `src/sim/constants.ts`). Guard turns, waits, sweeps, searchlights and suspicion scale with it; shots, alarm and work stay in real seconds. Timer 8:00 becomes 13:20. | Ran, Phase 2: the prototype speeds were about twice real life at the art scale. Scaling guard rhythm too keeps every verified scenario solvable the same way. |
 
 Ran is the art director. He approves every look gate, retouches key art and playtests. Claude writes the code, the pipeline scripts and the image prompts, and tests each build.
@@ -69,17 +69,17 @@ Character pipeline:
 | --- | --- | --- | --- |
 | Yoav, Shadow | Knife takedown | A lone guard with his back turned | Built |
 | Yoav, Shadow | Drag body | A body in a patrol's view | Built |
-| Yoav, Shadow | Tie up | Downed guards wake after 60 s unless tied | New |
-| Yoav, Shadow | Hiding spots | Bushes and dark corners | New |
-| Yoav, Shadow | Silenced pistol, 3 rounds | A guard he cannot reach | New |
+| Yoav, Shadow | Tie up | Downed guards wake after 100 s (60 s at the 60% pace) and raise the alarm, unless tied | Built |
+| Yoav, Shadow | Hiding spots | Bushes and dark corners: still or crawling, only a guard very close sees you | Built (placeholder art) |
+| All three | Guns (Ran, Phase 3): unlimited ammo. Carbines 8 tiles, Itai's shotgun 3. Loud raises the alarm; a silencer (toggle) halves the range and needs a 2 s aim, heard 2 tiles away | Emergencies, a guard nobody can reach | Built (replaced Yoav's 3-round pistol) |
 | Noa, Lure | Noise decoy | Pull guards off a path | Built |
-| Noa, Lure | Binoculars | Show one guard's full patrol route | New |
-| Noa, Lure | Smoke grenade | Block all sight in an area for 8 s | New |
-| Noa, Lure | Captured uniform | Walk past regular guards | New |
+| Noa, Lure | Binoculars | Show one guard's full patrol route (tap a guard in sight, 1 s; stays shown) | Built |
+| Noa, Lure | Smoke grenade | Block all sight in an area: 2 grenades, 13 s (8 s at the 60% pace), guards and searchlights | Built |
+| Noa, Lure | Captured uniform | Walk past regular guards; seen through when crawling, dragging, within 1 tile, or in an alarm | Built |
 | Itai, Sapper | Breach door, cut power, plant charge | Locked routes, searchlights, the objective | Built |
-| Itai, Sapper | Wire cutters | Cut a new hole in the outer fence | New |
-| Itai, Sapper | Tripwire | Takes out the next guard who walks through | New |
-| Itai, Sapper | Remote charge | A loud diversion far from the team | New |
+| Itai, Sapper | Wire cutters | Cut a new hole in the outer fence (2 fence runs on the perimeter: south by the strip, west by the road; fence blocks walking, not sight; 2 s) | Built |
+| Itai, Sapper | Tripwire | Takes out the next guard who walks through (2 wires; knocked out like a takedown) | Built |
+| Itai, Sapper | Remote charge | A loud diversion far from the team (1 charge; guards within 10 tiles investigate, within 1.5 caught in it; no alarm) | Built |
 
 | Enemy | Behavior | Counter |
 | --- | --- | --- |
@@ -135,9 +135,9 @@ About 144 hours. Re-plan at each gate.
 
 ### Phase 3. Toolkit and enemies (32 h)
 
-- [ ] Yoav: tie up, hiding spots, silenced pistol
-- [ ] Noa: binoculars, smoke, captured uniform
-- [ ] Itai: wire cutters, tripwire, remote charge
+- [x] Yoav: tie up, hiding spots, silenced pistol (5 hiding spots on the map, placeholder bushes until Phase 4; Yoav's aim pose; guards get up when they wake)
+- [x] Noa: binoculars, smoke, captured uniform (plus guns for all three, Ran's addition: loud or silenced)
+- [x] Itai: wire cutters, tripwire, remote charge
 - [ ] Officer, dog, camera
 - [ ] Backpack inventory panel, placeholder art
 - [ ] A small test map per tool, then rebalance the main mission and timer
@@ -169,7 +169,7 @@ Every area passes five layers in order: ground, structures, props, night light, 
 
 | # | Area | Main assets | Phase | Status |
 | --- | --- | --- | --- | --- |
-| 1 | Generator yard | Yard walls, gate door, generator, crates | 2 | Not started |
+| 1 | Generator yard | Yard walls, gate door, generator, crates | 2 | Done |
 | 2 | Desert approach and LZ | Sand, scrub, rocks, road, helipad | 4 | Not started |
 | 3 | Perimeter wall and main gate | Wall run, gate, gate posts | 4 | Not started |
 | 4 | Courtyard | Barracks, motor pool, crates, searchlight tower | 4 | Not started |

@@ -6,9 +6,10 @@ export interface Vec {
   y: number;
 }
 
-/** `#` wall, `B` building, `c` crate, `D` locked door, `d` open door,
- *  `G` generator, `L` launcher, `T` searchlight tower, `.` ground. */
-export type TileCode = '#' | 'B' | 'c' | 'D' | 'd' | 'G' | 'L' | 'T' | '.';
+/** `#` wall, `B` building, `c` crate, `D` locked door, `d` open door, `F` fence (blocks
+ *  walking, not sight; Itai cuts it), `G` generator, `L` launcher, `T` searchlight tower,
+ *  `.` ground. */
+export type TileCode = '#' | 'B' | 'c' | 'D' | 'd' | 'F' | 'G' | 'L' | 'T' | '.';
 
 /** Ground decoration, for the view only: 0 sand, 1 road, 2 slab, 3 yard. */
 export type Deco = 0 | 1 | 2 | 3;
@@ -52,6 +53,15 @@ export interface Launcher {
   done: boolean;
 }
 
+/** A bush or dark corner. An operator standing still or crawling inside is seen only by a
+ *  guard very close (the near zone), never by a searchlight. Inclusive tile bounds. */
+export interface HideSpot {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+}
+
 export interface Tower {
   x: number;
   y: number;
@@ -82,6 +92,14 @@ export interface Guard extends Vec {
   lastKnown: Vec | null;
   /** A downed guard whose body was seen. Each body raises the alarm once. */
   found: boolean;
+  /** Seconds until a knocked-out guard wakes (0 = not knocked out). */
+  ko: number;
+  /** Tied up by Yoav: never wakes. */
+  tied: boolean;
+  /** Shot with the pistol: down for good. */
+  dead: boolean;
+  /** Seen through Noa's binoculars: his route stays shown on the map. */
+  revealed: boolean;
   carried: boolean;
   phase: number;
   // post guards
@@ -98,16 +116,23 @@ export interface Guard extends Vec {
 
 export type UnitId = 'shadow' | 'lure' | 'sapper';
 
-export type InteractKind = 'door' | 'generator' | 'launcher';
+export type InteractKind = 'door' | 'generator' | 'launcher' | 'fence';
 
 export type InteractTarget =
   | { kind: 'door'; o: Door }
+  | { kind: 'fence'; o: Vec }
   | { kind: 'generator'; o: Generator }
   | { kind: 'launcher'; o: Launcher };
 
 export type Order =
   | { type: 'takedown'; guard: Guard; repath: number }
   | { type: 'grab'; body: Guard }
+  | { type: 'tie'; body: Guard; started: boolean; t: number }
+  | { type: 'shoot'; guard: Guard; t: number; dur: number; loud: boolean }
+  | { type: 'binoculars'; guard: Guard; t: number }
+  | { type: 'uniform'; t: number }
+  | { type: 'wire'; t: number }
+  | { type: 'plant'; t: number }
   | {
       type: 'interact';
       target: InteractTarget;
@@ -134,6 +159,16 @@ export interface Unit extends Vec {
   ang: number;
   hitT: number;
   charges: number;
+  /** Silencer fitted on the gun: quiet, but half range and a long aim. */
+  silenced: boolean;
+  /** Smoke grenades (Noa). */
+  smokes: number;
+  /** Wearing the captured uniform (Noa). */
+  disguised: boolean;
+  /** Tripwires left to set, remote charges left to plant, and the one planted (Itai). */
+  wires: number;
+  remotes: number;
+  remote: Vec | null;
 }
 
 export interface Projectile {
@@ -143,6 +178,15 @@ export interface Projectile {
   y1: number;
   t: number;
   dur: number;
+  /** What lands: a decoy makes a noise, a smoke grenade a cloud. */
+  kind: 'decoy' | 'smoke';
+}
+
+/** A smoke cloud: blocks all sight through it until `left` runs out. */
+export interface Smoke {
+  x: number;
+  y: number;
+  left: number;
 }
 
 export type GameResult = 'win' | 'launch' | 'down';
@@ -156,6 +200,14 @@ export type SimEvent =
   | { type: 'alarmCleared' }
   | { type: 'takedown'; unit: UnitId; guard: number }
   | { type: 'shot'; guard: number; unit: UnitId }
+  | { type: 'fired'; unit: UnitId; guard: number; loud: boolean }
+  | { type: 'tied'; unit: UnitId; guard: number }
+  | { type: 'woke'; guard: number }
+  | { type: 'revealed'; guard: number }
+  | { type: 'smoke'; x: number; y: number }
+  | { type: 'disguise'; unit: UnitId; on: boolean }
+  | { type: 'tripped'; guard: number }
+  | { type: 'blast'; x: number; y: number }
   | { type: 'noise'; x: number; y: number; heard: number }
   | { type: 'moveOrdered'; unit: UnitId; x: number; y: number }
   | { type: 'gameOver'; result: GameResult; unit?: UnitId };
@@ -173,9 +225,14 @@ export interface GameState {
   launchers: Launcher[];
   /** Landing zone, inclusive tile bounds. */
   lz: { x0: number; y0: number; x1: number; y1: number };
+  /** Hiding spots (bushes, dark corners), inclusive tile bounds. */
+  hides: HideSpot[];
   guards: Guard[];
   squad: Unit[];
   projectiles: Projectile[];
+  smokes: Smoke[];
+  /** Tripwires Itai has set, by tile. */
+  wires: Vec[];
   alarm: { active: boolean; timer: number };
   stats: { takedowns: number; alarms: number };
   events: SimEvent[];

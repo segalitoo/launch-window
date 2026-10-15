@@ -22,6 +22,11 @@ export const ONE_SHOT = { takedown: 0.8, grab: 0.6, death: 0.75, knockout: 0.8 }
 export const WORK_IN = 0.35;
 export const WORK_LOOP = 0.7;
 
+/** Aim frames (raise, hold, kick): the gun comes up in AIM_RAISE, holds however long the
+ *  aim takes (0.5 s loud, 2 s silenced), and the kick shows for AIM_KICK after the shot. */
+export const AIM_RAISE = 0.2;
+export const AIM_KICK = 0.15;
+
 /** Seconds into the takedown before the guard's own animation starts. The knife takedown is
  *  one hand-keyed pair (tools/blender/render_takedown.py), so both start together. */
 export const TAKEDOWN_IMPACT = 0;
@@ -52,6 +57,12 @@ export interface AnimState {
   busy?: number;
   /** Seconds into an interaction that has started (null or missing = not working). */
   workT?: number | null;
+  /** Seconds into tying a guard (Yoav): his grab squat, held at the bottom. */
+  tieT?: number | null;
+  /** Seconds into aiming the gun; the 'aim' animation if rendered. */
+  aimT?: number | null;
+  /** When he last fired (sim time): the kick frame plays just after. */
+  firedAt?: number | null;
 }
 
 export function frameName(s: AnimState, anims: Readonly<Record<string, number>>): string {
@@ -71,6 +82,9 @@ export function frameName(s: AnimState, anims: Readonly<Record<string, number>>)
   if (active('takedown', s.takedownAt)) return shot('takedown', s.takedownAt);
   if (active('grab', s.grabAt)) return shot('grab', s.grabAt);
   if (s.hitT > 0) return name('hit', Math.min(n('hit') - 1, Math.floor((1 - s.hitT / HIT_FLASH) * n('hit'))));
+  if (s.tieT != null) return name('grab', Math.min(n('grab') - 1, Math.floor((s.tieT / ONE_SHOT.grab) * n('grab'))));
+  if (anims['aim'] && s.firedAt != null && s.t - s.firedAt >= 0 && s.t - s.firedAt < AIM_KICK) return name('aim', n('aim') - 1);
+  if (s.aimT != null && anims['aim']) return name('aim', s.aimT < AIM_RAISE ? 0 : Math.min(1, n('aim') - 1));
   if ((s.busy ?? 0) > 0 && anims['throw']) {
     return name('throw', Math.min(n('throw') - 1, Math.floor((1 - (s.busy ?? 0) / THROW_BUSY) * n('throw'))));
   }
@@ -99,6 +113,8 @@ export interface GuardAnimState {
   koAt?: number | null;
   /** Dragged and dropped: he lies on his back, as he was dragged. */
   onBack?: boolean;
+  /** When he got up after being knocked out (Phase 3): the knockout played backwards. */
+  wokeAt?: number | null;
 }
 
 export function guardFrameName(s: GuardAnimState, anims: Readonly<Record<string, number>>): string {
@@ -113,6 +129,10 @@ export function guardFrameName(s: GuardAnimState, anims: Readonly<Record<string,
     }
     const f = s.downAt === null ? n('death') - 1 : Math.floor(((s.t - s.downAt) / ONE_SHOT.death) * n('death'));
     return `death_d${d}_f${Math.min(n('death') - 1, f)}`;
+  }
+  if (s.wokeAt != null && s.t - s.wokeAt < ONE_SHOT.knockout) {
+    const f = Math.floor(((s.t - s.wokeAt) / ONE_SHOT.knockout) * n('knockout'));
+    return `knockout_d${d}_f${Math.max(0, n('knockout') - 1 - f)}`;
   }
   if (!s.moving) return `idle_d${d}_f${idleFrame(s.t, n('idle'))}`;
   const anim = s.running ? 'run' : 'walk';

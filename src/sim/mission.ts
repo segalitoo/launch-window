@@ -14,11 +14,16 @@ import {
   TOWER_FOV,
   TOWER_LEN,
   TOWER_SUSP,
+  WAKE_TIME,
+  BLAST_HEAR,
+  BLAST_HURT,
+  BLAST_KILL,
 } from './constants';
 import { angDiff, center, dist, tileOf } from './math';
 import { walkable } from './grid';
+import { hearNoise } from './guards';
 import type { GameResult, GameState, Guard, MessageKind, Unit } from './types';
-import { losClear } from './vision';
+import { hidden, losClear, smokeBlocks } from './vision';
 
 export function message(s: GameState, msg: string, kind: MessageKind = ''): void {
   s.events.push({ type: 'message', msg, kind });
@@ -59,11 +64,80 @@ export function takedown(s: GameState, u: Unit, g: Guard): void {
   g.ang = a;
   u.ang = a;
   g.state = 'down';
+  g.ko = WAKE_TIME;
   g.path = [];
   g.susp = 0;
   g.seeing = null;
   s.stats.takedowns++;
   s.events.push({ type: 'takedown', unit: u.id, guard: g.i });
+}
+
+/** An operator's shot: the guard falls and stays down. */
+export function gunKill(s: GameState, u: Unit, g: Guard, loud: boolean): void {
+  g.state = 'down';
+  g.dead = true;
+  g.ko = 0;
+  g.path = [];
+  g.susp = 0;
+  g.seeing = null;
+  s.stats.takedowns++;
+  s.events.push({ type: 'fired', unit: u.id, guard: g.i, loud });
+}
+
+/** A guard walks into one of Itai's tripwires: knocked out, like a knife takedown. */
+export function checkWires(s: GameState): void {
+  for (const g of s.guards) {
+    if (g.state === 'down' || g.carried) continue;
+    const i = s.wires.findIndex((w) => w.x === tileOf(g.x) && w.y === tileOf(g.y));
+    if (i < 0) continue;
+    s.wires.splice(i, 1);
+    g.state = 'down';
+    g.ko = WAKE_TIME;
+    g.path = [];
+    g.susp = 0;
+    g.seeing = null;
+    s.stats.takedowns++;
+    s.events.push({ type: 'tripped', guard: g.i });
+  }
+}
+
+/** Itai's remote charge goes off: guards close by are caught in it, everyone within earshot
+ *  comes to look. A diversion: it does not raise the alarm by itself. */
+export function blast(s: GameState, x: number, y: number): void {
+  for (const g of s.guards) {
+    if (g.state === 'down' || Math.hypot(g.x - x, g.y - y) > BLAST_KILL) continue;
+    g.state = 'down';
+    g.dead = true;
+    g.ko = 0;
+    g.path = [];
+    g.seeing = null;
+    s.stats.takedowns++;
+  }
+  for (const u of s.squad) {
+    if (!u.alive || Math.hypot(u.x - x, u.y - y) > BLAST_KILL) continue;
+    u.hp -= BLAST_HURT;
+    u.hitT = HIT_FLASH;
+    if (u.hp <= 0) {
+      u.alive = false;
+      u.path = [];
+      u.order = null;
+      endGame(s, 'down', u);
+    }
+  }
+  s.events.push({ type: 'blast', x, y });
+  hearNoise(s, x, y, BLAST_HEAR);
+}
+
+/** A knocked-out guard who was not tied gets up and raises the alarm where he lies. */
+export function wake(s: GameState, g: Guard): void {
+  const carrier = s.squad.find((u) => u.carrying === g);
+  if (carrier) carrier.carrying = null;
+  g.carried = false;
+  g.ko = 0;
+  g.found = false;
+  g.state = 'search';
+  s.events.push({ type: 'woke', guard: g.i });
+  raiseAlarm(s, g.x, g.y, g, 'A guard woke up and raised the alarm!');
 }
 
 export function shoot(s: GameState, g: Guard, u: Unit): void {
@@ -107,12 +181,13 @@ export function updateTowers(s: GameState, dt: number): void {
     const o = center(t.x, t.y);
     let seen: Unit | null = null;
     for (const u of s.squad) {
-      if (!u.alive) continue;
+      if (!u.alive || hidden(s, u)) continue;
       const d = dist(o, u);
       if (
         d > TOWER_LEN ||
         Math.abs(angDiff(Math.atan2(u.y - o.y, u.x - o.x), t.ang)) > TOWER_FOV / 2 ||
-        !losClear(s.grid, o.x, o.y, u.x, u.y)
+        !losClear(s.grid, o.x, o.y, u.x, u.y) ||
+        smokeBlocks(s, o.x, o.y, u.x, u.y)
       )
         continue;
       seen = u;

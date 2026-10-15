@@ -3,21 +3,29 @@
 
 import Phaser from 'phaser';
 import {
-  castRay,
+  BINO_TIME,
   coneLength,
   FOV,
   Game,
   type GameState,
   type Guard,
+  hidden,
   type InteractTarget,
   NEAR_FRACTION,
+  gunRange,
   type SimEvent,
+  sightRay,
+  SMOKE_RADIUS,
+  SMOKE_TIME,
+  UNIFORM_TIME,
   tileAt,
   type TileCode,
+  TIE_DUR,
   TOWER_FOV,
   TOWER_LEN,
   type Unit,
   type Vec,
+  WAKE_TIME,
 } from '@/sim';
 import { Controller, type TapHit } from './controller';
 import { depthOf, footprint, mapBounds, type Point, toScreen, toTile } from './iso';
@@ -44,6 +52,12 @@ const CONE_RAYS = 28;
 const TAP_SLOP = 8; // px a pointer may move before a tap becomes a pan
 const MAX_ZOOM = 2.5;
 const OVERLAY_DEPTH = 1e9;
+/** Tie marks and the tie bar: a pale rope colour, apart from the squad and alarm colours. */
+const ROPE_COLOR = 0xd8c9a3;
+/** How long a pistol tracer stays on screen, sim seconds. */
+const TRACER_TIME = 0.15;
+/** How long a blast's flash and ring stay on screen, sim seconds. */
+const BLAST_FX = 0.6;
 /** Night grade for units, lighter than the environment's (visual language 6b). */
 const UNIT_GRADE = [0.62, 0.68, 0.82] as const;
 const MAP_TOP_MARGIN = 80; // room for tall blocks on the back row
@@ -82,6 +96,14 @@ export class MapScene extends Phaser.Scene {
   private ground!: Phaser.GameObjects.Graphics;
   private blocks: Phaser.GameObjects.Graphics[] = [];
   private overlay!: Phaser.GameObjects.Graphics;
+  /** Hiding spots (Phase 3 placeholder until the Phase 4 map art): over the painting, under the units. */
+  private hideGfx!: Phaser.GameObjects.Graphics;
+  /** Pistol shots on screen: a short tracer, sim time. */
+  private tracers: { x0: number; y0: number; x1: number; y1: number; t: number; loud: boolean }[] = [];
+  /** Blasts on screen: a flash and a ring, sim time. */
+  private blasts: { x: number; y: number; t: number }[] = [];
+  /** Smoke clouds: above the units and the art, under the overlay. */
+  private smokeGfx!: Phaser.GameObjects.Graphics;
   /** Searchlight light: added over the art (and the units in it), under the overlay. */
   private beams!: Phaser.GameObjects.Graphics;
   private bodies = new Map<object, Phaser.GameObjects.Graphics>();
@@ -121,6 +143,8 @@ export class MapScene extends Phaser.Scene {
     this.unitArt = new UnitSprites(this, toTintHex(UNIT_GRADE), OVERLAY_DEPTH - 1);
     this.guardArt = new GuardSprites(this, toTintHex(UNIT_GRADE));
     this.shadows = this.add.graphics().setDepth(-OVERLAY_DEPTH + 2);
+    this.hideGfx = this.add.graphics().setDepth(-OVERLAY_DEPTH + 1.8);
+    this.smokeGfx = this.add.graphics().setDepth(OVERLAY_DEPTH - 3);
     this.input.addPointer(1);
     this.setupInput();
     this.scale.on('resize', () => this.fitCamera(!this.userMoved));
@@ -172,7 +196,7 @@ export class MapScene extends Phaser.Scene {
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
       this.pointers.set(p.id, { x: p.x, y: p.y });
       if (p.rightButtonDown()) {
-        this.ctl.throwMode = false;
+        this.ctl.mode = null;
         return;
       }
       if (this.pointers.size === 1) {
@@ -323,6 +347,13 @@ export class MapScene extends Phaser.Scene {
       this.unitArt.onEvents(events, s.t);
       this.guardArt.onEvents(events, s.t);
       this.hooks.onEvents(events, s, this.ctl);
+      for (const e of events) {
+        if (e.type === 'blast') this.blasts.push({ x: e.x, y: e.y, t: s.t });
+        if (e.type !== 'fired') continue;
+        const u = s.squad.find((q) => q.id === e.unit)!;
+        const g = s.guards[e.guard]!;
+        this.tracers.push({ x0: u.x, y0: u.y, x1: g.x, y1: g.y, t: s.t, loud: e.loud });
+      }
     }
     if (s.staticVersion !== this.staticVersion) this.drawStatic(s);
     this.drawDynamic(s);
@@ -333,6 +364,7 @@ export class MapScene extends Phaser.Scene {
 
   private drawStatic(s: GameState): void {
     this.staticVersion = s.staticVersion;
+    this.drawHides(s);
     const g = this.ground.clear();
     const { cols, rows, deco } = s.grid;
     for (let y = 0; y < rows; y++) {
@@ -357,6 +389,10 @@ export class MapScene extends Phaser.Scene {
     for (let y = 0; y < rows; y++) {
       for (let x = 0; x < cols; x++) {
         const code = tileAt(s.grid, x, y);
+        if (code === 'F') {
+          this.blocks.push(this.drawFence(s, x, y));
+          continue;
+        }
         let style = BLOCKS[code];
         if (!style) continue;
         // the painting already shows this structure; its occluder sprite stands in for the block
@@ -373,6 +409,46 @@ export class MapScene extends Phaser.Scene {
         this.occluders.push(blockOccluder(x, y, style.inset, style.height));
       }
     }
+  }
+
+  /** Chain-link fence (Phase 3): a see-through panel along the run, posts at the ends. No
+   *  occluder: you see through it, and it only blocks walking until Itai cuts it. */
+  private drawFence(s: GameState, x: number, y: number): Phaser.GameObjects.Graphics {
+    const solid = (tx: number, ty: number): boolean => ['F', '#'].includes(tileAt(s.grid, tx, ty));
+    const alongX = solid(x - 1, y) || solid(x + 1, y) || !(solid(x, y - 1) || solid(x, y + 1));
+    const a = alongX ? { x, y: y + 0.5 } : { x: x + 0.5, y };
+    const b = alongX ? { x: x + 1, y: y + 0.5 } : { x: x + 0.5, y: y + 1 };
+    const H = 26;
+    const g = this.add.graphics().setDepth(depthOf(x + 0.5, y + 0.5, 1));
+    const p = (q: Vec, h: number): Point => toScreen(q.x, q.y, h);
+    g.fillStyle(night(0x8a969a), 0.22);
+    g.fillPoints(poly([p(a, 0), p(b, 0), p(b, H), p(a, H)]), true);
+    // the mesh: two sets of diagonals, clipped to the panel
+    g.lineStyle(1, night(0xaab4b8), 0.45);
+    const at = (t: number, h: number): Point => p({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }, h);
+    for (let k = -1; k < 1; k += 0.25) {
+      for (const up of [true, false]) {
+        // along the line h = (t - k) H (up) or (k + 1 - t) H (down), kept inside 0..1
+        const t0 = Math.max(0, k);
+        const t1 = Math.min(1, k + 1);
+        if (t1 <= t0) continue;
+        const h = (t: number): number => (up ? t - k : k + 1 - t) * H;
+        const q0 = at(t0, h(t0));
+        const q1 = at(t1, h(t1));
+        g.lineBetween(q0.x, q0.y, q1.x, q1.y);
+      }
+    }
+    g.lineStyle(2, night(0x5a6266), 1);
+    for (const q of [a, b]) {
+      const lo = p(q, 0);
+      const hi = p(q, H + 3);
+      g.lineBetween(lo.x, lo.y, hi.x, hi.y);
+    }
+    g.lineStyle(1.5, night(0x6d777b), 1);
+    const ta = p(a, H);
+    const tb = p(b, H);
+    g.lineBetween(ta.x, ta.y, tb.x, tb.y);
+    return g;
   }
 
   private drawBlock(g: Phaser.GameObjects.Graphics, x: number, y: number, w: number, h: number, height: number, color: number): void {
@@ -449,8 +525,105 @@ export class MapScene extends Phaser.Scene {
         o.strokeEllipse(p.x, p.y, 8 * 64, 8 * 32); // decoy range, 8 tiles
       }
     }
+    // knocked-out guards: a ring that empties until he wakes; tied ones get a rope mark
+    for (const g of s.guards) {
+      if (g.state !== 'down' || g.dead || g.carried) continue;
+      const p = toScreen(g.x, g.y, 6);
+      if (g.tied) {
+        o.lineStyle(2, ROPE_COLOR, 0.95);
+        o.lineBetween(p.x - 4, p.y - 3, p.x + 4, p.y + 3);
+        o.lineBetween(p.x - 4, p.y + 3, p.x + 4, p.y - 3);
+      } else if (g.ko > 0) {
+        const k = g.ko / WAKE_TIME;
+        o.fillStyle(0x000000, 0.55);
+        o.fillCircle(p.x, p.y, 6);
+        o.lineStyle(2, k < 0.25 ? ALARM_COLOR : CONE_COLOR, 1);
+        o.beginPath();
+        o.arc(p.x, p.y, 5, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * k, false);
+        o.strokePath();
+      }
+    }
+    // tool modes: the gun's reach (red when the shot will be loud), the bodies Yoav can tie
+    if (this.ctl.mode === 'fire' && sel.alive) {
+      const p = toScreen(sel.x, sel.y);
+      const r = gunRange(sel);
+      o.lineStyle(1.5, sel.silenced ? 0xd8e4f0 : ALARM_COLOR, 0.75);
+      o.strokeEllipse(p.x, p.y, r * 2 * 32 * Math.SQRT2, r * 2 * 16 * Math.SQRT2);
+    }
+    if (this.ctl.mode === 'smoke' && sel.alive) {
+      const p = toScreen(sel.x, sel.y);
+      o.lineStyle(1.5, 0xc8ccd0, 0.7);
+      o.strokeEllipse(p.x, p.y, 8 * 64, 8 * 32); // throw range, 8 tiles like the decoy
+    }
+    // routes Noa has seen through the binoculars
+    for (const g of s.guards) {
+      if (!g.revealed || g.state === 'down') continue;
+      this.drawRoute(o, g);
+    }
+    if (this.ctl.mode === 'tie') {
+      o.lineStyle(1.5, ROPE_COLOR, 0.9);
+      for (const g of s.guards) {
+        if (g.state !== 'down' || g.dead || g.tied || g.carried) continue;
+        const p = toScreen(g.x, g.y);
+        o.strokeEllipse(p.x, p.y, 30, 15);
+      }
+    }
+    // pistol tracers
+    this.tracers = this.tracers.filter((tr) => s.t - tr.t < TRACER_TIME);
+    for (const tr of this.tracers) {
+      const a = toScreen(tr.x0, tr.y0, 12);
+      const b = toScreen(tr.x1, tr.y1, 10);
+      const k = 1 - (s.t - tr.t) / TRACER_TIME;
+      o.lineStyle(tr.loud ? 2.5 : 1.5, 0xfff2b0, k);
+      o.lineBetween(a.x, a.y, b.x, b.y);
+      if (tr.loud) {
+        // a muzzle flash: a loud shot should look loud
+        o.fillStyle(0xffd27a, k);
+        o.fillCircle(a.x, a.y, 4);
+      }
+    }
+    this.drawSmoke(s);
+    // Itai's tripwires and planted charge: for the player's eyes only
+    o.lineStyle(1.5, ROPE_COLOR, 0.9);
+    for (const w of s.wires) {
+      const l = toScreen(w.x + 0.15, w.y + 0.5, 3);
+      const r = toScreen(w.x + 0.85, w.y + 0.5, 3);
+      o.lineBetween(l.x, l.y, r.x, r.y);
+      o.fillStyle(ROPE_COLOR, 1);
+      o.fillCircle(l.x, l.y, 1.5);
+      o.fillCircle(r.x, r.y, 1.5);
+    }
+    const itai = s.squad.find((u) => u.id === 'sapper');
+    if (itai?.remote) {
+      const c = toScreen(itai.remote.x, itai.remote.y, 2);
+      o.fillStyle(0x30302a, 1);
+      o.fillRect(c.x - 4, c.y - 3, 8, 5);
+      o.fillStyle(ALARM_COLOR, Math.sin(s.t * 8) > 0 ? 1 : 0.25); // a blinking light
+      o.fillCircle(c.x + 2, c.y - 3, 1.5);
+    }
+    // blasts: a flash and a ring that widens and fades
+    this.blasts = this.blasts.filter((b) => s.t - b.t < BLAST_FX);
+    for (const b of this.blasts) {
+      const k = (s.t - b.t) / BLAST_FX;
+      const c = toScreen(b.x, b.y);
+      o.fillStyle(0xffe2a0, Math.max(0, 0.9 - k * 3));
+      o.fillEllipse(c.x, c.y - 10, 70 * (0.4 + k), 46 * (0.4 + k));
+      o.lineStyle(3, 0xffc070, 1 - k);
+      o.strokeEllipse(c.x, c.y, 160 * k + 20, 80 * k + 10);
+    }
     // interaction progress
     for (const u of s.squad) {
+      const bar = (k: number, col: number): void => {
+        const m = this.markerOf(u, UNIT_LIFT + 18);
+        o.fillStyle(0x000000, 0.6);
+        o.fillRect(m.x - 14, m.y - 3, 28, 6);
+        o.fillStyle(col, 1);
+        o.fillRect(m.x - 13, m.y - 2, 26 * Math.min(1, k), 4);
+      };
+      if (u.order?.type === 'tie' && u.order.started) bar(u.order.t / TIE_DUR, ROPE_COLOR);
+      if (u.order?.type === 'binoculars') bar(u.order.t / BINO_TIME, CONE_COLOR);
+      if (u.order?.type === 'uniform') bar(u.order.t / UNIFORM_TIME, 0x8ef0d0);
+      if (u.order?.type === 'shoot' && !u.order.loud) bar(u.order.t / u.order.dur, 0xd8e4f0);
       if (u.order?.type === 'interact' && u.order.started) {
         const m = this.markerOf(u, UNIT_LIFT + 18);
         o.fillStyle(0x000000, 0.6);
@@ -473,6 +646,65 @@ export class MapScene extends Phaser.Scene {
     s.squad.forEach((u) => this.drawUnit(u, u === sel, s.t));
   }
 
+  /** A guard's route as Noa saw it: patrols get their path with waypoint dots, posts the arc
+   *  they sweep (or a full circle when they spin). */
+  private drawRoute(o: Phaser.GameObjects.Graphics, g: Guard): void {
+    o.lineStyle(1.5, CONE_COLOR, 0.8);
+    if (g.kind === 'patrol') {
+      const pts = g.route.map((p) => toScreen(p.x, p.y));
+      for (let i = 1; i < pts.length; i++) this.dashed(o, pts[i - 1]!, pts[i]!);
+      if (g.loop && pts.length > 2) this.dashed(o, pts.at(-1)!, pts[0]!);
+      o.fillStyle(CONE_COLOR, 0.9);
+      for (const p of pts) o.fillCircle(p.x, p.y, 2.5);
+    } else if (g.post) {
+      const c = toScreen(g.post.x, g.post.y);
+      const r = 2.2;
+      const span = g.spin ? Math.PI * 2 : Math.max(g.sweep * 2, 0.3);
+      const steps = 24;
+      for (let i = 0; i <= steps; i += 2) {
+        const a0 = g.face - span / 2 + (span * i) / steps;
+        const a1 = g.face - span / 2 + (span * Math.min(steps, i + 1)) / steps;
+        const p0 = toScreen(g.post.x + Math.cos(a0) * r, g.post.y + Math.sin(a0) * r);
+        const p1 = toScreen(g.post.x + Math.cos(a1) * r, g.post.y + Math.sin(a1) * r);
+        o.lineBetween(p0.x, p0.y, p1.x, p1.y);
+      }
+      o.fillStyle(CONE_COLOR, 0.9);
+      o.fillCircle(c.x, c.y, 2.5);
+    }
+  }
+
+  private dashed(o: Phaser.GameObjects.Graphics, a: Point, b: Point): void {
+    const len = Math.hypot(b.x - a.x, b.y - a.y);
+    const n = Math.max(1, Math.floor(len / 8));
+    for (let i = 0; i < n; i += 2) {
+      const k0 = i / n;
+      const k1 = Math.min(1, (i + 1) / n);
+      o.lineBetween(a.x + (b.x - a.x) * k0, a.y + (b.y - a.y) * k0, a.x + (b.x - a.x) * k1, a.y + (b.y - a.y) * k1);
+    }
+  }
+
+  /** Smoke clouds: soft grey puffs that drift and thin out at the end. Visual only; the sim
+   *  decides what the cloud blocks (SMOKE_RADIUS). */
+  private drawSmoke(s: GameState): void {
+    const g = this.smokeGfx.clear();
+    for (const c of s.smokes) {
+      const age = SMOKE_TIME - c.left;
+      const fade = Math.min(1, age / 0.6) * Math.min(1, c.left / 2);
+      for (let i = 0; i < 9; i++) {
+        // puffs on a fixed pattern per cloud, slowly drifting
+        const a = i * 2.4 + c.x * 1.7;
+        const r = (i % 3) * 0.55 + 0.35;
+        const x = c.x + Math.cos(a + age * 0.15) * r * (SMOKE_RADIUS / 2);
+        const y = c.y + Math.sin(a + age * 0.15) * r * (SMOKE_RADIUS / 2);
+        const p = toScreen(x, y, 14 + (i % 4) * 6);
+        g.fillStyle(0x8a9298, 0.32 * fade);
+        g.fillEllipse(p.x, p.y, 58, 40);
+        g.fillStyle(0xb4bbc0, 0.18 * fade);
+        g.fillEllipse(p.x - 4, p.y - 5, 34, 22);
+      }
+    }
+  }
+
   /** A searchlight: light, not a flat shape. Haze near the tower, a bright pool where it
    *  hits the ground, a brighter core down the middle; clipped by walls like a cone. A thin
    *  edge on the overlay keeps the area it sees exact (art rule 6). */
@@ -482,7 +714,7 @@ export class MapScene extends Phaser.Scene {
     for (let i = 0; i <= CONE_RAYS; i++) {
       const a = ang - TOWER_FOV / 2 + (TOWER_FOV * i) / CONE_RAYS;
       dirs.push(a);
-      rays.push(castRay(s.grid, at.x, at.y, a, TOWER_LEN));
+      rays.push(sightRay(s, at.x, at.y, a, TOWER_LEN));
     }
     const pt = (a: number, d: number): Point => toScreen(at.x + Math.cos(a) * d, at.y + Math.sin(a) * d);
     // brightness at a point: along the beam, faint haze rising to the pool near the far end
@@ -537,7 +769,7 @@ export class MapScene extends Phaser.Scene {
     const inner: Point[] = [toScreen(at.x, at.y)];
     for (let i = 0; i <= CONE_RAYS; i++) {
       const a = ang - fov / 2 + (fov * i) / CONE_RAYS;
-      const d = castRay(s.grid, at.x, at.y, a, len);
+      const d = sightRay(s, at.x, at.y, a, len);
       far.push(toScreen(at.x + Math.cos(a) * d, at.y + Math.sin(a) * d));
       if (near !== null) {
         const dn = Math.min(d, near);
@@ -616,7 +848,28 @@ export class MapScene extends Phaser.Scene {
     // silhouette only when most of him is covered: a low wall over the boots leaves him readable
     const depth = depthOf(u.x, u.y, u.crawl ? 2 : 13);
     const covered = this.unitArt.samples(u).filter((q) => isHidden([q], depth, this.occluders)).length;
-    this.unitArt.draw(u, t, covered >= 2, col);
+    this.unitArt.draw(u, t, covered >= 2, col, hidden(this.game$.state, u));
+  }
+
+  /** Placeholder hiding spots: a dark patch with low scrub, over the painting. Phase 4 paints
+   *  the real bushes and corners into the map art. */
+  private drawHides(s: GameState): void {
+    const g = this.hideGfx.clear();
+    for (const h of s.hides) {
+      for (let y = h.y0; y <= h.y1; y++) {
+        for (let x = h.x0; x <= h.x1; x++) {
+          g.fillStyle(0x05080a, 0.35);
+          g.fillPoints(poly(footprint(x, y)), true);
+          for (const [dx, dy, r] of [[0.3, 0.3, 7], [0.7, 0.4, 6], [0.45, 0.75, 8]] as const) {
+            const p = toScreen(x + dx, y + dy);
+            g.fillStyle(0x161f17, 0.9);
+            g.fillEllipse(p.x, p.y - 2, r * 2, r * 1.3);
+            g.fillStyle(0x26332a, 0.9);
+            g.fillEllipse(p.x - 1, p.y - 4, r * 1.3, r * 0.8);
+          }
+        }
+      }
+    }
   }
 
   private drawPlaceholderUnit(gr: Phaser.GameObjects.Graphics, u: Unit, col: number, selected: boolean): void {

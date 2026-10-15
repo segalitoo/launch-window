@@ -91,7 +91,7 @@ Keep this list current. Node 22 (`.nvmrc`); Vercel builds with Node 22.
 - Motion library: `/motion.html` on the dev server or any preview link shows every unit animation and interaction at game speed, under the night grade, with its source (motion capture clip or formula). Review animation changes there.
 - Edit the map: open `maps/night-lantern.tmj` in Tiled. Layers and object types are listed at the top of `src/sim/tiled.ts`. Save, and the dev server reloads it; `npm test` catches a broken map with a clear message.
 - `~/Downloads/Tiled.app/Contents/MacOS/tmxrasterizer maps/night-lantern.tmj /tmp/map.png` draw the map as Tiled sees it, without opening Tiled (Tiled 1.12.2 lives in ~/Downloads)
-- `python3 tools/editor_tiles.py` rebuild `maps/editor-tiles.png`, the colour squares Tiled shows (never used in the game)
+- `python3 tools/editor_tiles.py` rebuild `maps/editor-tiles.png` (tile 6 = fence, Phase 3), the colour squares Tiled shows (never used in the game)
 - `node tools/export-map.mjs` export the sim map to `assets/raw/blockout/map.json` for Blender
 - `/Applications/Blender.app/Contents/MacOS/Blender -b -P tools/blender/render_iso.py -- --map assets/raw/blockout/map.json --out assets/raw/blockout --name yard --region 11 20 25 30 --look B` render a map region through the iso camera (see the file header)
 - `/Applications/Blender.app/Contents/MacOS/Blender -b -P tools/blender/render_unit.py -- --unit yoav --out assets/raw/units/yoav` build, rig and render a unit (10 animations in 8 directions, 424 frames; about 3 min). The final drawn look (D3, `--look outline_pop`) is the default; `--look render` gives the plain render. After a run, check that `meta.json` is new: Blender sometimes crashes on launch without writing anything (docs/lessons.md)

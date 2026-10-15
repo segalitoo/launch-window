@@ -42,6 +42,52 @@ describe('Controller (tap rules from the prototype)', () => {
     expect(c.game.state.projectiles).toHaveLength(1);
   });
 
+  test('G selects Yoav and waits for a body to tie; the tap orders it and ends the mode', () => {
+    const c = new Controller(new Game());
+    const s = c.game.state;
+    c.select(1);
+    expect(c.key('g')).toBe(true);
+    expect(c.sel.id).toBe('shadow');
+    expect(c.mode).toBe('tie');
+    const body = s.guards[0]!;
+    body.state = 'down';
+    body.ko = 50;
+    c.tap(body.x, body.y, { ...none, body });
+    expect(c.sel.order?.type).toBe('tie');
+    expect(c.mode).toBe(null);
+  });
+
+  test('F aims the selected operator\'s gun at a tapped guard in range; a tap on nothing cancels', () => {
+    const c = new Controller(new Game());
+    const s = c.game.state;
+    const g = s.guards[1]!; // post at (12, 12)
+    const yoav = s.squad[0]!;
+    yoav.x = 11.5;
+    yoav.y = 12.5;
+    c.key('f');
+    expect(c.mode).toBe('fire');
+    c.tap(0, 0, none);
+    expect(c.mode).toBe(null);
+    c.key('f');
+    c.tap(g.x, g.y, { ...none, guard: g });
+    expect(yoav.order?.type).toBe('shoot');
+    expect(c.mode).toBe(null);
+  });
+
+  test('H toggles the silencer; V and B pick Noa for smoke and binoculars; U changes her clothes', () => {
+    const c = new Controller(new Game());
+    expect(c.sel.silenced).toBe(true);
+    c.key('h');
+    expect(c.sel.silenced).toBe(false);
+    c.key('v');
+    expect(c.sel.id).toBe('lure');
+    expect(c.mode).toBe('smoke');
+    c.key('b');
+    expect(c.mode).toBe('bino');
+    c.key('u');
+    expect(c.sel.order?.type).toBe('uniform');
+  });
+
   test('space pauses, keys 1 to 3 select', () => {
     const c = new Controller(new Game());
     c.key(' ');

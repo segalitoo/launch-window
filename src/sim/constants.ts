@@ -85,6 +85,52 @@ export const DUR_LAUNCHER = 3.5;
 export const UNIT_START_ANG = -Math.PI / 4;
 export const HIT_FLASH = 0.3;
 
+// Yoav's tools (Phase 3, decided with Ran). Not prototype values.
+/** A guard taken down with the knife wakes after this and raises the alarm, unless tied. The
+ *  plan's 60 s, stretched with the guard rhythm (PACE). */
+export const WAKE_TIME = wait(60);
+/** Kneeling to tie a downed guard, real seconds (work, like Itai's). */
+export const TIE_DUR = 2;
+
+// Guns (Phase 3, Ran): every operator can shoot, unlimited ammo, every shot that leaves hits.
+// Yoav and Noa carry carbines, Itai a shotgun (short, never misses). A loud shot raises the
+// alarm. A silencer can be fitted or taken off at any time: quiet (heard SILENCED_HEAR tiles
+// away), but half the range and a long aim standing still, so guards often see you first.
+export const CARBINE_RANGE = 8;
+export const SHOTGUN_RANGE = 3;
+export const SILENCED_RANGE = 0.5; // times the gun's range
+export const GUN_AIM = 0.5; // real seconds
+export const SILENCED_AIM = 2;
+export const SILENCED_HEAR = 2;
+
+// Noa's tools (Phase 3, decided with Ran). Not prototype values.
+/** Looking through the binoculars at a guard: real seconds; his route stays shown after. */
+export const BINO_TIME = 1;
+/** Smoke grenades: thrown like the decoy (DECOY_RANGE, THROW_FLIGHT). The cloud blocks all
+ *  sight through it, guards and searchlights. 8 s in the plan, stretched by PACE. */
+export const SMOKE_CHARGES = 2;
+export const SMOKE_RADIUS = 2;
+export const SMOKE_TIME = wait(8);
+/** Captured uniform: putting it on or off, real seconds; guards see through it within this
+ *  many tiles, or when she crawls, drags a body, or during an alarm. */
+export const UNIFORM_TIME = 2;
+export const UNIFORM_CLOSE = 1;
+
+// Itai's tools (Phase 3). Not prototype values; work times are real seconds, like his others.
+/** Cutting a hole in the outer fence. */
+export const DUR_FENCE = 2;
+/** Tripwires: the next guard who walks through is knocked out (wakes like a knife takedown). */
+export const WIRE_CHARGES = 2;
+export const WIRE_TIME = 2;
+/** Remote charge: planted at his feet, set off from anywhere. A diversion: guards within
+ *  BLAST_HEAR tiles come to look, anyone within BLAST_KILL is caught in it. No alarm. */
+export const REMOTE_CHARGES = 1;
+export const PLANT_TIME = 2;
+export const BLAST_HEAR = 10;
+export const BLAST_KILL = 1.5;
+/** Hit points an operator loses in his own blast. */
+export const BLAST_HURT = 2;
+
 // Guards
 export const SPEED_PATROL = move(40); // 40 px/s in the prototype
 export const SPEED_INVESTIGATE = move(62); // 62 px/s in the prototype
