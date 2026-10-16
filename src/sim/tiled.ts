@@ -14,6 +14,10 @@
 //            String prop role = officer makes an officer. Type dog (point; int prop handler =
 //            the guard it walks with, counted from 1 in layer order) is a dog.
 //   spawns   points of type unit named shadow | lure | sapper, and one rectangle of type lz.
+//            The mission needs all three; a test map may bring fewer.
+// Map properties: name; and for test maps (Phase 3) brief (one line: what it tests),
+// goal = exit (every operator into the rectangle of type exit, in the spawns layer),
+// strict (bool: any alarm fails the run), time (seconds on the clock).
 // Objects are stamped over the walls layer, so a door placed on a wall replaces it.
 
 import { PROTO_TILE_PX as T } from './constants';
@@ -47,9 +51,15 @@ export interface MissionMap {
   cameras: Camera[];
   launchers: Launcher[];
   guards: GuardDef[];
-  spawns: Record<UnitId, [number, number]>;
+  spawns: Partial<Record<UnitId, [number, number]>>;
   lz: TileRect;
   hides: TileRect[];
+  brief: string;
+  goal: 'mission' | 'exit';
+  exit: TileRect | null;
+  strict: boolean;
+  /** Seconds on the clock, if the map sets it. */
+  time: number | null;
 }
 
 interface TProp {
@@ -204,7 +214,8 @@ export function parseTiledMap(json: unknown): MissionMap {
     }
   }
   if (!generator) fail('needs a generator');
-  if (launchers.length === 0) fail('needs at least one launcher');
+  const isTest = (m.properties ?? []).some((p) => p.name === 'goal' && p.value === 'exit');
+  if (launchers.length === 0 && !isTest) fail('needs at least one launcher');
 
   for (const c of cameras) {
     if (cells[c.y * cols + c.x] !== '#') fail(`camera at (${c.x}, ${c.y}) must sit on a wall tile`);
@@ -249,6 +260,7 @@ export function parseTiledMap(json: unknown): MissionMap {
   // spawns
   const spawns: Partial<Record<UnitId, [number, number]>> = {};
   let lz: TileRect | null = null;
+  let exit: TileRect | null = null;
   for (const o of objects('spawns')) {
     if (kind(o) === 'unit') {
       if (!UNIT_IDS.includes(o.name as UnitId)) fail(`unit spawn name must be one of ${UNIT_IDS.join(', ')}, got "${o.name}"`);
@@ -256,14 +268,26 @@ export function parseTiledMap(json: unknown): MissionMap {
     } else if (kind(o) === 'lz') {
       const b = box(o);
       lz = { x0: b.x, y0: b.y, x1: b.x + b.w - 1, y1: b.y + b.h - 1 };
+    } else if (kind(o) === 'exit') {
+      const b = box(o);
+      exit = { x0: b.x, y0: b.y, x1: b.x + b.w - 1, y1: b.y + b.h - 1 };
     } else fail(`unknown spawn type "${kind(o)}" on "${o.name}" (id ${o.id})`);
   }
-  for (const id of UNIT_IDS) if (!spawns[id]) fail(`missing spawn for ${id}`);
+  const mp = Object.fromEntries((m.properties ?? []).map((p) => [p.name, p.value]));
+  const goal = mp.goal === 'exit' ? 'exit' : 'mission';
+  if (goal === 'mission') for (const id of UNIT_IDS) if (!spawns[id]) fail(`missing spawn for ${id}`);
+  if (!UNIT_IDS.some((id) => spawns[id])) fail('needs at least one unit spawn');
   if (!lz) fail('needs a landing zone (type lz)');
+  if (goal === 'exit' && !exit) fail('goal exit needs a rectangle of type exit in spawns');
 
-  const name = m.properties?.find((p) => p.name === 'name')?.value;
+  const name = mp.name;
   return {
     name: typeof name === 'string' ? name : 'Untitled',
+    brief: typeof mp.brief === 'string' ? mp.brief : '',
+    goal,
+    exit,
+    strict: mp.strict === true,
+    time: typeof mp.time === 'number' ? mp.time : null,
     cols,
     rows,
     cells,
@@ -275,7 +299,7 @@ export function parseTiledMap(json: unknown): MissionMap {
     cameras,
     launchers,
     guards,
-    spawns: spawns as Record<UnitId, [number, number]>,
+    spawns,
     lz: lz!,
     hides,
   };

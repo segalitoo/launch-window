@@ -2,7 +2,7 @@
 
 import { ALARM_TIME_SCALE, SMOKE_TIME } from './constants';
 import { clearAlarm, hearNoise, updateGuard } from './guards';
-import { checkWires, endGame, inLZ, updateCameras, updateTowers } from './mission';
+import { checkWires, endGame, inExit, inLZ, updateCameras, updateTowers } from './mission';
 import { updateUnit } from './squad';
 import type { GameState } from './types';
 
@@ -39,5 +39,7 @@ export function step(s: GameState, dt: number): void {
     if (!anySee) s.alarm.timer -= dt;
     if (s.alarm.timer <= 0) clearAlarm(s);
   }
-  if (s.aborted && s.squad.every((u) => u.alive && inLZ(s, u))) endGame(s, 'win');
+  if (s.goal === 'exit') {
+    if (s.squad.every((u) => u.alive && inExit(s, u))) endGame(s, 'win');
+  } else if (s.aborted && s.squad.every((u) => u.alive && inLZ(s, u))) endGame(s, 'win');
 }

@@ -121,18 +121,20 @@ export function buildMission(seed = 1, map: MissionMap = NIGHT_LANTERN): GameSta
   grid.cells = [...map.cells];
   grid.deco = map.deco.slice();
 
-  const unit = (id: UnitId, o: Omit<Parameters<typeof makeUnit>[0], 'id'>): Unit =>
-    makeUnit({ id, ...o }, ...map.spawns[id]);
+  const unit = (id: UnitId, o: Omit<Parameters<typeof makeUnit>[0], 'id'>): Unit | null => {
+    const at = map.spawns[id];
+    return at ? makeUnit({ id, ...o }, ...at) : null;
+  };
   const squad: Unit[] = [
     unit('shadow', { name: 'Yoav', call: 'Shadow', color: '#6cc4ff', speed: SPEED_SHADOW }),
     unit('lure', { name: 'Noa', call: 'Lure', color: '#8ef0d0', speed: SPEED_LURE, charges: DECOY_CHARGES, smokes: SMOKE_CHARGES }),
     unit('sapper', { name: 'Itai', call: 'Sapper', color: '#c9b8ff', speed: SPEED_SAPPER, wires: WIRE_CHARGES, remotes: REMOTE_CHARGES }),
-  ];
+  ].filter((u): u is Unit => u !== null);
 
   // copies: the state mutates these during play, the parsed map must stay clean
   return {
     t: 0,
-    timeLeft: TIME_LIMIT,
+    timeLeft: map.time ?? TIME_LIMIT,
     over: null,
     aborted: false,
     grid,
@@ -143,6 +145,9 @@ export function buildMission(seed = 1, map: MissionMap = NIGHT_LANTERN): GameSta
     cameras: map.cameras.map((c) => ({ ...c })),
     launchers: map.launchers.map((l) => ({ ...l })),
     lz: { ...map.lz },
+    goal: map.goal,
+    exit: map.exit ? { ...map.exit } : null,
+    strict: map.strict,
     hides: map.hides.map((h) => ({ ...h })),
     guards: map.guards.map(makeGuard),
     squad,

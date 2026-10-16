@@ -6,6 +6,7 @@
 import type { GameState, SimEvent, Unit, UnitId } from '@/sim';
 import type { Controller } from '@/render/controller';
 import { packOf } from './backpack';
+import { PlayLog } from './playlog';
 
 const fmt = (sec: number): string => {
   const s = Math.max(0, Math.ceil(sec));
@@ -16,7 +17,10 @@ const END_TEXT = {
   win: 'Launch aborted. Mission complete.',
   launch: 'Missiles launched. Mission failed.',
   down: 'Operator down. Mission failed.',
+  spotted: 'Spotted. An alarm fails this test.',
 } as const;
+/** Test maps (Phase 3): reach the exit, no alarm. */
+const TEST_END_TEXT = { ...END_TEXT, win: 'Through, no alarm. Test passed.', launch: 'Out of time. Test failed.' } as const;
 
 /** Touch bar, the orders every operator has: [id, key it presses, label]. Each operator's own
  *  tools are in the backpack above it (src/ui/backpack.ts). */
@@ -41,24 +45,47 @@ export class Hud {
   private last = '';
 
   /** `press` sends a key to the scene, the same path as the keyboard. */
-  constructor(root: HTMLElement, press: (key: string) => void) {
+  constructor(root: HTMLElement, press: (key: string) => void, test?: { name: string; brief: string; who: string }) {
+    const esc = (t: string): string => t.replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
     root.insertAdjacentHTML(
       'beforeend',
       `<div class="hud">
         <div class="status" id="status"></div>
+        ${test ? `<div class="brief"><b>Test · ${esc(test.who)}: ${esc(test.name)}.</b> ${esc(test.brief)} Reach the exit, no alarm. <a href="tests.html">All tests</a></div>` : ''}
         <div class="toasts" id="toasts" aria-live="polite"></div>
         <p class="hint">Tap a unit to select (1 2 3). Tap the map to move. Tap a guard: Yoav takes him down.
         <span class="keys">C crawl · F fire · H silencer · X drop body · S stop · Space pause · tools in the backpack below, with their keys · Itai: tap the fence to cut it · drag to pan, scroll or pinch to zoom.</span>
         <span class="touch-keys">Drag to pan, pinch to zoom.</span></p>
         <nav class="pack" aria-label="Backpack"></nav>
         <nav class="bar" aria-label="Orders">${BAR.map(([id, , label]) => `<button type="button" data-id="${id}">${label}</button>`).join('')}</nav>
-        <button type="button" class="end" id="end" hidden></button>
+        <div class="end" id="end" hidden>
+          <button type="button" class="restart"></button>
+          <div class="log-actions">
+            <button type="button" class="copy-one">Copy play log</button>
+            <button type="button" class="copy-all"></button>
+          </div>
+        </div>
       </div>`,
     );
     this.status = root.querySelector('#status')!;
     this.toasts = root.querySelector('#toasts')!;
     this.end = root.querySelector('#end')!;
-    this.end.addEventListener('click', () => press('r'));
+    this.restart = this.end.querySelector('.restart')!;
+    this.restart.addEventListener('click', () => press('r'));
+    this.log = new PlayLog(test?.name ?? 'Operation Night Lantern');
+    const copy = (btn: HTMLButtonElement, text: () => string): void => {
+      btn.addEventListener('click', () => {
+        const label = btn.textContent;
+        navigator.clipboard
+          .writeText(text())
+          .then(() => (btn.textContent = 'Copied'))
+          .catch(() => (btn.textContent = 'Copy failed'))
+          .finally(() => setTimeout(() => (btn.textContent = label), 1500));
+      });
+    };
+    copy(this.end.querySelector('.copy-one')!, () => this.log.last ?? '');
+    this.copyAll = this.end.querySelector('.copy-all')!;
+    copy(this.copyAll, () => PlayLog.all().join('\n\n'));
     this.pack = root.querySelector('.pack')!;
     this.press = press;
     for (const [id, key] of BAR) {
@@ -73,6 +100,9 @@ export class Hud {
   }
 
   private press: (key: string) => void;
+  private restart: HTMLButtonElement;
+  private copyAll: HTMLButtonElement;
+  private log: PlayLog;
 
   /** Builds the backpack of the selected operator (on selection). Its state updates every frame. */
   private buildPack(sel: Unit, c: Controller): void {
@@ -96,7 +126,8 @@ export class Hud {
     }
   }
 
-  onEvents(events: SimEvent[]): void {
+  onEvents(events: SimEvent[], s: GameState): void {
+    this.log.onEvents(events, s);
     for (const e of events) {
       if (e.type === 'message') this.toast(e.msg, e.kind);
       else if (e.type === 'noise') this.toast(e.heard ? `${e.heard} guard${e.heard > 1 ? 's' : ''} heard it` : 'Nobody heard it', '');
@@ -104,12 +135,13 @@ export class Hud {
   }
 
   onFrame(s: GameState, c: Controller): void {
+    this.log.onFrame(s);
     const sel = c.sel;
     const rigged = s.launchers.filter((l) => l.done).length;
     const parts = [
       s.aborted ? 'LAUNCH ABORTED' : `T-${fmt(s.timeLeft)}`,
       s.alarm.active ? 'ALARM ×2' : 'quiet',
-      `launchers ${rigged}/3`,
+      s.goal === 'exit' ? 'goal: everyone to the exit' : `launchers ${rigged}/${s.launchers.length}`,
       `power ${s.generator.on ? 'on' : 'cut'}`,
       `${sel.name}${sel.crawl ? ' (crawl)' : ''}${sel.carrying ? ' (dragging)' : ''}${sel.disguised ? ' · in uniform' : ''}${sel.remote ? ' · charge planted' : ''} · ${sel.silenced ? 'silenced' : 'LOUD'}`,
       c.throwMode ? 'THROW: tap a spot' : '',
@@ -144,8 +176,12 @@ export class Hud {
     on('pause', c.paused);
     this.buttons.get('drop')!.disabled = !sel.carrying;
     const over = s.over;
+    if (this.end.hidden === !over) return;
     this.end.hidden = !over;
-    if (over) this.end.textContent = `${END_TEXT[over]}  Tap or press R to restart.`;
+    if (over) {
+      this.restart.textContent = `${(s.goal === 'exit' ? TEST_END_TEXT : END_TEXT)[over]}  Tap or press R to restart.`;
+      this.copyAll.textContent = `Copy all runs (${PlayLog.all().length})`;
+    }
   }
 
   private toast(msg: string, kind: string): void {

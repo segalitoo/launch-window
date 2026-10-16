@@ -2,6 +2,7 @@
 
 import { FIXED_DT } from './constants';
 import { buildMission } from './map';
+import type { MissionMap } from './tiled';
 import { step } from './step';
 import type { GameState, SimEvent } from './types';
 
@@ -11,8 +12,8 @@ export class Game {
   state: GameState;
   private acc = 0;
 
-  constructor(seed = 1) {
-    this.state = buildMission(seed);
+  constructor(seed = 1, map?: MissionMap) {
+    this.state = buildMission(seed, map);
   }
 
   /** Runs exactly one fixed step. */

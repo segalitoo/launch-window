@@ -33,6 +33,6 @@ export {
   toggleCrawl,
 } from './squad';
 export type { FireResult, ThrowResult } from './squad';
-export { inLZ } from './mission';
+export { inExit, inLZ } from './mission';
 export { random, mulberry32 } from './rng';
 export { angDiff, center, dist, tileOf } from './math';

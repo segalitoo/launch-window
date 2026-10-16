@@ -2,6 +2,7 @@
 
 import { PACE } from './constants';
 import { Game } from './game';
+import type { MissionMap } from './tiled';
 import type { GameState, Guard, Unit, UnitId } from './types';
 
 export class Script {
@@ -9,8 +10,8 @@ export class Script {
   readonly s: GameState;
   readonly log: string[] = [];
 
-  constructor(seed = 1) {
-    this.game = new Game(seed);
+  constructor(seed = 1, map?: MissionMap) {
+    this.game = new Game(seed, map);
     this.s = this.game.state;
   }
 
@@ -45,6 +46,14 @@ export class Script {
   /** Steps until `done`. Throws with a readable reason when it times out. */
   until(label: string, done: (s: GameState) => boolean, maxSeconds: number): void {
     const ok = this.game.runUntil(done, maxSeconds / PACE);
+    this.collect();
+    if (!ok) throw new Error(`timed out: ${label} at t=${this.s.t.toFixed(2)}\n${this.log.slice(-8).join('\n')}`);
+    this.log.push(`t=${this.s.t.toFixed(2)} ${label}`);
+  }
+
+  /** Like until, but in real sim seconds (test maps are tuned in real time). */
+  wait(label: string, done: (s: GameState) => boolean, maxSeconds: number): void {
+    const ok = this.game.runUntil(done, maxSeconds);
     this.collect();
     if (!ok) throw new Error(`timed out: ${label} at t=${this.s.t.toFixed(2)}\n${this.log.slice(-8).join('\n')}`);
     this.log.push(`t=${this.s.t.toFixed(2)} ${label}`);
