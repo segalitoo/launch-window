@@ -172,8 +172,8 @@ Every area passes five layers in order: ground, structures, props, night light, 
 | --- | --- | --- | --- | --- |
 | 1 | Generator yard | Yard walls, gate door, generator, crates | 2 | Done |
 | 2 | Desert approach and LZ | Sand, scrub, rocks, road, helipad | 4 | Done (option A, gravel plain) |
-| 3 | Perimeter wall and main gate | Wall run, gate, gate posts | 4 | Not started |
-| 4 | Courtyard | Barracks, motor pool, crates, searchlight tower | 4 | Not started |
+| 3 | Perimeter wall and main gate | Wall run, gate, gate posts | 4 | Folded into neighbours (Ran, 23 Oct): west wall and gate with the desert, north wall with the courtyard, the rest with areas 5 and 6 |
+| 4 | Courtyard | Barracks, motor pool, crates, searchlight tower, north wall | 4 | Done (option B, concrete aprons) |
 | 5 | South strip | Wall side, second tower, crate stack | 4 | Not started |
 | 6 | Launch compound | Concrete slab, inner walls, steel door, 3 launcher trucks | 4 | Not started |
 

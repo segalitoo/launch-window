@@ -72,7 +72,7 @@ const CAM_HEIGHT = 30;
 const UNIT_GRADE = [0.62, 0.68, 0.82] as const;
 const MAP_TOP_MARGIN = 80; // room for tall blocks on the back row
 /** Painted areas, in draw order: a later one fades in over an earlier one where they meet. */
-const PAINTED_AREAS = ['desert_n', 'desert_s', 'yard'];
+const PAINTED_AREAS = ['desert_n', 'desert_s', 'court', 'yard'];
 /** A test map's exit zone: pale, apart from the green landing zone and the amber threats. */
 const EXIT_COLOR = 0xece4d3;
 
