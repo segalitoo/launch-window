@@ -130,6 +130,8 @@ export class MapScene extends Phaser.Scene {
   /** Until the player pans or zooms, every resize refits the whole map. */
   private userMoved = false;
   private painted: PaintedArea[] = [];
+  /** Tiles drawn as placeholder blocks ("x,y"): none should fall inside a painted area. */
+  placeholderTiles: string[] = [];
   /** Sim time the generator went off (null = power on), for the lamps' stutter. */
   private powerCutAt: number | null = null;
   private occluders: Occluder[] = [];
@@ -422,6 +424,7 @@ export class MapScene extends Phaser.Scene {
 
     for (const b of this.blocks) b.destroy();
     this.blocks = [];
+    this.placeholderTiles = [];
     for (const p of this.painted) p.syncDoors((x, y) => s.doors.some((d) => d.x === x && d.y === y && d.open));
     this.occluders = this.painted.flatMap((p) => p.occluders);
     for (let y = 0; y < rows; y++) {
@@ -440,6 +443,7 @@ export class MapScene extends Phaser.Scene {
           const l = s.launchers.find((l) => x >= l.x && x < l.x + l.w && y === l.y);
           if (l?.done) style = { ...style, color: 0x5d8a62 };
         }
+        this.placeholderTiles.push(`${x},${y}`);
         const gr = this.add.graphics();
         this.drawBlock(gr, x + style.inset, y + style.inset, 1 - 2 * style.inset, 1 - 2 * style.inset, style.height, night(style.color));
         gr.setDepth(depthOf(x + 0.5, y + 0.5, style.height));
@@ -958,13 +962,14 @@ export class MapScene extends Phaser.Scene {
     this.unitArt.draw(u, t, covered >= 2, col, hidden(this.game$.state, u));
   }
 
-  /** Placeholder hiding spots: a dark patch with low scrub, over the painting. Phase 4 paints
-   *  the real bushes and corners into the map art. */
+  /** Placeholder hiding spots: a dark patch with low scrub. Not on painted ground: there the
+   *  painting has the real bushes and corners, and the patch would smudge them. */
   private drawHides(s: GameState): void {
     const g = this.hideGfx.clear();
     for (const h of s.hides) {
       for (let y = h.y0; y <= h.y1; y++) {
         for (let x = h.x0; x <= h.x1; x++) {
+          if (this.painted.some((p) => p.coversTile(x, y))) continue;
           g.fillStyle(0x05080a, 0.35);
           g.fillPoints(poly(footprint(x, y)), true);
           for (const [dx, dy, r] of [[0.3, 0.3, 7], [0.7, 0.4, 6], [0.45, 0.75, 8]] as const) {

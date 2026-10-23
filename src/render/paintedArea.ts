@@ -31,6 +31,8 @@ interface Manifest {
    *  (west, north, east, south). With a fade the painting is clipped by <name>_mask.png. */
   region?: [number, number, number, number];
   fade?: [number, number, number, number];
+  /** Faded image border, painting px (default FEATHER; thinner for areas with a region mask). */
+  feather?: number;
 }
 
 /** Which tiles an area may draw structures for: the area drawn on top owns a tile. */
@@ -127,6 +129,7 @@ export class PaintedArea {
     // 1. light canvases: night tint everywhere; the lit one has the warm lamp pools on top.
     //    The lamps run on the generator, so the area is built both ways (setLamps fades).
     const day = scene.textures.get(`${name}_day`).getSourceImage() as HTMLImageElement;
+    const FE = m.feather ?? FEATHER;
     const mask = m.fade && scene.textures.exists(`${name}_mask`)
       ? (scene.textures.get(`${name}_mask`).getSourceImage() as HTMLImageElement)
       : null;
@@ -163,10 +166,10 @@ export class PaintedArea {
       // fade the painting's rectangle into the placeholder map around it
       bc.globalCompositeOperation = 'destination-out';
       const sides: [number, number, number, number][] = [
-        [0, 0, FEATHER, 0], // left: gradient from x=0 to x=FEATHER
-        [W, 0, W - FEATHER, 0],
-        [0, 0, 0, FEATHER],
-        [0, H, 0, H - FEATHER],
+        [0, 0, FE, 0], // left: gradient from x=0 to x=FE
+        [W, 0, W - FE, 0],
+        [0, 0, 0, FE],
+        [0, H, 0, H - FE],
       ];
       // (with a region mask too: a region can reach past the painting's own edge)
       for (const [x0, y0, x1, y1] of sides) {
@@ -237,7 +240,7 @@ export class PaintedArea {
     const alpha = pc.getImageData(0, 0, AW, AH).data;
 
     const inside = (f: Frame): boolean =>
-      (!mask || owns(f.x, f.y)) && f.sx >= FEATHER && f.sy >= FEATHER && f.sx + f.w <= W - FEATHER && f.sy + f.h <= H - FEATHER;
+      (!mask || owns(f.x, f.y)) && f.sx >= FE && f.sy >= FE && f.sx + f.w <= W - FE && f.sy + f.h <= H - FE;
     for (const f of m.frames) {
       if (!inside(f)) continue;
       const wx = ox + f.sx / ss;
@@ -299,7 +302,7 @@ export class PaintedArea {
       const f = this.manifest.fade!;
       if (!(tx >= r[0] + f[0] && ty >= r[1] + f[1] && tx + 1 <= r[2] + 1 - f[2] && ty + 1 <= r[3] + 1 - f[3])) return false;
     }
-    const f = FEATHER / this.manifest.supersample;
+    const f = (this.manifest.feather ?? FEATHER) / this.manifest.supersample;
     const r = { x: this.rect.x + f, y: this.rect.y + f, w: this.rect.w - 2 * f, h: this.rect.h - 2 * f };
     const corners = [
       [tx, ty],

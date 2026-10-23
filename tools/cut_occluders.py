@@ -37,13 +37,19 @@ sys.path.insert(0, os.path.dirname(__file__))
 import grade_night as gn  # noqa: E402
 
 ATLAS_W = 2048
+FEATHER = 48  # the engine's faded image border, painting px (src/render/paintedArea.ts)
+# With a region mask the mask does the blending and the image edge lies outside the region
+# (plates rendered with --fit), so only a thin border is faded; stored in the manifest.
+FEATHER_MASKED = 16
 GROW_PX = 2  # mask grows 2 px at 2x (1 px at 100% zoom), so no sliver of a hidden unit shows at wall edges
 PAD = 2
 
 
 def region_mask(manifest, fade):
     """Alpha of the painting by ground tile: 1 inside the region, fading to 0 over `fade`
-    tiles (west, north, east, south) at its edges. Half size, like the light map."""
+    tiles (west, north, east, south) at its edges. Half size, like the light map.
+    The value is in the alpha channel: the engine clips with canvas 'destination-in', which
+    reads alpha only (a plain greyscale PNG is opaque everywhere and clips nothing)."""
     W, H = manifest["size"]
     ss = manifest["supersample"]
     ox, oy = manifest["origin_px"]
@@ -58,13 +64,16 @@ def region_mask(manifest, fade):
     for d, f in ((tx - x0, fade[0]), (ty - y0, fade[1]), (x1 + 1 - tx, fade[2]), (y1 + 1 - ty, fade[3])):
         a = np.minimum(a, np.clip(d / f, 0, 1) if f > 0 else (d >= 0).astype(np.float32))
     a = a * a * (3 - 2 * a)  # smoothstep: no hard line where the fade starts
-    return Image.fromarray((a * 255).astype(np.uint8))
+    alpha = Image.fromarray((a * 255).astype(np.uint8))
+    return Image.merge("LA", (Image.new("L", alpha.size, 255), alpha))
 
 
-def mask_only(name, fade):
+def mask_only(name, fade, region=None):
     out = os.path.join("assets/build", name)
     mp = os.path.join(out, f"{name}.json")
     manifest = json.load(open(mp))
+    if region:
+        manifest["region"] = region
     manifest["fade"] = fade
     region_mask(manifest, fade).save(os.path.join(out, f"{name}_mask.png"), optimize=True)
     json.dump(manifest, open(mp, "w"))
@@ -85,7 +94,7 @@ def main():
         del args[i : i + 5]
     if "--mask-only" in args:
         args.remove("--mask-only")
-        return mask_only(args[0], fade)
+        return mask_only(args[0], fade, region)
     name, meta_path, id_path, paint_path = args[:4]
     out = os.path.join("assets/build", name)
     os.makedirs(out, exist_ok=True)
@@ -97,6 +106,20 @@ def main():
     ss = plate["supersample"]
     origin = [plate["origin_px"][0], plate["origin_px"][1] - crop["top"]]
 
+    if fade is not None:
+        # every tile the area owns must lie inside the painting's unfaded part (the engine
+        # feathers the image edge by FEATHER px): else the placeholder shows through
+        x0, y0, x1, y1 = plate["region"]
+        cols, rows = 46, 30  # outside the map nothing is drawn
+        bad = []
+        for cx, cy in ((x0, y0), (x1 + 1, y0), (x1 + 1, y1 + 1), (x0, y1 + 1)):
+            cx, cy = min(cx, cols), min(cy, rows)
+            px = origin[0] + (cx - cy) * 32 * ss
+            py = origin[1] + (cx + cy) * 16 * ss
+            if not (FEATHER_MASKED <= px <= W - FEATHER_MASKED and FEATHER_MASKED <= py <= H - FEATHER_MASKED):
+                bad.append((cx, cy, round(px), round(py)))
+        if bad:
+            sys.exit(f"{name}: region corners outside the painting's unfaded part (tile x, y, px): {bad}. Render the plate with --fit.")
     paint = Image.open(paint_path).convert("RGB").resize((W, H), Image.LANCZOS)
     paint.save(os.path.join(out, f"{name}_day.jpg"), quality=92)
 
@@ -164,6 +187,7 @@ def main():
     }
     if fade is not None:
         manifest["fade"] = fade
+        manifest["feather"] = FEATHER_MASKED
         region_mask(manifest, fade).save(os.path.join(out, f"{name}_mask.png"), optimize=True)
     json.dump(manifest, open(os.path.join(out, f"{name}.json"), "w"))
     doors = os.path.join(out, f"{name}_doors.json")

@@ -472,13 +472,24 @@ def setup_light(L):
     bpy.context.scene.world = world
 
 
-def setup_camera(region, top_px, supersample):
+def setup_camera(region, top_px, supersample, fit=0):
     x0, y0, x1, y1 = region
     scene = bpy.context.scene
     T = TILE_M
     # image size in px at 100% zoom: the region's iso diamond plus headroom for tall things
     w_px = ((x1 - x0) + (y1 - y0)) * TILE_PX_W / 2
     h_px = ((x1 - x0) + (y1 - y0)) * TILE_PX_W / 4 + top_px
+    if fit:
+        # Phase 4: the whole inclusive region plus `fit` tiles of margin on every side, at
+        # 16:9 so nothing is cropped: the painting must cover every tile it owns
+        span = (x1 - x0 + 1) + (y1 - y0 + 1) + 2 * fit
+        w_px = span * TILE_PX_W / 2
+        h_px = span * TILE_PX_W / 4 + top_px
+        if w_px / h_px < 16 / 9:
+            w_px = h_px * 16 / 9
+        else:
+            h_px = w_px * 9 / 16
+        w_px, h_px = round(w_px / 8) * 8, round(h_px / 8) * 8
     cam_data = bpy.data.cameras.new("cam")
     cam_data.type = "ORTHO"
     # px per metre in the view plane: a tile's diagonal (T * sqrt2 m) is TILE_PX_W px wide
@@ -488,7 +499,7 @@ def setup_camera(region, top_px, supersample):
     scene.collection.objects.link(cam)
     scene.camera = cam
     # look at the region centre, shifted up by half the headroom so tall things fit
-    centre = sim_to_world((x0 + x1) / 2, (y0 + y1) / 2)
+    centre = sim_to_world((x0 + x1 + 1) / 2, (y0 + y1 + 1) / 2) if fit else sim_to_world((x0 + x1) / 2, (y0 + y1) / 2)
     view_dir = Vector((-math.sin(CAM_TILT) / math.sqrt(2), math.sin(CAM_TILT) / math.sqrt(2), -math.cos(CAM_TILT)))
     cam.location = centre - view_dir * 200
     cam.rotation_euler = view_dir.to_track_quat("-Z", "Y").to_euler()
@@ -600,7 +611,8 @@ def setup_id_pass():
         if ob.type != "MESH":
             continue
         ob.data.materials.clear()
-        ob.data.materials.append(black if ob.name.startswith("ground") else tid)
+        # flat guides lie on the ground: an occluder piece there would cover units behind it
+        ob.data.materials.append(black if ob.name.startswith(("ground", "lz_")) else tid)
     for ob in list(scene.objects):
         if ob.type == "LIGHT":
             bpy.data.objects.remove(ob)
@@ -623,6 +635,7 @@ def main():
     ap.add_argument("--name", default="region")
     ap.add_argument("--region", type=int, nargs=4, required=True, metavar=("X0", "Y0", "X1", "Y1"))
     ap.add_argument("--look", default="B", choices=sorted(LOOKS))
+    ap.add_argument("--fit", type=int, default=0, help="frame the whole region plus this many tiles of margin, at 16:9 (Phase 4)")
     ap.add_argument("--top", type=int, default=96, help="px of headroom above the region for tall objects")
     ap.add_argument("--supersample", type=int, default=2)
     ap.add_argument("--samples", type=int, default=96)
@@ -640,7 +653,7 @@ def main():
     WALL_H = a.wall_h
     info = build(md, region, a.look, figures=not a.no_figures, margin=a.margin)
     setup_light(L)
-    cam = setup_camera(region, a.top, a.supersample)
+    cam = setup_camera(region, a.top, a.supersample, a.fit)
     setup_render(a.look, a.samples)
     if a.id_pass:
         setup_id_pass()
@@ -670,6 +683,8 @@ def main():
         "figure_h_m": FIGURE_H,
         "wall_h_m": WALL_H,
     }
+    if a.fit:  # already 16:9: the painting covers the whole frame
+        meta["crop_16x9"] = {"top": 0, "size": [scene.render.resolution_x, scene.render.resolution_y]}
     if not a.id_pass:  # an ID pass shares the lit render's camera; keep its sidecar untouched
         with open(os.path.join(a.out, f"{stem}.json"), "w") as f:
             json.dump(meta, f, indent=2)
