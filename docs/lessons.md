@@ -30,3 +30,10 @@ Project-specific lessons. General rules go to `~/.claude/lessons/creative-projec
 
 - Blender 5.2 headless sometimes crashes on its first launch while compiling GPU (Metal) kernels, and writes no frames and no error you would grep for (an NSException at the end of the log). Hit three times in Phase 2. After every render, check that `meta.json` exists and the frame count is right; on a miss, run it again (a loop of up to 3 tries is enough).
 - Keep session branch names short: Vercel's branch link is `launch-window-git-<branch>-segalitoo-8173s-projects.vercel.app`, and a DNS label over 63 characters gets cut and hashed, so the link I hand out does not resolve (hit with `session/08-yoav-tools`). The branch part must stay at 18 characters or fewer, for example `session/09-noa`. When in doubt, take the deployment's own address from GitHub: `gh api repos/segalitoo/launch-window/deployments/<id>/statuses`.
+
+## Session 14: desert and LZ (23 Oct 2026)
+
+- **Canvas clips read alpha only.** The region masks were greyscale PNGs, so `destination-in` saw them as fully opaque and clipped nothing: the south painting drew its scrub field over the north area, and that was most of what Ran called faded and not real. Masks now carry the value in alpha (LA PNG).
+- **Check each painted layer alone in the engine.** Files on disk looked right; only `renderer.snapshot()` with one area visible at a time showed which layer drew what. Do this before calling a seam fixed.
+- **Flat guides must be black in the ID pass.** The LZ pad got a tile ID, so 32 pad pieces became occluders that would hide units walking behind them. Anything lying on the ground (road, pad) is not an occluder.
+- **Placeholder markers go off on painted ground.** The dark hide patches drawn over the painted scrub smudged it. The painting carries the hiding spot.

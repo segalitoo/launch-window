@@ -71,7 +71,8 @@ const CAM_HEIGHT = 30;
 /** Night grade for units, lighter than the environment's (visual language 6b). */
 const UNIT_GRADE = [0.62, 0.68, 0.82] as const;
 const MAP_TOP_MARGIN = 80; // room for tall blocks on the back row
-const PAINTED_AREAS = ['yard'];
+/** Painted areas, in draw order: a later one fades in over an earlier one where they meet. */
+const PAINTED_AREAS = ['desert_n', 'desert_s', 'yard'];
 /** A test map's exit zone: pale, apart from the green landing zone and the amber threats. */
 const EXIT_COLOR = 0xece4d3;
 
@@ -127,6 +128,8 @@ export class MapScene extends Phaser.Scene {
   /** Until the player pans or zooms, every resize refits the whole map. */
   private userMoved = false;
   private painted: PaintedArea[] = [];
+  /** Tiles drawn as placeholder blocks ("x,y"): none should fall inside a painted area. */
+  placeholderTiles: string[] = [];
   /** Sim time the generator went off (null = power on), for the lamps' stutter. */
   private powerCutAt: number | null = null;
   private occluders: Occluder[] = [];
@@ -156,7 +159,13 @@ export class MapScene extends Phaser.Scene {
     this.newGame();
     this.ground = this.add.graphics().setDepth(-OVERLAY_DEPTH);
     const { cols, rows } = this.game$.state.grid;
-    this.painted = this.areas.map((name) => new PaintedArea(this, name, -OVERLAY_DEPTH + 1, cols, rows));
+    // the area drawn later owns a tile it shares with one under it (Phase 4 overlaps)
+    const regions = this.areas.map((name) => (this.cache.json.get(`${name}_meta`) as { region?: number[] }).region);
+    const inside = (r: number[] | undefined, x: number, y: number): boolean => !!r && x >= r[0]! && x <= r[2]! && y >= r[1]! && y <= r[3]!;
+    this.painted = this.areas.map(
+      (name, i) =>
+        new PaintedArea(this, name, -OVERLAY_DEPTH + 1, cols, rows, (x, y) => inside(regions[i], x, y) && !regions.slice(i + 1).some((r) => inside(r, x, y))),
+    );
     this.overlay = this.add.graphics().setDepth(OVERLAY_DEPTH);
     this.beams = this.add.graphics().setDepth(OVERLAY_DEPTH - 2).setBlendMode(Phaser.BlendModes.ADD);
     this.unitArt = new UnitSprites(this, toTintHex(UNIT_GRADE), OVERLAY_DEPTH - 1);
@@ -413,6 +422,7 @@ export class MapScene extends Phaser.Scene {
 
     for (const b of this.blocks) b.destroy();
     this.blocks = [];
+    this.placeholderTiles = [];
     for (const p of this.painted) p.syncDoors((x, y) => s.doors.some((d) => d.x === x && d.y === y && d.open));
     this.occluders = this.painted.flatMap((p) => p.occluders);
     for (let y = 0; y < rows; y++) {
@@ -431,6 +441,7 @@ export class MapScene extends Phaser.Scene {
           const l = s.launchers.find((l) => x >= l.x && x < l.x + l.w && y === l.y);
           if (l?.done) style = { ...style, color: 0x5d8a62 };
         }
+        this.placeholderTiles.push(`${x},${y}`);
         const gr = this.add.graphics();
         this.drawBlock(gr, x + style.inset, y + style.inset, 1 - 2 * style.inset, 1 - 2 * style.inset, style.height, night(style.color));
         gr.setDepth(depthOf(x + 0.5, y + 0.5, style.height));
@@ -949,13 +960,14 @@ export class MapScene extends Phaser.Scene {
     this.unitArt.draw(u, t, covered >= 2, col, hidden(this.game$.state, u));
   }
 
-  /** Placeholder hiding spots: a dark patch with low scrub, over the painting. Phase 4 paints
-   *  the real bushes and corners into the map art. */
+  /** Placeholder hiding spots: a dark patch with low scrub. Not on painted ground: there the
+   *  painting has the real bushes and corners, and the patch would smudge them. */
   private drawHides(s: GameState): void {
     const g = this.hideGfx.clear();
     for (const h of s.hides) {
       for (let y = h.y0; y <= h.y1; y++) {
         for (let x = h.x0; x <= h.x1; x++) {
+          if (this.painted.some((p) => p.coversTile(x, y))) continue;
           g.fillStyle(0x05080a, 0.35);
           g.fillPoints(poly(footprint(x, y)), true);
           for (const [dx, dy, r] of [[0.3, 0.3, 7], [0.7, 0.4, 6], [0.45, 0.75, 8]] as const) {
