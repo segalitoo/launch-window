@@ -39,3 +39,10 @@ Style: the same detailed digital painting as the second image, visible but contr
 - **A · Gravel plain:** `- Open ground: pale grey-khaki desert sand and gravel, small stones, faint tyre tracks, sparse tufts of dry grass, as in the second image.`
 - **B · Scrub and wadi:** `- Open ground: pale grey-khaki gravel desert crossed by a shallow dry stream bed with rounded pebbles, scattered low flat rocks lying flush with the ground and small dry grass tufts, no bushes besides the scrub clumps.`
 - **C · Wind-blown sand:** `- Open ground: pale grey-khaki sand with soft wind ripples and low drifts piled against the walls and the scrub, a few half-buried stones, very little vegetation besides the scrub clumps.`
+
+## Result
+
+Ran picked **A · Gravel plain** (23 Oct 2026): `DESERT-02A_n_3_2k.jpg` (north) and
+`DESERT-02A_s_2_2k.jpg` (south), built as `assets/build/desert_n` and `desert_s`:
+`python3 tools/cut_occluders.py desert_n assets/raw/blockout/desert_n_B_plate.json assets/raw/blockout/desert_n_B_plate_id.png assets/raw/gen/DESERT-02A_n_3_2k.jpg --fade 0 0 0 0`
+`python3 tools/cut_occluders.py desert_s assets/raw/blockout/desert_s_B_plate.json assets/raw/blockout/desert_s_B_plate_id.png assets/raw/gen/DESERT-02A_s_2_2k.jpg --fade 0 1 0 0`
