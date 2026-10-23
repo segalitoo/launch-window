@@ -141,7 +141,7 @@ About 144 hours. Re-plan at each gate.
 - [x] Officer, dog, camera (officer look A and dog coat A shown to Ran as OFFICER-01 and DOG-01)
 - [x] Backpack inventory panel, placeholder art (replaces the tool row on every screen: line icons, counts, keys; used-up items stay greyed with 0; Ran, Phase 3)
 - [x] A small test map per tool: 9 puzzles (knife, hide, decoy, smoke, uniform, fence, charge, dog, camera) at tests.html, each strict (any alarm fails), solved by script with no alarm; the straight walk gets caught
-- [ ] Rebalance the main mission and timer from Ran's play logs (copy from the end screen)
+- [ ] Rebalance the main mission and timer from Ran's play logs (copy from the end screen). Deferred by Ran (Oct 23): Phase 4 goes first; the rebalance and the test map playtest come back when he has time to play
 
 ### Phase 4. Map art, area by area (32 h)
 

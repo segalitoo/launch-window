@@ -71,7 +71,10 @@ const CAM_HEIGHT = 30;
 /** Night grade for units, lighter than the environment's (visual language 6b). */
 const UNIT_GRADE = [0.62, 0.68, 0.82] as const;
 const MAP_TOP_MARGIN = 80; // room for tall blocks on the back row
-const PAINTED_AREAS = ['yard'];
+/** Painted areas, in draw order: a later one fades in over an earlier one where they meet.
+ *  The desert (Phase 4) comes in three options while Ran picks: ?desert=A|B|C. */
+const DESERT = (/^[ABC]$/.exec(new URLSearchParams(globalThis.location?.search ?? '').get('desert') ?? '') ?? ['A'])[0];
+const PAINTED_AREAS = [`desert_n_${DESERT}`, `desert_s_${DESERT}`, 'yard'];
 /** A test map's exit zone: pale, apart from the green landing zone and the amber threats. */
 const EXIT_COLOR = 0xece4d3;
 
@@ -156,7 +159,13 @@ export class MapScene extends Phaser.Scene {
     this.newGame();
     this.ground = this.add.graphics().setDepth(-OVERLAY_DEPTH);
     const { cols, rows } = this.game$.state.grid;
-    this.painted = this.areas.map((name) => new PaintedArea(this, name, -OVERLAY_DEPTH + 1, cols, rows));
+    // the area drawn later owns a tile it shares with one under it (Phase 4 overlaps)
+    const regions = this.areas.map((name) => (this.cache.json.get(`${name}_meta`) as { region?: number[] }).region);
+    const inside = (r: number[] | undefined, x: number, y: number): boolean => !!r && x >= r[0]! && x <= r[2]! && y >= r[1]! && y <= r[3]!;
+    this.painted = this.areas.map(
+      (name, i) =>
+        new PaintedArea(this, name, -OVERLAY_DEPTH + 1, cols, rows, (x, y) => inside(regions[i], x, y) && !regions.slice(i + 1).some((r) => inside(r, x, y))),
+    );
     this.overlay = this.add.graphics().setDepth(OVERLAY_DEPTH);
     this.beams = this.add.graphics().setDepth(OVERLAY_DEPTH - 2).setBlendMode(Phaser.BlendModes.ADD);
     this.unitArt = new UnitSprites(this, toTintHex(UNIT_GRADE), OVERLAY_DEPTH - 1);

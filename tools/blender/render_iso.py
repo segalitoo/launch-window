@@ -223,6 +223,9 @@ def build(md, region, look, figures=True, margin=8):
         "khaki": material("khaki", (0.42, 0.38, 0.28), rough=0.95),
         "skin": material("skin", (0.45, 0.32, 0.24), rough=0.8),
         "lamp": material("lamp", (0.2, 0.2, 0.2), rough=0.5),
+        # Phase 4 guides for the paint-over: the road, scrub where the hiding spots are, the LZ pad
+        "road": material("road", tuple(tuple(c * 0.78 for c in col) for col in L["sand"]), noise_scale=0.8, noise_amount=L["noise"]),
+        "scrub": material("scrub", ((0.20, 0.22, 0.13), (0.26, 0.27, 0.16)), noise_scale=4.0, noise_amount=1.0, bump=0.2),
     }
 
     # ground, one mesh per surface type; one tile of margin past the region
@@ -234,7 +237,7 @@ def build(md, region, look, figures=True, margin=8):
             vs = [bm.verts.new(a + Vector(o)) for o in ((0, 0, 0), (T, 0, 0), (T, -T, 0), (0, -T, 0))]
             bm.faces.new(vs)
     for k, bm in surfaces.items():
-        mesh_object(f"ground_{k}", bm, mats["yard"] if k in (2, 3) else mats["sand"])
+        mesh_object(f"ground_{k}", bm, mats["yard"] if k in (2, 3) else mats["road"] if k == 1 else mats["sand"])
 
     # walls: one box per straight run of wall tiles, through tile centres.
     # Overlapping per-tile boxes leave duplicate faces that render black.
@@ -388,6 +391,50 @@ def build(md, region, look, figures=True, margin=8):
     lamp = bmesh.new()
     add_box(lamp, lamp_pos.x, lamp_pos.y - 0.12, lamp_pos.z, 0.35, 0.25, 0.18)
     mesh_object("lamp_fixture", lamp, mats["lamp"])
+
+    # chain-link fence (Phase 3, Itai cuts it): a post per tile and a top rail; the paint-over
+    # draws the mesh between them
+    fence = bmesh.new()
+    for y in range(y0, y1):
+        for x in range(x0, x1):
+            if md.tile(x, y) != "F":
+                continue
+            c = sim_to_world(x + 0.5, y + 0.5)
+            add_box(fence, c.x, c.y, 1.0, 0.08, 0.08, 2.0)
+            run_x = md.tile(x + 1, y) == "F" or md.tile(x - 1, y) == "F"
+            add_box(fence, c.x, c.y, 1.95, T if run_x else 0.05, 0.05 if run_x else T, 0.05)
+    mesh_object("fence", fence, mats["steel"])
+
+    # hiding spots: low scrub, a few bushes per tile (deterministic, so plates repeat)
+    scrub = bmesh.new()
+    for h in md.d.get("hides", []):
+        for y in range(h["y0"], h["y1"] + 1):
+            for x in range(h["x0"], h["x1"] + 1):
+                if not (x0 <= x < x1 and y0 <= y < y1):
+                    continue
+                for k, (dx, dy, r) in enumerate(((0.3, 0.35, 0.55), (0.7, 0.3, 0.45), (0.5, 0.72, 0.5))):
+                    c = sim_to_world(x + dx, y + dy)
+                    ball = bmesh.ops.create_uvsphere(scrub, u_segments=10, v_segments=6, radius=r)
+                    for v in ball["verts"]:
+                        v.co = Vector((c.x + v.co.x, c.y + v.co.y, max(0.0, v.co.z * 1.1 + 0.15)))
+    mesh_object("scrub", scrub, mats["scrub"])
+
+    # the landing zone: a round concrete pad with a painted ring
+    lz = md.d.get("lz")
+    if lz:
+        cx, cy = (lz["x0"] + lz["x1"] + 1) / 2, (lz["y0"] + lz["y1"] + 1) / 2
+        if x0 <= cx < x1 and y0 <= cy < y1:
+            c = sim_to_world(cx, cy)
+            r = min(lz["x1"] - lz["x0"] + 1, lz["y1"] - lz["y0"] + 1) * T / 2 - 0.4
+            pad = bmesh.new()
+            add_cylinder(pad, c.x, c.y, 0.03, r, 0.06, segs=48)
+            mesh_object("lz_pad", pad, mats["concrete"])
+            ring = bmesh.new()
+            add_cylinder(ring, c.x, c.y, 0.065, r * 0.72, 0.02, segs=48)
+            mesh_object("lz_ring", ring, mats["dark"])
+            inner = bmesh.new()
+            add_cylinder(inner, c.x, c.y, 0.07, r * 0.64, 0.02, segs=48)
+            mesh_object("lz_inner", inner, mats["concrete"])
 
     # scale figures: Yoav outside the gate, the yard guard on his post
     for name, (sx, sy), body in () if not figures else (("yoav", (16.6, 28.4), mats["fatigue"]), ("guard", (18.5, 23.5), mats["khaki"])):

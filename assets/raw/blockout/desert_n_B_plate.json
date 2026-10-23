@@ -1,0 +1,41 @@
+{
+  "look": "B",
+  "label": "Moonlit steel",
+  "region": [
+    0,
+    0,
+    11,
+    15
+  ],
+  "supersample": 2,
+  "size": [
+    1664,
+    1024
+  ],
+  "origin_px": [
+    959.999,
+    192.001
+  ],
+  "step_x_px": [
+    64.0,
+    32.0
+  ],
+  "lamp_px": [
+    590.8,
+    1314.87
+  ],
+  "lamp_ground_px": [
+    510.8,
+    1440.6
+  ],
+  "tile_m": 1.6,
+  "figure_h_m": 1.8,
+  "wall_h_m": 2.0,
+  "crop_16x9": {
+    "top": 44,
+    "size": [
+      1664,
+      936
+    ]
+  }
+}

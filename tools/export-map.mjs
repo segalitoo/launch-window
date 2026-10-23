@@ -22,6 +22,8 @@ try {
     launchers: s.launchers,
     guards: NIGHT_LANTERN.guards,
     squad: s.squad.map(({ id, name, x, y }) => ({ id, name, x, y })),
+    hides: s.hides,
+    lz: s.lz,
   };
   mkdirSync(dirname(out), { recursive: true });
   writeFileSync(out, JSON.stringify(data));

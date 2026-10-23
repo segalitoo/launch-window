@@ -27,7 +27,14 @@ interface Manifest {
   night_tint: [number, number, number];
   unit_tint: [number, number, number];
   frames: Frame[];
+  /** Phase 4: the area's tiles (inclusive) and how many tiles it fades over at each side
+   *  (west, north, east, south). With a fade the painting is clipped by <name>_mask.png. */
+  region?: [number, number, number, number];
+  fade?: [number, number, number, number];
 }
+
+/** Which tiles an area may draw structures for: the area drawn on top owns a tile. */
+export type Owns = (x: number, y: number) => boolean;
 
 const toCss = (t: readonly number[]): string =>
   `rgb(${t.map((v) => Math.round(Math.min(1, v) * 255)).join(',')})`;
@@ -102,11 +109,12 @@ export class PaintedArea {
     scene.load.json(`${name}_doors`, `${name}/${name}_doors.json`);
     scene.load.image(`${name}_day`, `${name}/${name}_day.jpg`);
     scene.load.image(`${name}_light`, `${name}/${name}_light.png`);
+    scene.load.image(`${name}_mask`, `${name}/${name}_mask.png`);
     scene.load.image(`${name}_occmask`, `${name}/${name}_occ.png`);
   }
 
   /** `cols` x `rows` is the map size; the painting is clipped to the map's diamond. */
-  constructor(scene: Phaser.Scene, name: string, groundDepth: number, cols: number, rows: number) {
+  constructor(scene: Phaser.Scene, name: string, groundDepth: number, cols: number, rows: number, owns: Owns = () => true) {
     const m = scene.cache.json.get(`${name}_meta`) as Manifest;
     this.manifest = m;
     const [W, H] = m.size;
@@ -119,6 +127,10 @@ export class PaintedArea {
     // 1. light canvases: night tint everywhere; the lit one has the warm lamp pools on top.
     //    The lamps run on the generator, so the area is built both ways (setLamps fades).
     const day = scene.textures.get(`${name}_day`).getSourceImage() as HTMLImageElement;
+    const mask = m.fade && scene.textures.exists(`${name}_mask`)
+      ? (scene.textures.get(`${name}_mask`).getSourceImage() as HTMLImageElement)
+      : null;
+    this.faded = !!mask;
     const lightImg = scene.textures.get(`${name}_light`).getSourceImage() as HTMLImageElement;
     const lightCanvas = (lamps: boolean): HTMLCanvasElement => {
       const c = document.createElement('canvas');
@@ -143,6 +155,11 @@ export class PaintedArea {
       }
       bc.globalCompositeOperation = 'multiply';
       bc.drawImage(light, 0, 0);
+      if (mask) {
+        // clip to the area's tiles, faded where another area or the placeholder takes over
+        bc.globalCompositeOperation = 'destination-in';
+        bc.drawImage(mask, 0, 0, W, H);
+      }
       // fade the painting's rectangle into the placeholder map around it
       bc.globalCompositeOperation = 'destination-out';
       const sides: [number, number, number, number][] = [
@@ -151,6 +168,7 @@ export class PaintedArea {
         [0, 0, 0, FEATHER],
         [0, H, 0, H - FEATHER],
       ];
+      // (with a region mask too: a region can reach past the painting's own edge)
       for (const [x0, y0, x1, y1] of sides) {
         const g = bc.createLinearGradient(x0, y0, x1, y1);
         g.addColorStop(0, 'rgba(0,0,0,1)');
@@ -218,7 +236,8 @@ export class PaintedArea {
     pc.drawImage(maskImg, 0, 0);
     const alpha = pc.getImageData(0, 0, AW, AH).data;
 
-    const inside = (f: Frame): boolean => f.sx >= FEATHER && f.sy >= FEATHER && f.sx + f.w <= W - FEATHER && f.sy + f.h <= H - FEATHER;
+    const inside = (f: Frame): boolean =>
+      (!mask || owns(f.x, f.y)) && f.sx >= FEATHER && f.sy >= FEATHER && f.sx + f.w <= W - FEATHER && f.sy + f.h <= H - FEATHER;
     for (const f of m.frames) {
       if (!inside(f)) continue;
       const wx = ox + f.sx / ss;
@@ -264,8 +283,22 @@ export class PaintedArea {
     }
   }
 
+  /** Clipped by a region mask (Phase 4) rather than a feathered rectangle. */
+  private faded = false;
+
+  /** True when (x, y) lies in the area's region (tiles, inclusive). */
+  inRegion(x: number, y: number): boolean {
+    const r = this.manifest.region;
+    return !!r && x >= r[0] && x <= r[2] && y >= r[1] && y <= r[3];
+  }
+
   /** True when a tile's ground diamond lies fully inside the painting's unfaded part. */
   coversTile(tx: number, ty: number): boolean {
+    if (this.faded) {
+      const r = this.manifest.region!;
+      const f = this.manifest.fade!;
+      if (!(tx >= r[0] + f[0] && ty >= r[1] + f[1] && tx + 1 <= r[2] + 1 - f[2] && ty + 1 <= r[3] + 1 - f[3])) return false;
+    }
     const f = FEATHER / this.manifest.supersample;
     const r = { x: this.rect.x + f, y: this.rect.y + f, w: this.rect.w - 2 * f, h: this.rect.h - 2 * f };
     const corners = [
