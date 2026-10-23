@@ -40,3 +40,8 @@ Style: the same detailed digital painting as the second and third images, visibl
 - **A · Packed earth:** `- Open ground inside the walls: packed grey-khaki earth and fine gravel, worn tyre tracks along the road, scattered small stones, as in the third image.`
 - **B · Concrete aprons:** `- Open ground inside the walls: packed grey-khaki earth, with flat cracked concrete aprons in front of the two buildings, oil stains and tyre marks on the concrete.`
 - **C · Swept military yard:** `- Open ground inside the walls: raked pale gravel kept clean, a narrow line of whitewashed edge stones lying flush along the road, faint boot and tyre marks.`
+
+## Result
+
+Ran picked **B · Concrete aprons** (23 Oct 2026): `COURT-01B_3_2k.jpg`, built as `assets/build/court`:
+`python3 tools/cut_occluders.py court assets/raw/blockout/court_B_plate.json assets/raw/blockout/court_B_plate_id.png assets/raw/gen/COURT-01B_3_2k.jpg --fade 1 0 0 0`

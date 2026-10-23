@@ -71,10 +71,8 @@ const CAM_HEIGHT = 30;
 /** Night grade for units, lighter than the environment's (visual language 6b). */
 const UNIT_GRADE = [0.62, 0.68, 0.82] as const;
 const MAP_TOP_MARGIN = 80; // room for tall blocks on the back row
-/** Painted areas, in draw order: a later one fades in over an earlier one where they meet.
- *  The courtyard (Phase 4) comes in three options while Ran picks: ?court=A|B|C. */
-const COURT = (/^[ABC]$/.exec(new URLSearchParams(globalThis.location?.search ?? '').get('court') ?? '') ?? ['A'])[0];
-const PAINTED_AREAS = ['desert_n', 'desert_s', `court_${COURT}`, 'yard'];
+/** Painted areas, in draw order: a later one fades in over an earlier one where they meet. */
+const PAINTED_AREAS = ['desert_n', 'desert_s', 'court', 'yard'];
 /** A test map's exit zone: pale, apart from the green landing zone and the amber threats. */
 const EXIT_COLOR = 0xece4d3;
 
