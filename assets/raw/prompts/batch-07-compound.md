@@ -37,3 +37,8 @@ Style: the same detailed digital painting as the second and third images, visibl
 - **A · Concrete slab:** `- The grey floor inside the inner walls: a weathered concrete slab in large square panels with dark expansion joints, oil stains under the trucks and faded yellow lines marking a bay for each truck.`
 - **B · Blast-scarred tarmac:** `- The grey floor inside the inner walls: dark worn tarmac with old soot scorch marks behind each truck, patched repairs and grit along the walls.`
 - **C · Dusty pad:** `- The grey floor inside the inner walls: pale concrete half covered by wind-blown sand drifted against the walls, tyre tracks in the dust between the trucks.`
+
+## Result
+
+Ran picked **A · Concrete slab** (23 Oct 2026): `TELS-01A_4_2k.jpg`, built as `assets/build/tels`:
+`python3 tools/cut_occluders.py tels assets/raw/blockout/tels_B_plate.json assets/raw/blockout/tels_B_plate_id.png assets/raw/gen/TELS-01A_4_2k.jpg --fade 1 0 0 0`
