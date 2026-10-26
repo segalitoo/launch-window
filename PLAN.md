@@ -155,7 +155,9 @@ About 144 hours. Re-plan at each gate.
 
 ### Phase 6. UI (8 h)
 
-- [ ] Squad panel with portraits, backpack, minimap
+- [x] Landscape layout on phones (Ran, 26 Oct): split edges, squad rail left, backpack and orders right, pause top right; upright shows a turn-your-phone screen and pauses
+- [ ] UI visual language: named elements and rules, three directions mocked over the night map, Ran picks
+- [ ] Squad panel with portraits, backpack, minimap (portraits rendered from the 3D models, minimap = the painted map shrunk, Ran)
 - [ ] Briefing screen with a painted mission map
 
 ### Phase 7. Audio and polish (16 h)

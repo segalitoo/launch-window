@@ -37,6 +37,7 @@ The live plan is a Claude doc: https://claude.ai/code/artifact/b1c9e4e6-6e2d-484
 - Stack: TypeScript (strict), Phaser 4 (4.2.x), Vite, Vitest, Tiled for map data, Vercel preview links.
 - Time: 8 hours a week, as two 4-hour sessions.
 - Scope: one mission, Operation Night Lantern, to full quality. New ideas go to the backlog in `PLAN.md`.
+- Phones play in landscape only; upright, the game pauses and asks to turn the phone (Ran, 26 Oct). HUD: split edges, the squad rail on the left, the backpack and orders on the right.
 
 ## Architecture rules
 
@@ -110,7 +111,7 @@ Keep this list current. Node 22 (`.nvmrc`); Vercel builds with Node 22.
 ## Definition of done for a session
 
 1. `npm test` and `npm run build` pass.
-2. Screenshots checked at 1280 x 800 and 390 x 844.
+2. Screenshots checked at 1280 x 800 and at a phone on its side (844 x 390 and 667 x 375). A phone held upright shows the turn-your-phone screen.
 3. Work is on a branch `session/NN-short-name`, pushed, with a Vercel preview link.
 4. `PLAN.md` checkboxes are updated.
 5. A short summary for Ran: what changed, what to playtest, what is next.
