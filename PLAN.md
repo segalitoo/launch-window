@@ -145,7 +145,8 @@ About 144 hours. Re-plan at each gate.
 
 ### Phase 4. Map art, area by area (32 h)
 
-- [ ] Five remaining areas, in the build order below
+- [x] Five remaining areas, in the build order below (done 26 Oct: desert A, courtyard B, compound A with the open-door patch, south strip A; the perimeter wall went with its neighbours)
+- [ ] Cut patches for the painted fences (the paint still shows the fence after Itai cuts it)
 
 ### Phase 5. Characters and enemies art (16 h)
 
