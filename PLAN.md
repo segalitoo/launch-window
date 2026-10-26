@@ -174,7 +174,7 @@ Every area passes five layers in order: ground, structures, props, night light, 
 | 2 | Desert approach and LZ | Sand, scrub, rocks, road, helipad | 4 | Done (option A, gravel plain) |
 | 3 | Perimeter wall and main gate | Wall run, gate, gate posts | 4 | Folded into neighbours (Ran, 23 Oct): west wall and gate with the desert, north wall with the courtyard, the rest with areas 5 and 6 |
 | 4 | Courtyard | Barracks, motor pool, crates, searchlight tower, north wall | 4 | Done (option B, concrete aprons) |
-| 5 | South strip | Wall side, second tower, crate stack | 4 | Not started |
+| 5 | South strip | Wall side, second tower, crate stack, south wall | 4 | Done (option A, packed earth) |
 | 6 | Launch compound | Concrete slab, inner walls, steel door, 3 launcher trucks, north-east and east walls | 4 | Done (option A, concrete slab) |
 
 ## How a session runs

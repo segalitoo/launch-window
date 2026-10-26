@@ -37,3 +37,9 @@ Style: the same detailed digital painting as the second and third images, visibl
 - **A · Packed earth:** `- Open ground: packed grey-khaki earth and fine gravel inside and outside the wall, scattered small stones, as in the third image.`
 - **B · Patrol track:** `- Open ground: packed grey-khaki earth, with a worn patrol track of two tyre ruts running along the inside of the south wall, and pale gravel desert outside the wall.`
 - **C · Drifted sand:** `- Open ground: packed grey-khaki earth inside the wall; outside the wall, pale desert sand with soft wind ripples and low drifts piled against the outer face of the wall.`
+
+## Result
+
+Ran picked **A · Packed earth** (26 Oct 2026): `SOUTH-01A_3_2k.jpg`, built as `assets/build/south`:
+`python3 tools/cut_occluders.py south assets/raw/blockout/south_B_plate.json assets/raw/blockout/south_B_plate_id.png assets/raw/gen/SOUTH-01A_3_2k.jpg --fade 0 1 0 0`
+The compound's mask was redone to fade over it: `python3 tools/cut_occluders.py tels --mask-only --fade 1 0 0 1`
