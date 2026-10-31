@@ -148,7 +148,11 @@ export class PaintedArea {
 
     // 2. graded painting = daylight painting x light canvas, faded and clipped to the map
     //    Open doors are painted over the daylight painting first, so they take the same grade.
-    const grade = (tex: Phaser.Textures.CanvasTexture, light: HTMLCanvasElement): void => {
+    //    `region` false skips the region mask: the occluders are cut from that version. The mask
+    //    works on ground tiles in screen space, so it also cut away the top of a tall building
+    //    whose roof rises over another area's ground; its occluders came out empty there and a
+    //    guard behind the court's west building was drawn on the roof (Ran, Phase 6).
+    const grade = (tex: Phaser.Textures.CanvasTexture, light: HTMLCanvasElement, region = true): void => {
       const bc = tex.context;
       bc.clearRect(0, 0, W, H);
       bc.drawImage(day, 0, 0);
@@ -158,7 +162,7 @@ export class PaintedArea {
       }
       bc.globalCompositeOperation = 'multiply';
       bc.drawImage(light, 0, 0);
-      if (mask) {
+      if (mask && region) {
         // clip to the area's tiles, faded where another area or the placeholder takes over
         bc.globalCompositeOperation = 'destination-in';
         bc.drawImage(mask, 0, 0, W, H);
@@ -225,10 +229,14 @@ export class PaintedArea {
       occTex.refresh();
     };
     this.repaint = (): void => {
-      grade(darkTex, darkLight);
-      grade(litTex, litLight);
+      // occluders first, from the unmasked grade; then the ground images, masked (one canvas
+      // each, reused, so the unmasked version costs no memory)
+      grade(darkTex, darkLight, false);
+      grade(litTex, litLight, false);
       cut(darkOcc, darkTex);
       cut(litOcc, litTex);
+      grade(darkTex, darkLight);
+      grade(litTex, litLight);
     };
     this.repaint();
     const inPool = (f: Frame): boolean =>

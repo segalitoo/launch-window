@@ -72,7 +72,7 @@ prototype/      the original single-file prototype, read-only
 3. Scale: characters about 40 to 48 px tall at 100% zoom, on a large detailed map.
 4. Palette: muted earth tones. Paint in neutral daylight, grade to night in the engine.
 5. Light: one direction for every asset, from the top left. Shadows fall to the bottom right.
-6. Readability: sight cones, selection rings and icons draw on top of the art in flat colors.
+6. Readability: sight cones, selection rings and icons are flat colors. Sight cones lie on the ground, so walls, roofs and units in front cover them (Ran, 31 Oct); selection rings and icons draw on top of everything.
 
 ## Content rules
 
@@ -100,12 +100,14 @@ Keep this list current. Node 22 (`.nvmrc`); Vercel builds with Node 22.
 - `/Applications/Blender.app/Contents/MacOS/Blender -b -P tools/blender/render_unit.py -- --unit yoav --out assets/raw/units/yoav` build, rig and render a unit (10 animations in 8 directions, 424 frames; about 3 min). The final drawn look (D3, `--look outline_pop`) is the default; `--look render` gives the plain render. After a run, check that `meta.json` is new: Blender sometimes crashes on launch without writing anything (docs/lessons.md)
 - `/Applications/Blender.app/Contents/MacOS/Blender -b -P tools/blender/render_takedown.py -- --yoav assets/raw/units/yoav --guard assets/raw/units/guard` render the knife takedown pair (both units in one scene, IK contact); run after render_unit.py for both units
 - `/Applications/Blender.app/Contents/MacOS/Blender -b -P tools/blender/render_dog.py -- --coat a --out assets/raw/units/dog` build, rig and render the guard dog (6 formula animations in 8 directions, 480 frames); then `python3 tools/pack_unit.py dog`
+- `/Applications/Blender.app/Contents/MacOS/Blender -b -P tools/blender/render_portrait.py -- --unit noa --framing face --out assets/raw/portraits` render a squad portrait plate (the unit's rig through a close camera) for the paint-over; prompts in `assets/raw/prompts/batch-10-portraits.md`; the game loads `assets/build/portraits/<unit id>.jpg` (shadow, lure, sapper), 256 px
 - The officer is `--unit officer` in render_unit.py; his knockout pair: `render_takedown.py -- --yoav assets/raw/units/yoav --guard assets/raw/units/officer --guard-unit officer --guard-only`
 - `python3 tools/pack_unit.py yoav` trim and pack the rendered frames into `assets/build/units/yoav-N.png` pages and `yoav.json` (Phaser multi-atlas)
 - `python3 tools/grade_night.py assets/raw/blockout/yard_B_day.png --hud` preview the engine's night grade and the overlay
 - `python3 tools/door_patch.py yard 16 27 231 300 791 615 <crop.png> <edited.jpg>` turn an image-model edit of a door (opened) into an RGBA patch the engine paints in when the sim opens that door (see the file header and `assets/raw/prompts/gate-open.md`)
 - `python3 tools/cut_items.py assets/raw/gen/KIT-01_tools_2.jpg assets/build/kit tie,decoy,smoke,bino,uniform,wire,charge,detonate --rows 2 --height 128` cut painted items off a plain grey sheet into RGBA PNGs (HUD rucksacks and tools; the packs: `KIT-01_packs_3.jpg ... pack_shadow,pack_lure,pack_sapper --height 360`; prompts in `assets/raw/prompts/batch-09-kit.md`)
-- `python3 tools/make_backdrop.py assets/build/backdrop_sand.jpg` the desert drawn around the map: one non-repeating image splatted from open-sand patches of the approved paintings, colour-matched to their edge sand, night tint baked in
+- `python3 tools/make_backdrop.py assets/build/backdrop_sand.jpg` the desert drawn around the map, at full resolution: plain sand patches from the approved paintings joined with narrow seams, hundreds of stones cut one by one from the paintings and scattered in drifts, scrub stamps; colour-matched to their edge sand, night tint baked in
+- `/Applications/Blender.app/Contents/MacOS/Blender -b -P tools/blender/render_tumbleweed.py -- --out assets/raw/fx/tumbleweed` then `python3 tools/pack_strip.py assets/raw/fx/tumbleweed assets/build/fx/tumbleweed.png --outline` the rolling tumbleweed (12 frames). Wind streaks and tumbleweed live in `src/render/ambience.ts`: render only, outside the base, off under reduced motion
 - `python3 tools/check_align.py <plate.png> <painted.jpg>` measure how far a painting drifted from its blockout, and write a red-edge overlay
 - `python3 tools/import_paint.py <plate.json> <painted.jpg>` put a painting back on the iso grid (writes `_day.png` and a sidecar)
 - `node tools/proto-check/build.mjs <dir>` build an instrumented prototype copy for timing cross-checks (see the file header)

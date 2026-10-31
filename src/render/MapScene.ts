@@ -36,6 +36,7 @@ import { Controller, type TapHit } from './controller';
 import { depthOf, footprint, mapBounds, type Point, toScreen, toTile } from './iso';
 import { blockOccluder, insideConvex, isHidden, type Occluder } from './occlusion';
 import { lampLevel } from './lamps';
+import { Ambience } from './ambience';
 import { PaintedArea, toTintHex } from './paintedArea';
 import { GuardSprites, UnitSprites } from './unitSprites';
 import {
@@ -56,6 +57,12 @@ import {
 const CONE_RAYS = 28;
 const TAP_SLOP = 8; // px a pointer may move before a tap becomes a pan
 const MAX_ZOOM = 2.5;
+/** Zoom speed (Ran: zooming felt too slow). Mouse wheel: about 25% a notch. */
+const WHEEL_RATE = 0.0028;
+/** Trackpad pinch (wheel events with ctrlKey): small deltas, so a much higher rate. */
+const WHEEL_PINCH_RATE = 0.01;
+/** Touch pinch: zoom grows faster than the finger spread (1 = one to one). */
+const PINCH_GAIN = 1.4;
 /** Desert backdrop beyond the map edge the camera may show, in world px (Phase 6). */
 const BACKDROP_PAD = 160;
 /** On the start view the screen height shows about this many world px: zoomed in on the squad. */
@@ -74,6 +81,8 @@ const CAM_BODY = 0x2a2c2e;
 const CAM_HEIGHT = 30;
 /** Night grade for units, lighter than the environment's (visual language 6b). */
 const UNIT_GRADE = [0.62, 0.68, 0.82] as const;
+/** Lighter than the units: pale dry brush catches the moonlight; under UNIT_GRADE it read as a grey stone. */
+const TUMBLEWEED_GRADE = [0.8, 0.8, 0.88] as const;
 const MAP_TOP_MARGIN = 80; // room for tall blocks on the back row
 /** Painted areas, in draw order: a later one fades in over an earlier one where they meet. */
 const PAINTED_AREAS = ['desert_n', 'desert_s', 'court', 'south', 'tels', 'yard'];
@@ -113,6 +122,8 @@ export class MapScene extends Phaser.Scene {
   private ground!: Phaser.GameObjects.Graphics;
   private blocks: Phaser.GameObjects.Graphics[] = [];
   private overlay!: Phaser.GameObjects.Graphics;
+  /** Sight cones and the dog's smell lie on the ground: walls, roofs and units cover them (Ran). */
+  private coneGfx!: Phaser.GameObjects.Graphics;
   /** Hiding spots (Phase 3 placeholder until the Phase 4 map art): over the painting, under the units. */
   private hideGfx!: Phaser.GameObjects.Graphics;
   /** Pistol shots on screen: a short tracer, sim time. */
@@ -132,6 +143,7 @@ export class MapScene extends Phaser.Scene {
   /** Until the player pans or zooms, every resize refits the whole map. */
   private userMoved = false;
   private painted: PaintedArea[] = [];
+  private ambience: Ambience | null = null;
   /** Tiles drawn as placeholder blocks ("x,y"): none should fall inside a painted area. */
   placeholderTiles: string[] = [];
   /** Sim time the generator went off (null = power on), for the lamps' stutter. */
@@ -156,7 +168,10 @@ export class MapScene extends Phaser.Scene {
   preload(): void {
     for (const name of this.areas) PaintedArea.preload(this, name);
     // open desert around the base, so the screen never shows black (Phase 6, tools/make_backdrop.py)
-    if (this.areas.length) this.load.image('backdrop_sand', 'backdrop_sand.jpg');
+    if (this.areas.length) {
+      this.load.image('backdrop_sand', 'backdrop_sand.jpg');
+      Ambience.preload(this);
+    }
     UnitSprites.preload(this);
     GuardSprites.preload(this);
   }
@@ -177,7 +192,11 @@ export class MapScene extends Phaser.Scene {
       (name, i) =>
         new PaintedArea(this, name, -OVERLAY_DEPTH + 1, cols, rows, (x, y) => inside(regions[i], x, y) && !regions.slice(i + 1).some((r) => inside(r, x, y))),
     );
+    if (this.areas.length) this.ambience = new Ambience(this, toTintHex(TUMBLEWEED_GRADE), this.openDesert(), rows);
     this.overlay = this.add.graphics().setDepth(OVERLAY_DEPTH);
+    // under every structure and unit (they sort from 0 up); not just above the ground paintings,
+    // where depths near -1e9 cannot be told apart (src/render/ambience.ts)
+    this.coneGfx = this.add.graphics().setDepth(-2.5);
     this.beams = this.add.graphics().setDepth(OVERLAY_DEPTH - 2).setBlendMode(Phaser.BlendModes.ADD);
     this.unitArt = new UnitSprites(this, toTintHex(UNIT_GRADE), OVERLAY_DEPTH - 1);
     this.guardArt = new GuardSprites(this, toTintHex(UNIT_GRADE));
@@ -197,6 +216,28 @@ export class MapScene extends Phaser.Scene {
     this.powerCutAt = null;
     for (const g of this.bodies.values()) g.destroy();
     this.bodies.clear();
+  }
+
+  /** Tiles a tumbleweed may roll over: off the map, or open ground well clear of the base
+   *  (the box around its walls and fences, plus one tile). */
+  private openDesert(): (x: number, y: number) => boolean {
+    const { cols, rows, cells } = this.game$.state.grid;
+    let x0 = cols, y0 = rows, x1 = -1, y1 = -1;
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < cols; x++) {
+        const c = cells[y * cols + x];
+        if (c !== '#' && c !== 'F' && c !== 'D') continue;
+        x0 = Math.min(x0, x);
+        y0 = Math.min(y0, y);
+        x1 = Math.max(x1, x);
+        y1 = Math.max(y1, y);
+      }
+    }
+    return (x, y) => {
+      if (x < 0 || y < 0 || x >= cols || y >= rows) return true;
+      if (x >= x0 - 1 && x <= x1 + 1 && y >= y0 - 1 && y <= y1 + 1) return false;
+      return cells[y * cols + x] === '.';
+    };
   }
 
   // ---------- camera ----------
@@ -282,7 +323,8 @@ export class MapScene extends Phaser.Scene {
       } else if (g.type === 'pinch' && this.pointers.size === 2) {
         const [a, b] = [...this.pointers.values()] as [Point, Point];
         const m = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-        cam.setZoom(Phaser.Math.Clamp((g.z0 * Math.hypot(a.x - b.x, a.y - b.y)) / Math.max(1, g.d0), this.minZoom, MAX_ZOOM));
+        const spread = Math.hypot(a.x - b.x, a.y - b.y) / Math.max(1, g.d0);
+        cam.setZoom(Phaser.Math.Clamp(g.z0 * Math.pow(spread, PINCH_GAIN), this.minZoom, MAX_ZOOM));
         cam.preRender();
         const w = cam.getWorldPoint(m.x, m.y);
         cam.scrollX += g.mid.x - w.x;
@@ -308,7 +350,12 @@ export class MapScene extends Phaser.Scene {
     });
     this.input.on('wheel', (p: Phaser.Input.Pointer, _o: unknown, _dx: number, dy: number) => {
       this.userMoved = true;
-      this.zoomAt(cam.zoom * Math.exp(-dy * 0.0015), p.x, p.y);
+      // A trackpad pinch arrives as many small wheel events with ctrlKey (1 to 5 units each),
+      // a mouse notch as one event of about 100: the same rate made pinching feel dead (Ran).
+      const e = p.event as WheelEvent | undefined;
+      const units = dy * (e?.deltaMode === 1 ? 16 : 1);
+      const rate = e?.ctrlKey ? WHEEL_PINCH_RATE : WHEEL_RATE;
+      this.zoomAt(cam.zoom * Math.exp(-units * rate), p.x, p.y);
     });
     this.input.mouse?.disableContextMenu();
     this.input.keyboard?.on('keydown', (e: KeyboardEvent) => {
@@ -317,6 +364,46 @@ export class MapScene extends Phaser.Scene {
   }
 
   /** A key press from the keyboard or the touch bar. Returns true when it was used. */
+  // ---------- minimap (src/ui/minimap.ts) ----------
+
+  /** The map's screen rectangle (world px), the area the minimap shows. */
+  mapRect(): { x: number; y: number; w: number; h: number } {
+    const { cols, rows } = this.game$.state.grid;
+    return mapBounds(cols, rows, MAP_TOP_MARGIN);
+  }
+
+  /** True once the paintings are graded, so the minimap can copy them. */
+  minimapReady(): boolean {
+    return this.painted.length > 0;
+  }
+
+  /** Draws the ground as the player sees it, the desert backdrop and the night-graded
+   *  paintings, into `ctx`, where world rectangle `r` fills the canvas. */
+  drawMinimapGround(ctx: CanvasRenderingContext2D, r: { x: number; y: number; w: number; h: number }): void {
+    const sx = ctx.canvas.width / r.w;
+    const sy = ctx.canvas.height / r.h;
+    const put = (key: string, x: number, y: number, w: number, h: number): void => {
+      if (!this.textures.exists(key)) return;
+      const src = this.textures.get(key).getSourceImage() as CanvasImageSource;
+      ctx.drawImage(src, (x - r.x) * sx, (y - r.y) * sy, w * sx, h * sy);
+    };
+    const b = this.viewBounds(this.game$.state.grid.cols, this.game$.state.grid.rows, 2 * BACKDROP_PAD);
+    put('backdrop_sand', b.x, b.y, b.w, b.h);
+    for (const p of this.painted) put(`${p.manifest.name}_bg`, p.rect.x, p.rect.y, p.rect.w, p.rect.h);
+  }
+
+  /** What the camera shows now, in world px. */
+  viewRect(): { x: number; y: number; w: number; h: number } {
+    const v = this.cameras.main.worldView;
+    return { x: v.x, y: v.y, w: v.width, h: v.height };
+  }
+
+  /** Centres the camera on a world point (the player tapped the minimap). */
+  jumpTo(x: number, y: number): void {
+    this.userMoved = true;
+    this.cameras.main.centerOn(x, y);
+  }
+
   press(k: string): boolean {
     if (k === 'r' && this.game$.state.over) {
       this.newGame();
@@ -417,6 +504,7 @@ export class MapScene extends Phaser.Scene {
         this.tracers.push({ x0: u.x, y0: u.y, x1: g.x, y1: g.y, t: s.t, loud: e.loud });
       }
     }
+    if (!this.ctl.paused && !s.over) this.ambience?.update(Math.min(delta, 100) / 1000);
     if (s.staticVersion !== this.staticVersion) this.drawStatic(s);
     this.drawDynamic(s);
     this.hooks.onFrame(s, this.ctl);
@@ -557,6 +645,7 @@ export class MapScene extends Phaser.Scene {
     for (const p of this.painted) p.setLamps(lamps);
 
     const o = this.overlay.clear();
+    const cones = this.coneGfx.clear();
     this.shadows.clear();
     const sel = this.ctl.sel;
 
@@ -570,7 +659,7 @@ export class MapScene extends Phaser.Scene {
       const at = { x: c.x + 0.5, y: c.y + 0.5 };
       const color = s.alarm.active ? ALARM_COLOR : CONE_COLOR;
       if (lamps > 0) {
-        this.drawCone(o, s, at, c.ang, CAM_FOV, CAM_LEN, null, color, (0.14 + c.susp * 0.3) * lamps);
+        this.drawCone(cones, s, at, c.ang, CAM_FOV, CAM_LEN, null, color, (0.14 + c.susp * 0.3) * lamps);
         // two thin lines from the lens to the cone's edges: the cone hangs from the camera
         const lens = toScreen(at.x + Math.cos(c.ang) * 0.35, at.y + Math.sin(c.ang) * 0.35, CAM_HEIGHT + 2);
         o.lineStyle(1, color, 0.6 * lamps);
@@ -587,12 +676,12 @@ export class MapScene extends Phaser.Scene {
     for (const g of s.guards) {
       if (g.state === 'down') continue;
       if (g.role === 'dog') {
-        if (g.distract <= 0) this.drawSmell(o, s, g, !!g.seeing);
+        if (g.distract <= 0) this.drawSmell(cones, s, g, !!g.seeing);
         continue;
       }
       const color = s.alarm.active || g.state === 'combat' ? ALARM_COLOR : CONE_COLOR;
       const len = coneLength(s);
-      this.drawCone(o, s, g, g.ang, FOV, len, len * NEAR_FRACTION, color, 0.2 + g.susp * 0.25);
+      this.drawCone(cones, s, g, g.ang, FOV, len, len * NEAR_FRACTION, color, 0.2 + g.susp * 0.25);
     }
     // selected unit path and ring
     if (sel.alive) {

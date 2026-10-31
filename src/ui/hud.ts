@@ -9,6 +9,7 @@ import type { Controller } from '@/render/controller';
 import { packOf } from './backpack';
 import { squadOf } from './squad';
 import { ORDER_ICONS } from './kitIcons';
+import { Minimap, type MinimapSource } from './minimap';
 import { PlayLog } from './playlog';
 
 const fmt = (sec: number): string => {
@@ -38,6 +39,10 @@ const BAR: readonly (readonly [string, string, string])[] = [
 /** Phones only, held upright: the game asks to turn the phone and pauses. */
 const PORTRAIT = '(pointer: coarse) and (orientation: portrait)';
 
+/** Portrait for a squad card (Phase 6, Ran picked the face framing): painted over a render of
+ * the unit's 3D model (tools/blender/render_portrait.py --framing face). */
+const portraitOf = (id: string): string => `/portraits/${id}.jpg`;
+
 export class Hud {
   private status: HTMLElement;
   private toasts: HTMLElement;
@@ -62,9 +67,6 @@ export class Hud {
         <nav class="squad" aria-label="Squad"></nav>
         ${test ? `<div class="brief"><b>Test · ${esc(test.who)}: ${esc(test.name)}.</b> ${esc(test.brief)} Reach the exit, no alarm. <a href="tests.html">All tests</a></div>` : ''}
         <div class="toasts" id="toasts" aria-live="polite"></div>
-        <p class="hint">Tap a unit to select (1 2 3). Tap the map to move. Tap a guard: Yoav takes him down.
-        <span class="keys">C crawl · F fire · H silencer · X drop body · S stop · Space pause · tools in the backpack below, with their keys · Itai: tap the fence to cut it · drag to pan, scroll or pinch to zoom.</span>
-        <span class="touch-keys">Drag to pan, pinch to zoom.</span></p>
         <div class="right">
           <nav class="pack" aria-label="Backpack"></nav>
           <nav class="bar" aria-label="Orders">${BAR.map(([id, key, label]) => `<button type="button" data-id="${id}" title="${label} (${key.toUpperCase()})"><span class="key">${key.toUpperCase()}</span>${ORDER_ICONS[id] ?? ''}<span class="label">${label}</span></button>`).join('')}</nav>
@@ -138,12 +140,20 @@ export class Hud {
   /** Runs once the first frame has told the HUD whether the game is paused. */
   private checkPortrait: (() => void) | null;
 
+  private minimap: Minimap | null = null;
+
+  /** The minimap, once the scene exists (src/main.ts). */
+  attachMinimap(source: MinimapSource): void {
+    this.minimap = new Minimap(this.status.closest<HTMLElement>('.hud')!, source);
+  }
+
   /** One card per operator; built once, its state updated every frame. */
   private buildSquad(s: GameState, sel: UnitId): void {
     const cards = squadOf(s, sel);
     this.squad.innerHTML = cards
       .map(
         (c) => `<button type="button" class="card" data-id="${c.id}" style="--who:${c.color}" title="${c.name} (${c.key})">
+          <img class="face" src="${portraitOf(c.id)}" alt="" draggable="false" onerror="this.remove()">
           <span class="key">${c.key}</span><span class="name">${c.name}</span><span class="hp"></span></button>`,
       )
       .join('');
@@ -199,6 +209,7 @@ export class Hud {
   onFrame(s: GameState, c: Controller): void {
     this.log.onFrame(s);
     const sel = c.sel;
+    this.minimap?.update(s, sel.id);
     const rigged = s.launchers.filter((l) => l.done).length;
     const parts = [
       s.aborted ? 'LAUNCH ABORTED' : `T-${fmt(s.timeLeft)}`,
@@ -250,8 +261,11 @@ export class Hud {
       if (!q) continue;
       q.b.classList.toggle('on', card.selected);
       q.b.classList.toggle('down', !card.alive);
-      const hp = '●'.repeat(Math.max(0, card.hp)) + '○'.repeat(Math.max(0, card.maxHp - card.hp));
-      if (q.hp.textContent !== hp) q.hp.textContent = hp;
+      // health shows only once he is hurt: a red bar across the top of the portrait (Ran: no dots)
+      const left = card.alive && card.hp < card.maxHp ? `${(100 * Math.max(0, card.hp)) / card.maxHp}%` : '';
+      if (q.hp.style.width !== left) q.hp.style.width = left;
+      q.b.classList.toggle('hurt', left !== '');
+      q.b.title = `${card.name} (${card.key})${left ? `, wounded ${card.hp}/${card.maxHp}` : ''}`;
     }
     this.buttons.get('drop')!.disabled = !sel.carrying;
     const over = s.over;
