@@ -36,6 +36,7 @@ import { Controller, type TapHit } from './controller';
 import { depthOf, footprint, mapBounds, type Point, toScreen, toTile } from './iso';
 import { blockOccluder, insideConvex, isHidden, type Occluder } from './occlusion';
 import { lampLevel } from './lamps';
+import { Ambience } from './ambience';
 import { PaintedArea, toTintHex } from './paintedArea';
 import { GuardSprites, UnitSprites } from './unitSprites';
 import {
@@ -74,6 +75,8 @@ const CAM_BODY = 0x2a2c2e;
 const CAM_HEIGHT = 30;
 /** Night grade for units, lighter than the environment's (visual language 6b). */
 const UNIT_GRADE = [0.62, 0.68, 0.82] as const;
+/** Lighter than the units: pale dry brush catches the moonlight; under UNIT_GRADE it read as a grey stone. */
+const TUMBLEWEED_GRADE = [0.8, 0.8, 0.88] as const;
 const MAP_TOP_MARGIN = 80; // room for tall blocks on the back row
 /** Painted areas, in draw order: a later one fades in over an earlier one where they meet. */
 const PAINTED_AREAS = ['desert_n', 'desert_s', 'court', 'south', 'tels', 'yard'];
@@ -132,6 +135,7 @@ export class MapScene extends Phaser.Scene {
   /** Until the player pans or zooms, every resize refits the whole map. */
   private userMoved = false;
   private painted: PaintedArea[] = [];
+  private ambience: Ambience | null = null;
   /** Tiles drawn as placeholder blocks ("x,y"): none should fall inside a painted area. */
   placeholderTiles: string[] = [];
   /** Sim time the generator went off (null = power on), for the lamps' stutter. */
@@ -156,7 +160,10 @@ export class MapScene extends Phaser.Scene {
   preload(): void {
     for (const name of this.areas) PaintedArea.preload(this, name);
     // open desert around the base, so the screen never shows black (Phase 6, tools/make_backdrop.py)
-    if (this.areas.length) this.load.image('backdrop_sand', 'backdrop_sand.jpg');
+    if (this.areas.length) {
+      this.load.image('backdrop_sand', 'backdrop_sand.jpg');
+      Ambience.preload(this);
+    }
     UnitSprites.preload(this);
     GuardSprites.preload(this);
   }
@@ -177,6 +184,7 @@ export class MapScene extends Phaser.Scene {
       (name, i) =>
         new PaintedArea(this, name, -OVERLAY_DEPTH + 1, cols, rows, (x, y) => inside(regions[i], x, y) && !regions.slice(i + 1).some((r) => inside(r, x, y))),
     );
+    if (this.areas.length) this.ambience = new Ambience(this, toTintHex(TUMBLEWEED_GRADE), this.openDesert(), rows);
     this.overlay = this.add.graphics().setDepth(OVERLAY_DEPTH);
     this.beams = this.add.graphics().setDepth(OVERLAY_DEPTH - 2).setBlendMode(Phaser.BlendModes.ADD);
     this.unitArt = new UnitSprites(this, toTintHex(UNIT_GRADE), OVERLAY_DEPTH - 1);
@@ -197,6 +205,28 @@ export class MapScene extends Phaser.Scene {
     this.powerCutAt = null;
     for (const g of this.bodies.values()) g.destroy();
     this.bodies.clear();
+  }
+
+  /** Tiles a tumbleweed may roll over: off the map, or open ground well clear of the base
+   *  (the box around its walls and fences, plus one tile). */
+  private openDesert(): (x: number, y: number) => boolean {
+    const { cols, rows, cells } = this.game$.state.grid;
+    let x0 = cols, y0 = rows, x1 = -1, y1 = -1;
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < cols; x++) {
+        const c = cells[y * cols + x];
+        if (c !== '#' && c !== 'F' && c !== 'D') continue;
+        x0 = Math.min(x0, x);
+        y0 = Math.min(y0, y);
+        x1 = Math.max(x1, x);
+        y1 = Math.max(y1, y);
+      }
+    }
+    return (x, y) => {
+      if (x < 0 || y < 0 || x >= cols || y >= rows) return true;
+      if (x >= x0 - 1 && x <= x1 + 1 && y >= y0 - 1 && y <= y1 + 1) return false;
+      return cells[y * cols + x] === '.';
+    };
   }
 
   // ---------- camera ----------
@@ -417,6 +447,7 @@ export class MapScene extends Phaser.Scene {
         this.tracers.push({ x0: u.x, y0: u.y, x1: g.x, y1: g.y, t: s.t, loud: e.loud });
       }
     }
+    if (!this.ctl.paused && !s.over) this.ambience?.update(Math.min(delta, 100) / 1000);
     if (s.staticVersion !== this.staticVersion) this.drawStatic(s);
     this.drawDynamic(s);
     this.hooks.onFrame(s, this.ctl);
