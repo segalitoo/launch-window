@@ -135,14 +135,20 @@ export class PaintedArea {
       : null;
     this.faded = !!mask;
     const lightImg = scene.textures.get(`${name}_light`).getSourceImage() as HTMLImageElement;
-    const lightCanvas = (lamps: boolean): HTMLCanvasElement => {
+    // where the lamp pools reach, in painting px: only there does the lit version differ, so
+    // the lit painting and its light map are only that big (Phase 7 phone pass: full-size lit
+    // copies of every area cost about 90 MB of canvas memory)
+    const pool = alphaBox(lightImg, W / lightImg.width);
+    const FULL = { x: 0, y: 0, w: W, h: H };
+    /** The light map over `box`: night tint, with the warm lamp pools on top when lit. */
+    const lightCanvas = (lamps: boolean, box: typeof FULL): HTMLCanvasElement => {
       const c = document.createElement('canvas');
-      c.width = W;
-      c.height = H;
+      c.width = box.w;
+      c.height = box.h;
       const lc = c.getContext('2d')!;
       lc.fillStyle = toCss(m.night_tint);
-      lc.fillRect(0, 0, W, H);
-      if (lamps) lc.drawImage(lightImg, 0, 0, W, H);
+      lc.fillRect(0, 0, box.w, box.h);
+      if (lamps) lc.drawImage(lightImg, -box.x, -box.y, W, H);
       return c;
     };
 
@@ -152,8 +158,11 @@ export class PaintedArea {
     //    works on ground tiles in screen space, so it also cut away the top of a tall building
     //    whose roof rises over another area's ground; its occluders came out empty there and a
     //    guard behind the court's west building was drawn on the roof (Ran, Phase 6).
-    const grade = (tex: Phaser.Textures.CanvasTexture, light: HTMLCanvasElement, region = true): void => {
+    //    `box` is the part of the painting the texture holds (the lit one: the lamp pools);
+    //    everything is drawn in full painting px through a translate.
+    const grade = (tex: Phaser.Textures.CanvasTexture, light: HTMLCanvasElement | null, region = true, box = FULL): void => {
       const bc = tex.context;
+      bc.setTransform(1, 0, 0, 1, -box.x, -box.y);
       bc.clearRect(0, 0, W, H);
       bc.drawImage(day, 0, 0);
       for (const d of this.doors) {
@@ -161,7 +170,11 @@ export class PaintedArea {
         bc.drawImage(scene.textures.get(`${name}_door_${d.x}_${d.y}`).getSourceImage() as HTMLImageElement, d.px, d.py);
       }
       bc.globalCompositeOperation = 'multiply';
-      bc.drawImage(light, 0, 0);
+      if (light) bc.drawImage(light, box.x, box.y);
+      else {
+        bc.fillStyle = toCss(m.night_tint);
+        bc.fillRect(0, 0, W, H);
+      }
       if (mask && region) {
         // clip to the area's tiles, faded where another area or the placeholder takes over
         bc.globalCompositeOperation = 'destination-in';
@@ -194,20 +207,16 @@ export class PaintedArea {
       bc.fill();
       bc.filter = 'none';
       bc.globalCompositeOperation = 'source-over';
+      bc.setTransform(1, 0, 0, 1, 0, 0);
       tex.refresh();
     };
-    const darkLight = lightCanvas(false);
-    const litLight = lightCanvas(true);
+    const litLight = pool ? lightCanvas(true, pool) : null;
     const darkTex = scene.textures.createCanvas(`${name}_bg`, W, H)!;
-    const litTex = scene.textures.createCanvas(`${name}_bg_lit`, W, H)!;
+    const litTex = pool ? scene.textures.createCanvas(`${name}_bg_lit`, pool.w, pool.h)! : null;
     scene.add.image(ox, oy, `${name}_bg`).setOrigin(0).setScale(1 / ss).setDepth(groundDepth);
-
-    // where the lamp pools reach, in painting px: only there does the lit version differ
-    const pool = alphaBox(lightImg, W / lightImg.width);
     if (pool) {
-      litTex.add('pool', 0, pool.x, pool.y, pool.w, pool.h);
       this.lamps.push({
-        im: scene.add.image(ox + pool.x / ss, oy + pool.y / ss, `${name}_bg_lit`, 'pool').setOrigin(0).setScale(1 / ss).setDepth(groundDepth + 0.5),
+        im: scene.add.image(ox + pool.x / ss, oy + pool.y / ss, `${name}_bg_lit`).setOrigin(0).setScale(1 / ss).setDepth(groundDepth + 0.5),
         tile: null,
       });
     }
@@ -217,12 +226,13 @@ export class PaintedArea {
     const AW = maskImg.width;
     const AH = maskImg.height;
     const darkOcc = scene.textures.createCanvas(`${name}_occ`, AW, AH)!;
-    const litOcc = scene.textures.createCanvas(`${name}_occ_lit`, AW, AH)!;
-    for (const tex of [darkOcc, litOcc]) for (const f of m.frames) tex.add(`t${f.x}_${f.y}`, 0, f.ax, f.ay, f.w, f.h);
-    const cut = (occTex: Phaser.Textures.CanvasTexture, src: Phaser.Textures.CanvasTexture): void => {
+    const litOcc = pool ? scene.textures.createCanvas(`${name}_occ_lit`, AW, AH)! : null;
+    for (const tex of [darkOcc, litOcc]) if (tex) for (const f of m.frames) tex.add(`t${f.x}_${f.y}`, 0, f.ax, f.ay, f.w, f.h);
+    /** Cuts every frame from `src`, which holds the painting's `box` (the lit one: the pools). */
+    const cut = (occTex: Phaser.Textures.CanvasTexture, src: Phaser.Textures.CanvasTexture, box = FULL): void => {
       const oc = occTex.context;
       oc.clearRect(0, 0, AW, AH);
-      for (const f of m.frames) oc.drawImage(src.canvas, f.sx, f.sy, f.w, f.h, f.ax, f.ay, f.w, f.h);
+      for (const f of m.frames) oc.drawImage(src.canvas, f.sx - box.x, f.sy - box.y, f.w, f.h, f.ax, f.ay, f.w, f.h);
       oc.globalCompositeOperation = 'destination-in';
       oc.drawImage(maskImg, 0, 0);
       oc.globalCompositeOperation = 'source-over';
@@ -231,12 +241,14 @@ export class PaintedArea {
     this.repaint = (): void => {
       // occluders first, from the unmasked grade; then the ground images, masked (one canvas
       // each, reused, so the unmasked version costs no memory)
-      grade(darkTex, darkLight, false);
-      grade(litTex, litLight, false);
+      grade(darkTex, null, false);
       cut(darkOcc, darkTex);
-      cut(litOcc, litTex);
-      grade(darkTex, darkLight);
-      grade(litTex, litLight);
+      grade(darkTex, null);
+      if (pool && litTex && litOcc) {
+        grade(litTex, litLight, false, pool);
+        cut(litOcc, litTex, pool);
+        grade(litTex, litLight, true, pool);
+      }
     };
     this.repaint();
     const inPool = (f: Frame): boolean =>

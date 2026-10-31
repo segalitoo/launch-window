@@ -47,3 +47,11 @@ behind the court's west building was drawn on its roof (Ran). Occluders are now 
 painting before the region mask: each occluder already holds only its own tile's pixels.
 Check: render the frame with and without the unit and diff the pixels; that shows exactly what
 the player sees of him.
+
+## Canvas memory on phones (Phase 7)
+
+iOS Safari caps the total memory of all canvases. Every painted area kept three full-size
+copies (daylight image, dark grade, lit grade) plus full-size light maps: 186 MB of canvases
+alone. The lit grade only differs inside the lamp pools, so it now covers just that box, the
+dark light map became a plain tint fill, and areas without lamps have no lit copy: 99 MB.
+Measure with the texture list in the browser console (`lw.game.textures.list`).
