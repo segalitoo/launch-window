@@ -34,6 +34,10 @@ const BAR: readonly (readonly [string, string, string])[] = [
   ['stop', 's', 'Stop'],
 ];
 
+/** Phase 6 visual language, three directions while Ran picks (docs/ui-language.md):
+ *  ?ui=A field kit, B night optics, C mission dossier; none = the neutral placeholder. */
+const UI = (/^[ABC]$/.exec(new URLSearchParams(globalThis.location?.search ?? '').get('ui') ?? '') ?? [''])[0];
+
 /** Phones only, held upright: the game asks to turn the phone and pauses. */
 const PORTRAIT = '(pointer: coarse) and (orientation: portrait)';
 
@@ -53,7 +57,7 @@ export class Hud {
     const esc = (t: string): string => t.replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
     root.insertAdjacentHTML(
       'beforeend',
-      `<div class="hud">
+      `<div class="hud" data-ui="${UI}">
         <div class="top">
           <div class="status" id="status"></div>
           <button type="button" class="pause" aria-label="Pause (Space)">Pause</button>
