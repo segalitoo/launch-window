@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { MapScene } from '@/render/MapScene';
+import { Sound } from '@/ui/audio';
 import { Hud } from '@/ui/hud';
 import { testMap } from './testMaps';
 import './style.css';
@@ -10,10 +11,19 @@ const test = testMap(new URLSearchParams(location.search).get('map'));
 const root = document.getElementById('app')!;
 const hud = new Hud(root, (key) => scene.press(key), test);
 
+const sound = new Sound(() => (scene.sys?.isActive() ? scene.viewRect() : null));
+hud.attachSound(sound);
+
 const scene = new MapScene(
   {
-    onEvents: (events, s) => hud.onEvents(events, s),
-    onFrame: (s, c) => hud.onFrame(s, c),
+    onEvents: (events, s) => {
+      hud.onEvents(events, s);
+      sound.onEvents(events, s);
+    },
+    onFrame: (s, c) => {
+      hud.onFrame(s, c);
+      sound.onFrame(s, c.paused);
+    },
   },
   test?.map ?? null,
 );
@@ -31,4 +41,4 @@ const game = new Phaser.Game({
 });
 
 // handle for screenshots and debugging in the browser console
-(window as unknown as { lw: unknown }).lw = { game, scene };
+(window as unknown as { lw: unknown }).lw = { game, scene, sound };

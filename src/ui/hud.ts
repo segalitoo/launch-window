@@ -9,6 +9,7 @@ import type { Controller } from '@/render/controller';
 import { packOf } from './backpack';
 import { squadOf } from './squad';
 import { ORDER_ICONS } from './kitIcons';
+import type { Sound } from './audio';
 import { Briefing, type BriefingLook } from './briefing';
 import { Minimap, type MinimapSource } from './minimap';
 import { PlayLog } from './playlog';
@@ -63,6 +64,7 @@ export class Hud {
       `<div class="hud" data-look="kit">
         <div class="top">
           <div class="status" id="status"></div>
+          <button type="button" class="sound" aria-label="Sound on or off">Sound</button>
           <button type="button" class="pause" aria-label="Pause (Space)">Pause</button>
         </div>
         <nav class="squad" aria-label="Squad"></nav>
@@ -142,6 +144,21 @@ export class Hud {
   private checkPortrait: (() => void) | null;
 
   private minimap: Minimap | null = null;
+
+  /** The Sound button mutes and unmutes (src/ui/audio.ts). */
+  attachSound(sound: Sound): void {
+    const b = this.status.closest<HTMLElement>('.hud')!.querySelector<HTMLButtonElement>('.top .sound')!;
+    const show = (): void => {
+      b.textContent = sound.isMuted ? 'Muted' : 'Sound';
+      b.classList.toggle('off', sound.isMuted);
+    };
+    b.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      sound.setMuted(!sound.isMuted);
+      show();
+    });
+    show();
+  }
 
   private briefing: Briefing | null = null;
   private briefingPending = false;

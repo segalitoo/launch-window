@@ -167,8 +167,9 @@ About 144 hours. Re-plan at each gate.
 
 ### Phase 7. Audio and polish (16 h)
 
-- [ ] Footsteps per surface, alarm siren, Hebrew team radio
-- [ ] Soft desert wind sound under the wind streaks (Ran, 31 Oct)
+- [x] Footsteps per surface, alarm siren (31 Oct: all synthesised with WebAudio in src/ui/audio.ts, no audio files: steps soft on sand and sharp on hard ground, guards quieter, crawling silent; loud and silenced shots, two-tone siren, blast, decoy stone, smoke hiss, dog bark, takedown; Sound button mutes)
+- [ ] Hebrew team radio (needs recorded voices: Ran)
+- [x] Soft desert wind sound under the wind streaks (Ran, 31 Oct)
 - [ ] Phone performance pass: atlas sizes, frame rate
 - [ ] Playtests with 3 people, final balance
 - [ ] Gate C: release candidate

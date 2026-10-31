@@ -238,3 +238,10 @@ html, body { margin: 0; height: 100%; background: var(--ink); color: var(--text)
   .bf-squad img { width: 30px; height: 30px; }
   .bf-start { min-height: 38px; font-size: 14px; }
 }
+
+/* Sound button (Phase 7), beside Pause */
+.top .sound { pointer-events: auto; margin-left: auto; min-width: 64px; min-height: 36px; cursor: pointer; }
+.top .sound + .pause { margin-left: 6px; }
+.top .sound.off { opacity: 0.6; }
+@media (max-height: 430px) { .top .sound { min-height: 32px; min-width: 56px; } }
+.hud[data-look="kit"] .top .sound { background: repeating-linear-gradient(45deg, rgba(255,255,255,0.025) 0 2px, transparent 2px 4px), var(--canvas); border: 1px solid #191b12; border-radius: 3px; color: var(--khaki); outline: 1px dashed var(--thread); outline-offset: -4px; font-family: inherit; text-transform: uppercase; font-weight: 500; }
