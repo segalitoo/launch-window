@@ -8,6 +8,7 @@ import type { GameState, SimEvent, Unit, UnitId } from '@/sim';
 import type { Controller } from '@/render/controller';
 import { packOf } from './backpack';
 import { squadOf } from './squad';
+import { ORDER_ICONS } from './kitIcons';
 import { PlayLog } from './playlog';
 
 const fmt = (sec: number): string => {
@@ -34,10 +35,6 @@ const BAR: readonly (readonly [string, string, string])[] = [
   ['stop', 's', 'Stop'],
 ];
 
-/** Phase 6 visual language, three directions while Ran picks (docs/ui-language.md):
- *  ?ui=A field kit, B night optics, C mission dossier; none = the neutral placeholder. */
-const UI = (/^[ABC]$/.exec(new URLSearchParams(globalThis.location?.search ?? '').get('ui') ?? '') ?? [''])[0];
-
 /** Phones only, held upright: the game asks to turn the phone and pauses. */
 const PORTRAIT = '(pointer: coarse) and (orientation: portrait)';
 
@@ -57,7 +54,7 @@ export class Hud {
     const esc = (t: string): string => t.replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
     root.insertAdjacentHTML(
       'beforeend',
-      `<div class="hud" data-ui="${UI}">
+      `<div class="hud" data-look="kit">
         <div class="top">
           <div class="status" id="status"></div>
           <button type="button" class="pause" aria-label="Pause (Space)">Pause</button>
@@ -70,7 +67,7 @@ export class Hud {
         <span class="touch-keys">Drag to pan, pinch to zoom.</span></p>
         <div class="right">
           <nav class="pack" aria-label="Backpack"></nav>
-          <nav class="bar" aria-label="Orders">${BAR.map(([id, , label]) => `<button type="button" data-id="${id}">${label}</button>`).join('')}</nav>
+          <nav class="bar" aria-label="Orders">${BAR.map(([id, , label]) => `<button type="button" data-id="${id}">${ORDER_ICONS[id] ?? ''}<span class="label">${label}</span></button>`).join('')}</nav>
         </div>
         <div class="rotate" role="alert"><div><b>Turn your phone sideways</b>Launch Window plays in landscape. The game is paused.</div></div>
         <div class="end" id="end" hidden>

@@ -101,84 +101,48 @@ html, body { margin: 0; height: 100%; background: var(--ink); color: var(--text)
   .status, .hint, .toast, .brief { font-size: 11px; }
 }
 
-/* ===== Phase 6 visual language, three directions while Ran picks (docs/ui-language.md) ===== */
-.hud[data-ui] :is(.status, .pause, .card, .item, .bar button, .toast, .who) { transition: none; }
+/* ===== Phase 6 visual language: the field kit (docs/ui-language.md; Ran picked A over night optics and dossier) ===== */
+@font-face { font-family: 'Barlow Condensed'; font-weight: 500; font-display: swap; src: url('/fonts/barlow-condensed-500.woff2') format('woff2'); }
+@font-face { font-family: 'Barlow Condensed'; font-weight: 700; font-display: swap; src: url('/fonts/barlow-condensed-700.woff2') format('woff2'); }
+.hud[data-look] :is(.status, .pause, .card, .item, .bar button, .toast, .who) { transition: none; }
 
-/* A · Field kit: the pouch. Olive canvas, a stitched seam, a flap that lifts when active. */
-.hud[data-ui="A"] { --canvas: #3b3f2b; --canvas-dk: #2a2d1f; --khaki: #cdbf94; --thread: rgba(214, 200, 160, 0.38); font-family: 'Barlow Condensed', sans-serif; letter-spacing: 0.03em; }
-.hud[data-ui="A"] :where(.status, .pause, .card, .item, .bar button, .toast, .hint) {
+/* Field kit (Ran, Phase 6): the pouch. Olive canvas, a stitched seam, a flap that lifts when active. */
+.hud[data-look="kit"] { --canvas: #3b3f2b; --canvas-dk: #2a2d1f; --khaki: #cdbf94; --thread: rgba(214, 200, 160, 0.38); font-family: 'Barlow Condensed', sans-serif; letter-spacing: 0.03em; }
+.hud[data-look="kit"] :where(.status, .pause, .card, .item, .bar button, .toast, .hint) {
   background: repeating-linear-gradient(45deg, rgba(255,255,255,0.025) 0 2px, transparent 2px 4px), var(--canvas);
   border: 1px solid #191b12; border-radius: 3px; color: var(--khaki);
   outline: 1px dashed var(--thread); outline-offset: -4px; font-family: inherit; text-transform: uppercase; font-weight: 500;
 }
-.hud[data-ui="A"] .status { font-size: 14px; }
-.hud[data-ui="A"] .item { padding-top: 10px; }
-.hud[data-ui="A"] .item::before { content: ''; position: absolute; left: 3px; right: 3px; top: 3px; height: 9px; background: var(--canvas-dk); border-bottom: 1px solid #191b12; border-radius: 2px 2px 0 0; }
-.hud[data-ui="A"] .item.on::before, .hud[data-ui="A"] .bar button.on::before { top: -3px; background: #6b5a2c; border-bottom: 2px solid #e0a43a; }
-.hud[data-ui="A"] :is(.item, .bar button).on { color: #f0c46a; outline-color: #e0a43a; }
-.hud[data-ui="A"] .bar button { position: relative; }
-.hud[data-ui="A"] .item:disabled { background: #1f2117; color: #6d6a58; outline-color: rgba(214,200,160,0.12); opacity: 1; }
-.hud[data-ui="A"] .item:disabled::before { top: -3px; background: #1f2117; }
-.hud[data-ui="A"] .item .count { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 15px; color: var(--khaki); }
-.hud[data-ui="A"] .pack .who, .hud[data-ui="A"] .card .name { background: #b8aa7c; color: #23251a; border: 1px solid #191b12; border-radius: 2px; padding: 1px 6px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
-.hud[data-ui="A"] .pack .who { border-left: 1px solid #191b12; }
-.hud[data-ui="A"] .card { border-left: 1px solid #191b12; }
-.hud[data-ui="A"] .card:not(.on) .name { background: #6f6a4f; color: #2a2c22; }
-.hud[data-ui="A"] .card.on { outline-color: var(--who); box-shadow: inset 0 0 0 1px var(--who); }
-.hud[data-ui="A"] .card.down .name { text-decoration: line-through 2px #c0392b; }
-.hud[data-ui="A"] .status.alarm { color: #ffb3a8; outline-color: var(--alarm); }
+.hud[data-look="kit"] .status { font-size: 14px; }
+.hud[data-look="kit"] .item { padding-top: 10px; }
+.hud[data-look="kit"] .item::before { content: ''; position: absolute; left: 3px; right: 3px; top: 3px; height: 9px; background: var(--canvas-dk); border-bottom: 1px solid #191b12; border-radius: 2px 2px 0 0; }
+.hud[data-look="kit"] .item.on::before, .hud[data-look="kit"] .bar button.on::before { top: -3px; background: #6b5a2c; border-bottom: 2px solid #e0a43a; }
+.hud[data-look="kit"] :is(.item, .bar button).on { color: #f0c46a; outline-color: #e0a43a; }
+.hud[data-look="kit"] .bar button { position: relative; }
+.hud[data-look="kit"] .item:disabled { background: #1f2117; color: #6d6a58; outline-color: rgba(214,200,160,0.12); opacity: 1; }
+.hud[data-look="kit"] .item:disabled::before { top: -3px; background: #1f2117; }
+.hud[data-look="kit"] .item .count { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 15px; color: var(--khaki); }
+.hud[data-look="kit"] .pack .who, .hud[data-look="kit"] .card .name { background: #b8aa7c; color: #23251a; border: 1px solid #191b12; border-radius: 2px; padding: 1px 6px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
+.hud[data-look="kit"] .pack .who { border-left: 1px solid #191b12; }
+.hud[data-look="kit"] .card { border-left: 1px solid #191b12; }
+.hud[data-look="kit"] .card:not(.on) .name { background: #6f6a4f; color: #2a2c22; }
+.hud[data-look="kit"] .card.on { outline-color: var(--who); box-shadow: inset 0 0 0 1px var(--who); }
+.hud[data-look="kit"] .card.down .name { text-decoration: line-through 2px #c0392b; }
+.hud[data-look="kit"] .status.alarm { color: #ffb3a8; outline-color: var(--alarm); }
 
-/* B · Night optics: the bracket. Smoked glass, four corners; corners close into a frame when active. */
-.hud[data-ui="B"] { --bc: rgba(186, 226, 206, 0.75); --glass: rgba(6, 12, 13, 0.5); --ink-b: #d3ece0; font-family: 'Chakra Petch', sans-serif; }
-.hud[data-ui="B"] :where(.status, .pause, .card, .item, .bar button, .toast, .pack .who, .hint) {
-  --c: var(--bc); --l: 9px; --t: 1.5px;
-  background:
-    linear-gradient(var(--c), var(--c)) left top / var(--l) var(--t),
-    linear-gradient(var(--c), var(--c)) left top / var(--t) var(--l),
-    linear-gradient(var(--c), var(--c)) right top / var(--l) var(--t),
-    linear-gradient(var(--c), var(--c)) right top / var(--t) var(--l),
-    linear-gradient(var(--c), var(--c)) left bottom / var(--l) var(--t),
-    linear-gradient(var(--c), var(--c)) left bottom / var(--t) var(--l),
-    linear-gradient(var(--c), var(--c)) right bottom / var(--l) var(--t),
-    linear-gradient(var(--c), var(--c)) right bottom / var(--t) var(--l),
-    var(--glass);
-  background-repeat: no-repeat; border: none; border-radius: 0; color: var(--ink-b);
-  font-family: inherit; font-weight: 500; text-transform: uppercase; letter-spacing: 0.12em; font-size: 11px;
-  -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
+/* big screens: larger rails */
+@media (pointer: fine) and (min-height: 700px) {
+  .hud[data-look="kit"] { --rail: 88px; }
+  .hud[data-look="kit"] .item { height: 68px; }
+  .hud[data-look="kit"] .item svg { width: 30px; height: 30px; }
+  .hud[data-look="kit"] .item .label, .hud[data-look="kit"] .card .name { font-size: 13px; }
+  .hud[data-look="kit"] .card { min-height: 66px; }
+  .hud[data-look="kit"] .status { font-size: 15px; }
 }
-.hud[data-ui="B"] .status { font-size: 12px; letter-spacing: 0.1em; }
-.hud[data-ui="B"] :is(.item, .bar button).on { --c: #ffb547; --l: 50%; color: #ffd08a; }
-.hud[data-ui="B"] .pause.on { --c: #ffb547; --l: 50%; color: #ffd08a; }
-.hud[data-ui="B"] .item:disabled { --c: rgba(160, 175, 170, 0.28); --l: 4px; color: rgba(190, 205, 198, 0.35); opacity: 1; }
-.hud[data-ui="B"] .item .count { color: #ffd08a; font-weight: 600; font-size: 12px; }
-.hud[data-ui="B"] .item:disabled .count { color: rgba(190, 205, 198, 0.4); }
-.hud[data-ui="B"] .card { --c: color-mix(in srgb, var(--who) 55%, transparent); }
-.hud[data-ui="B"] .card .name { color: var(--who); }
-.hud[data-ui="B"] .card.on { --c: var(--who); --l: 14px; --t: 2px; transform: translateX(4px); }
-.hud[data-ui="B"] .card.down { opacity: 0.35; }
-.hud[data-ui="B"] .pack .who { --c: var(--who); color: var(--who); border: none; }
-.hud[data-ui="B"] .status.alarm { --c: var(--alarm); --l: 50%; color: #ffd0cb; }
-.hud[data-ui="B"] .toast { border: none; }
-
-/* C · Mission dossier: the tag. Paper tags with a punched hole, red pencil for state, a paper clip on the operator in command. */
-.hud[data-ui="C"] { --paper: #e6dec9; --paper-dk: #cfc5a9; --pencil: #b3261e; font-family: 'Special Elite', monospace; }
-.hud[data-ui="C"] :where(.status, .pause, .card, .item, .bar button, .toast, .pack .who, .hint) {
-  background: linear-gradient(180deg, rgba(255,255,255,0.18), rgba(0,0,0,0.04)), var(--paper);
-  border: 1px solid #a99f84; border-radius: 2px; color: #2b2721; font-family: inherit; font-size: 11px;
-  box-shadow: 0 1px 0 rgba(0,0,0,0.35);
-}
-.hud[data-ui="C"] .status { font-size: 12px; }
-.hud[data-ui="C"] .item::before { content: ''; position: absolute; left: 5px; top: 5px; width: 5px; height: 5px; border-radius: 50%; background: #1b1d1c; box-shadow: inset 0 0 0 1px #8f866d; }
-.hud[data-ui="C"] .item .key { left: auto; right: 5px; top: auto; bottom: 2px; }
-.hud[data-ui="C"] .item .count { color: var(--pencil); font-size: 13px; }
-.hud[data-ui="C"] :is(.item, .bar button, .pause).on { box-shadow: 0 0 0 2px var(--pencil), 0 1px 0 rgba(0,0,0,0.35); color: #2b2721; border-radius: 40% / 30%; }
-.hud[data-ui="C"] .item:disabled { opacity: 1; color: #8c8572; background: var(--paper-dk); }
-.hud[data-ui="C"] .item:disabled::after { content: ''; position: absolute; left: 6px; right: 6px; top: 50%; height: 2px; background: var(--pencil); transform: rotate(-24deg); border-radius: 1px; opacity: 0.85; }
-.hud[data-ui="C"] .card { border-left: 4px solid var(--who); }
-.hud[data-ui="C"] .card .name { color: #2b2721; }
-.hud[data-ui="C"] .card.on::after { content: ''; position: absolute; top: -7px; right: -3px; width: 9px; height: 22px; border: 2px solid #8e9599; border-radius: 6px; background: transparent; }
-.hud[data-ui="C"] .card.on { box-shadow: 0 0 0 1px #2b2721, 0 1px 0 rgba(0,0,0,0.35); }
-.hud[data-ui="C"] .card.down::before { content: 'DOWN'; position: absolute; inset: auto 0 40%; color: var(--pencil); font-size: 12px; transform: rotate(-12deg); }
-.hud[data-ui="C"] .pack .who { border-left: 4px solid var(--who); }
-.hud[data-ui="C"] .status.alarm { box-shadow: 0 0 0 2px var(--alarm); }
-.hud[data-ui="C"] .toast { border-left: 4px solid #6cc4ff; }
+/* order buttons carry a stencil icon above the label, like the backpack pouches */
+.bar button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; }
+.bar button svg { width: 20px; height: 20px; }
+.bar button .label { font-size: 10px; line-height: 1; }
+@media (max-height: 430px) { .bar button svg { width: 18px; height: 18px; } }
+.hud[data-look="kit"] .rotate { font-family: 'Barlow Condensed', sans-serif; letter-spacing: 0.03em; }
+.hud[data-look="kit"] .rotate b { color: #cdbf94; font-size: 20px; text-transform: uppercase; letter-spacing: 0.08em; }

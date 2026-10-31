@@ -55,7 +55,14 @@ operator cards are file cards with a paper clip on the one in command.
 
 Type: typewriter.
 
-## Recommendation
+## Decision
+
+Ran picked **A · Field kit** (31 Oct 2026). Built: the pouch states, name tapes, the bundled
+Barlow Condensed, and a stencil icon set (filled kit silhouettes cut by stencil bridges,
+`src/ui/kitIcons.ts`). B and C were removed from the code; `assets/raw/gen/UI-01_compare.jpg`
+keeps them.
+
+## Recommendation (before the pick)
 
 **B · Night optics.** It is the quietest over a painted night map, it belongs to the same
 family as the overlays the player already reads (cones, rings), and its grammar (open corners
