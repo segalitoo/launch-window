@@ -11,6 +11,7 @@ import {
   draggedFrameName,
   frameName,
   type GuardAnimState,
+  AIM_KICK,
   guardFrameName,
   IDLE_LOOP,
   ONE_SHOT,
@@ -124,6 +125,16 @@ describe('guard animation frames', () => {
     expect(g({ moving: true, walked: CYCLE_TILES.walk / 2 + 0.01 })).toBe('walk_d0_f4');
     expect(guardFrameName({ ...g0, t: IDLE_LOOP * 0.55 }, { ...ga, idle: 12 })).toBe('idle_d0_f6'); // breathing loop
     expect(g({ moving: true, running: true })).toBe('run_d0_f0');
+  });
+
+  test('in combat he holds his rifle up when he stands, kicks on a shot, and runs when he moves', () => {
+    const ga3 = { ...ga, aim: 3 };
+    const a = (s: Partial<GuardAnimState>): string => guardFrameName({ ...g0, aiming: true, ...s }, ga3);
+    expect(a({})).toBe('aim_d0_f1');
+    expect(a({ shotAt: 5 - AIM_KICK / 2 })).toBe('aim_d0_f2');
+    expect(a({ shotAt: 5 - AIM_KICK * 2 })).toBe('aim_d0_f1');
+    expect(a({ moving: true, running: true })).toBe('run_d0_f0');
+    expect(guardFrameName({ ...g0, aiming: true }, ga)).toBe('idle_d0_f0'); // no aim frames: idle
   });
 
   test('taken down from behind he plays the knockout with Yoav, then stays down', () => {

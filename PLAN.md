@@ -151,7 +151,7 @@ About 144 hours. Re-plan at each gate.
 ### Phase 5. Characters and enemies art (16 h)
 
 - [x] Noa and Itai, full animation sets (done early, in Phase 2: same rig and kit system as Yoav; Noa throws the decoy, Itai squats to work; low-poly look like Yoav)
-- [ ] Guard full set, officer, dog (officer and dog atlases built early in Phase 3; the guard still lacks some moves)
+- [x] Guard full set, officer, dog (officer and dog atlases built early in Phase 3; 31 Oct: guard and officer got the aim pose, held when they stand to shoot in combat, with a kick frame on each shot)
 
 ### Phase 6. UI (8 h)
 

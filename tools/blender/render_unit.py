@@ -110,7 +110,8 @@ UNITS = {
     "guard": {**OPERATOR, "height": 1.76, "width": 1.05, "cloth": KHAKI, "cloth_dark": (0.20, 0.17, 0.10),
               "accent": BLACK, "gloves": SKIN, "weapon": (0.05, 0.045, 0.04), "face": SKIN, "head": "cap",
               "carrier": False, "pack": None, "antenna": 0, "kneepads": False,
-              "anims": ["idle", "walk", "run", "death", "knockout", "dragged"]},
+              # aim (Phase 5 leftover): a guard in combat raises his rifle when he stands to shoot
+              "anims": ["idle", "walk", "run", "death", "knockout", "dragged", "aim"]},
 }
 # The officer (Phase 3): a guard who sees through Noa's uniform. Three looks for Ran to pick
 # from (assets/raw/gen/OFFICER-01_looks.png); each keeps the guard's body and rifle and changes

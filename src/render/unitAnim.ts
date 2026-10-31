@@ -115,6 +115,10 @@ export interface GuardAnimState {
   onBack?: boolean;
   /** When he got up after being knocked out (Phase 3): the knockout played backwards. */
   wokeAt?: number | null;
+  /** In combat: standing still, he holds his rifle up (the 'aim' animation, Phase 5). */
+  aiming?: boolean;
+  /** When he last fired: the kick frame shows for AIM_KICK. */
+  shotAt?: number | null;
 }
 
 export function guardFrameName(s: GuardAnimState, anims: Readonly<Record<string, number>>): string {
@@ -133,6 +137,10 @@ export function guardFrameName(s: GuardAnimState, anims: Readonly<Record<string,
   if (s.wokeAt != null && s.t - s.wokeAt < ONE_SHOT.knockout) {
     const f = Math.floor(((s.t - s.wokeAt) / ONE_SHOT.knockout) * n('knockout'));
     return `knockout_d${d}_f${Math.max(0, n('knockout') - 1 - f)}`;
+  }
+  if (!s.moving && s.aiming && anims['aim']) {
+    const kick = s.shotAt != null && s.t - s.shotAt >= 0 && s.t - s.shotAt < AIM_KICK;
+    return `aim_d${d}_f${kick ? n('aim') - 1 : Math.min(1, n('aim') - 1)}`;
   }
   if (!s.moving) return `idle_d${d}_f${idleFrame(s.t, n('idle'))}`;
   const anim = s.running ? 'run' : 'walk';

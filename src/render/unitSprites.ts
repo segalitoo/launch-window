@@ -209,6 +209,8 @@ export class GuardSprites {
   private takedowns = new Map<number, number>();
   /** Barks by dog index, waiting for its next draw. */
   private barks = new Map<number, number>();
+  /** When each guard last fired at the squad: the kick frame of his aim. */
+  private shots = new Map<number, number>();
 
   /** Sim events that start one-shots. `t` is the sim time. */
   onEvents(events: readonly SimEvent[], t: number): void {
@@ -216,6 +218,7 @@ export class GuardSprites {
       if (ev.type === 'takedown' || ev.type === 'tripped') this.takedowns.set(ev.guard, t);
       else if (ev.type === 'woke') this.wakes.set(ev.guard, t);
       else if (ev.type === 'bark') this.barks.set(ev.guard, t);
+      else if (ev.type === 'shot') this.shots.set(ev.guard, t);
     }
   }
   /** Guards who woke up, waiting for their next draw. */
@@ -312,6 +315,8 @@ export class GuardSprites {
         koAt: e.koAt,
         onBack: e.onBack,
         wokeAt: e.wokeAt,
+        aiming: g.state === 'combat',
+        shotAt: this.shots.get(g.i) ?? null,
       },
       this.meta(g).anims,
     );
