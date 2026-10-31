@@ -161,7 +161,7 @@ About 144 hours. Re-plan at each gate.
 - [x] Backpack as a painted rucksack per operator with the painted tools strapped on it in canvas patches (Ran, 31 Oct); states: amber = active, dark with 0 = used up, dimmed = not available yet
 - [x] Squad portraits (Ran picked A, the face framing): rendered from the unit rigs (tools/blender/render_portrait.py), painted over in Flow, on the cards with a smaller name tape; health shows only when hurt, as a red bar (no dots)
 - [x] Desert around the map rebuilt (Ran: it looked strange next to the paintings; option B): full resolution, stones and scrub cut from the paintings, no repeats; wind (blowing sand wisps toward screen bottom-left) and a rolling tumbleweed every 18 to 36 s, outside the base only (Ran)
-- [ ] Minimap (the painted map shrunk, Ran)
+- [x] Minimap (Ran picked B: a field map in a canvas pouch under Pause): the graded ground copied from the paintings, squad, guards, launchers and the camera view; tap or drag to move the camera. On-screen hint removed (Ran): keys are on the buttons, controls go in the briefing
 - [ ] Briefing screen with a painted mission map
 
 ### Phase 7. Audio and polish (16 h)

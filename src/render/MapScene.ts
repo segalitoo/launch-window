@@ -367,11 +367,6 @@ export class MapScene extends Phaser.Scene {
     return mapBounds(cols, rows, MAP_TOP_MARGIN);
   }
 
-  mapCorners(): Point[] {
-    const { cols, rows } = this.game$.state.grid;
-    return footprint(0, 0, cols, rows);
-  }
-
   /** True once the paintings are graded, so the minimap can copy them. */
   minimapReady(): boolean {
     return this.painted.length > 0;

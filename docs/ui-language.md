@@ -69,3 +69,10 @@ family as the overlays the player already reads (cones, rings), and its grammar 
 to closed frame) works at 48 px without text. A is the most "commando" but its olive panels
 sit heavy on an olive-grey map. C is the most original but bright paper is the loudest thing
 on a night screen.
+
+## Minimap
+
+Ran picked **B · field map in a canvas pouch** (31 Oct 2026) of three
+(`assets/raw/gen/UI-02_minimap_compare.jpg`): A was the map's bare diamond, C a Map button that
+opened it large and paused the game. B uses the kit's own stitched panel, and the frame keeps it
+apart from the game map behind it.

@@ -1,12 +1,11 @@
 // The minimap (Phase 6, Ran: the painted map, shrunk): the ground as the player sees it, copied
 // once from the graded paintings, with flat marks on top (art rule 6): the squad in their
 // colours, guards, the launchers, and the camera's view. Tap or drag on it to move the camera.
-// Three looks to compare in the game (?mm=A|B|C, docs/ui-language.md).
+// Ran picked B of three looks (assets/raw/gen/UI-02_minimap_compare.jpg): a folded field map in
+// a canvas pouch under Pause, the field kit's stitched panel.
 
 import type { GameState, UnitId } from '@/sim';
 import { toScreen } from '@/render/iso';
-
-export type MinimapLook = 'A' | 'B' | 'C';
 
 export interface Rect {
   x: number;
@@ -19,8 +18,6 @@ export interface Rect {
 export interface MinimapSource {
   minimapReady(): boolean;
   mapRect(): Rect;
-  /** The map's four ground corners (world px): back, right, front, left. */
-  mapCorners(): { x: number; y: number }[];
   drawMinimapGround(ctx: CanvasRenderingContext2D, r: Rect): void;
   viewRect(): Rect;
   jumpTo(x: number, y: number): void;
@@ -62,20 +59,13 @@ export class Minimap {
   private readonly marks: HTMLCanvasElement;
   private baked = false;
   private rect: Rect | null = null;
-  /** C: the map is folded away until the player opens it. */
-  private open: boolean;
 
   constructor(
     parent: HTMLElement,
-    readonly look: MinimapLook,
     private readonly source: MinimapSource,
-    /** C only: opening the map pauses the game, closing it resumes. */
-    private readonly onOpen: (open: boolean) => void,
   ) {
-    this.open = look !== 'C';
     this.el = document.createElement('div');
     this.el.className = 'mm';
-    this.el.dataset.look = look;
     this.el.innerHTML = `<div class="mm-frame"><canvas class="mm-ground"></canvas><canvas class="mm-marks"></canvas></div>`;
     this.ground = this.el.querySelector('.mm-ground')!;
     this.marks = this.el.querySelector('.mm-marks')!;
@@ -88,28 +78,13 @@ export class Minimap {
       this.jump(e);
     });
     frame.addEventListener('pointermove', (e) => {
-      if (e.buttons && this.look !== 'C') this.jump(e);
+      if (e.buttons) this.jump(e);
     });
-    if (look === 'C') {
-      this.el.hidden = true;
-      frame.addEventListener('pointerup', () => this.setOpen(false));
-    }
-  }
-
-  get isOpen(): boolean {
-    return this.open;
-  }
-
-  setOpen(open: boolean): void {
-    if (this.look !== 'C' || open === this.open) return;
-    this.open = open;
-    this.el.hidden = !open;
-    this.onOpen(open);
   }
 
   /** Called every frame. */
   update(s: GameState, sel: UnitId): void {
-    if (!this.open || !this.source.minimapReady()) return;
+    if (!this.source.minimapReady()) return;
     if (!this.baked || this.sizeChanged()) this.bake();
     const r = this.rect!;
     const ctx = this.marks.getContext('2d')!;
@@ -118,8 +93,7 @@ export class Minimap {
       const p = toScreen(x, y);
       return [(p.x - r.x) * k, (p.y - r.y) * k];
     };
-    // marks are sized for a corner map about 150 px wide and grow on a big one (C)
-    const dpr = (this.marks.width / Math.max(1, this.marks.clientWidth)) * Math.min(2.5, Math.max(1, this.marks.clientWidth / 150));
+    const dpr = this.marks.width / Math.max(1, this.marks.clientWidth);
     ctx.clearRect(0, 0, this.marks.width, this.marks.height);
     // the camera's view
     const v = this.source.viewRect();
@@ -178,12 +152,6 @@ export class Minimap {
     for (const c of [this.ground, this.marks]) {
       c.width = w;
       c.height = h;
-    }
-    if (this.look === 'A') {
-      // clip to the map's diamond: its four ground corners, as % of the rectangle
-      const s = this.source.mapCorners();
-      const pct = s.map((p) => `${(((p.x - r.x) / r.w) * 100).toFixed(2)}% ${(((p.y - r.y) / r.h) * 100).toFixed(2)}%`);
-      this.el.querySelector<HTMLElement>('.mm-frame')!.style.clipPath = `polygon(${pct.join(', ')})`;
     }
     const ctx = this.ground.getContext('2d')!;
     ctx.imageSmoothingQuality = 'high';

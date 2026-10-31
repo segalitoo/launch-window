@@ -9,7 +9,7 @@ import type { Controller } from '@/render/controller';
 import { packOf } from './backpack';
 import { squadOf } from './squad';
 import { ORDER_ICONS } from './kitIcons';
-import { Minimap, type MinimapLook, type MinimapSource } from './minimap';
+import { Minimap, type MinimapSource } from './minimap';
 import { PlayLog } from './playlog';
 
 const fmt = (sec: number): string => {
@@ -62,15 +62,11 @@ export class Hud {
       `<div class="hud" data-look="kit">
         <div class="top">
           <div class="status" id="status"></div>
-          <button type="button" class="mapbtn" aria-label="Map (M)" hidden>Map</button>
           <button type="button" class="pause" aria-label="Pause (Space)">Pause</button>
         </div>
         <nav class="squad" aria-label="Squad"></nav>
         ${test ? `<div class="brief"><b>Test · ${esc(test.who)}: ${esc(test.name)}.</b> ${esc(test.brief)} Reach the exit, no alarm. <a href="tests.html">All tests</a></div>` : ''}
         <div class="toasts" id="toasts" aria-live="polite"></div>
-        <p class="hint">Tap a unit to select (1 2 3). Tap the map to move. Tap a guard: Yoav takes him down.
-        <span class="keys">C crawl · F fire · H silencer · X drop body · S stop · Space pause · tools in the backpack below, with their keys · Itai: tap the fence to cut it · drag to pan, scroll or pinch to zoom.</span>
-        <span class="touch-keys">Drag to pan, pinch to zoom.</span></p>
         <div class="right">
           <nav class="pack" aria-label="Backpack"></nav>
           <nav class="bar" aria-label="Orders">${BAR.map(([id, key, label]) => `<button type="button" data-id="${id}" title="${label} (${key.toUpperCase()})"><span class="key">${key.toUpperCase()}</span>${ORDER_ICONS[id] ?? ''}<span class="label">${label}</span></button>`).join('')}</nav>
@@ -145,35 +141,10 @@ export class Hud {
   private checkPortrait: (() => void) | null;
 
   private minimap: Minimap | null = null;
-  private pausedForMap = false;
 
-  /** The minimap, once the scene exists (src/main.ts). `?mm=A|B|C` picks the look to compare. */
+  /** The minimap, once the scene exists (src/main.ts). */
   attachMinimap(source: MinimapSource): void {
-    const q = new URLSearchParams(location.search).get('mm')?.toUpperCase();
-    const look: MinimapLook = q === 'A' || q === 'C' ? q : 'B';
-    const hud = this.status.closest<HTMLElement>('.hud')!;
-    this.minimap = new Minimap(hud, look, source, (open) => {
-      // C: an open map pauses the game; closing it resumes only if the map paused it
-      if (open && !this.paused) {
-        this.press(' ');
-        this.pausedForMap = true;
-      } else if (!open && this.pausedForMap) {
-        if (this.paused) this.press(' ');
-        this.pausedForMap = false;
-      }
-    });
-    if (look === 'C') {
-      const b = hud.querySelector<HTMLButtonElement>('.mapbtn')!;
-      b.hidden = false;
-      b.addEventListener('pointerdown', (e) => {
-        e.preventDefault();
-        this.minimap!.setOpen(!this.minimap!.isOpen);
-      });
-      addEventListener('keydown', (e) => {
-        if (e.key.toLowerCase() === 'm') this.minimap!.setOpen(!this.minimap!.isOpen);
-        else if (e.key === 'Escape') this.minimap!.setOpen(false);
-      });
-    }
+    this.minimap = new Minimap(this.status.closest<HTMLElement>('.hud')!, source);
   }
 
   /** One card per operator; built once, its state updated every frame. */

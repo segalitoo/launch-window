@@ -50,7 +50,6 @@ html, body { margin: 0; height: 100%; background: var(--ink); color: var(--text)
 .toast.alarm { border-left-color: var(--alarm); }
 .toast.ok { border-left-color: var(--ok); }
 .toast.warn { border-left-color: var(--threat); }
-.hint { position: absolute; top: calc(var(--edge-t) + 44px); left: var(--edge-l); margin: 0; max-width: 54ch; background: var(--panel); border: 1px solid var(--line); border-radius: 3px; padding: 6px 10px; color: var(--muted); }
 .bar { display: flex; flex-direction: row; gap: 6px; pointer-events: auto; }
 .bar button { width: 58px; height: var(--bottom); min-height: 44px; padding: 0 2px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 4px; font: inherit; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 .bar button.on { border-color: var(--threat); color: var(--threat); }
@@ -67,13 +66,9 @@ html, body { margin: 0; height: 100%; background: var(--ink); color: var(--text)
 .pack .item:disabled { color: var(--muted); opacity: 0.45; cursor: default; }
 .pack .item:disabled .count { color: var(--muted); }
 .pack .item:not(:disabled):hover { border-color: var(--muted); }
-.touch-keys { display: none; }
 @media (pointer: coarse) {
   .bar button .key { display: none; }
-  .keys { display: none; }
-  .touch-keys { display: inline; }
   .pack .item .key, .squad .card .key { display: none; }
-  .hint { display: none; }
 }
 .end { pointer-events: auto; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: flex; flex-direction: column; gap: 8px; width: max-content; max-width: calc(100% - 32px); }
 .end button { color: inherit; font: inherit; cursor: pointer; background: var(--panel); border: 1px solid var(--line); border-radius: 4px; min-height: 44px; }
@@ -99,7 +94,7 @@ html, body { margin: 0; height: 100%; background: var(--ink); color: var(--text)
   .status, .toast { font-size: 11px; }
 }
 @media (max-width: 600px) {
-  .status, .hint, .toast, .brief { font-size: 11px; }
+  .status, .toast, .brief { font-size: 11px; }
 }
 
 /* ===== Phase 6 visual language: the field kit (docs/ui-language.md; Ran picked A over night optics and dossier) ===== */
@@ -109,7 +104,7 @@ html, body { margin: 0; height: 100%; background: var(--ink); color: var(--text)
 
 /* Field kit (Ran, Phase 6): the pouch. Olive canvas, a stitched seam, a flap that lifts when active. */
 .hud[data-look="kit"] { --canvas: #3b3f2b; --canvas-dk: #2a2d1f; --khaki: #cdbf94; --thread: rgba(214, 200, 160, 0.38); font-family: 'Barlow Condensed', sans-serif; letter-spacing: 0.03em; }
-.hud[data-look="kit"] :where(.status, .pause, .card, .item, .bar button, .toast, .hint) {
+.hud[data-look="kit"] :where(.status, .pause, .card, .item, .bar button, .toast) {
   background: repeating-linear-gradient(45deg, rgba(255,255,255,0.025) 0 2px, transparent 2px 4px), var(--canvas);
   border: 1px solid #191b12; border-radius: 3px; color: var(--khaki);
   outline: 1px dashed var(--thread); outline-offset: -4px; font-family: inherit; text-transform: uppercase; font-weight: 500;
@@ -209,25 +204,10 @@ html, body { margin: 0; height: 100%; background: var(--ink); color: var(--text)
 @media (pointer: fine) and (min-height: 700px) { .hud[data-look="kit"] .squad .card .name { font-size: 11px; } }
 @media (pointer: fine) and (min-height: 700px) { .hud[data-look="kit"] { --cardh: 108px; } }
 
-/* minimap (Phase 6): under Pause in the top-right corner; three looks to compare (?mm=A|B|C) */
+/* minimap (Phase 6, Ran picked B): a folded field map in a canvas pouch, under Pause */
 .mm { position: absolute; top: calc(var(--edge-t) + 44px); right: var(--edge-r); width: var(--mmw, 156px); pointer-events: auto; touch-action: none; }
-.mm-frame { position: relative; cursor: crosshair; }
-.mm canvas { display: block; width: 100%; }
-.mm .mm-marks { position: absolute; inset: 0; height: 100%; }
+.mm-frame { position: relative; cursor: crosshair; padding: 5px; background: repeating-linear-gradient(45deg, rgba(255,255,255,0.025) 0 2px, transparent 2px 4px), var(--canvas, #3b3f2b); border: 1px solid #191b12; border-radius: 3px; outline: 1px dashed var(--thread, rgba(214,200,160,0.38)); outline-offset: -3px; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5); }
+.mm canvas { display: block; width: 100%; border: 1px solid #191b12; }
+.mm .mm-marks { position: absolute; inset: 6px; width: calc(100% - 12px); height: calc(100% - 12px); border: 0; }
 @media (max-height: 430px) { .hud { --mmw: 124px; } .mm { top: calc(var(--edge-t) + 38px); } }
 @media (pointer: fine) and (min-height: 700px) { .hud { --mmw: 200px; } }
-/* A: the map's own diamond, no frame (the clip is set from the map's corners) */
-.mm[data-look="A"] { filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.7)); }
-/* B: a folded field map in a canvas pouch, the kit's stitched panel */
-.mm[data-look="B"] .mm-frame { padding: 5px; background: repeating-linear-gradient(45deg, rgba(255,255,255,0.025) 0 2px, transparent 2px 4px), var(--canvas, #3b3f2b); border: 1px solid #191b12; border-radius: 3px; outline: 1px dashed var(--thread, rgba(214,200,160,0.38)); outline-offset: -3px; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5); }
-.mm[data-look="B"] canvas { border: 1px solid #191b12; }
-.mm[data-look="B"] .mm-marks { inset: 6px; width: calc(100% - 12px); height: calc(100% - 12px); }
-/* C: folded away; the Map button unfolds it large over a dimmed, paused game */
-.mm[data-look="C"] { position: fixed; inset: 0; width: auto; display: flex; align-items: center; justify-content: center; background: rgba(8, 10, 8, 0.6); z-index: 5; }
-.mm[data-look="C"][hidden] { display: none; }
-.mm[data-look="C"] .mm-frame { width: min(86vw, 150vh); padding: 8px; background: var(--canvas, #3b3f2b); border: 1px solid #191b12; border-radius: 4px; outline: 1px dashed var(--thread, rgba(214,200,160,0.38)); outline-offset: -4px; }
-.mm[data-look="C"] .mm-marks { inset: 8px; width: calc(100% - 16px); height: calc(100% - 16px); }
-.top .mapbtn { pointer-events: auto; min-width: 64px; min-height: 36px; margin-left: auto; }
-.top .mapbtn:not([hidden]) + .pause { margin-left: 6px; }
-@media (max-height: 430px) { .top .mapbtn { min-height: 32px; } }
-.hud[data-look="kit"] .mapbtn { background: repeating-linear-gradient(45deg, rgba(255,255,255,0.025) 0 2px, transparent 2px 4px), var(--canvas); border: 1px solid #191b12; border-radius: 3px; color: var(--khaki); outline: 1px dashed var(--thread); outline-offset: -4px; font-family: inherit; text-transform: uppercase; font-weight: 500; }

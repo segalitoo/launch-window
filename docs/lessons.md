@@ -37,3 +37,13 @@ Project-specific lessons. General rules go to `~/.claude/lessons/creative-projec
 - **Check each painted layer alone in the engine.** Files on disk looked right; only `renderer.snapshot()` with one area visible at a time showed which layer drew what. Do this before calling a seam fixed.
 - **Flat guides must be black in the ID pass.** The LZ pad got a tile ID, so 32 pad pieces became occluders that would hide units walking behind them. Anything lying on the ground (road, pad) is not an occluder.
 - **Placeholder markers go off on painted ground.** The dark hide patches drawn over the painted scrub smudged it. The painting carries the hiding spot.
+
+## Region masks cut tall structures (Phase 6)
+
+A painted area's region mask works on ground tiles in screen space. A tall building near the
+edge of its area has its roof drawn over another area's ground tiles, so the mask cut the roof
+away, and the occluders cut from the masked painting came out empty there. A guard standing
+behind the court's west building was drawn on its roof (Ran). Occluders are now cut from the
+painting before the region mask: each occluder already holds only its own tile's pixels.
+Check: render the frame with and without the unit and diff the pixels; that shows exactly what
+the player sees of him.
