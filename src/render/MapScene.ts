@@ -544,13 +544,17 @@ export class MapScene extends Phaser.Scene {
     for (const b of this.blocks) b.destroy();
     this.blocks = [];
     this.placeholderTiles = [];
-    for (const p of this.painted) p.syncDoors((x, y) => s.doors.some((d) => d.x === x && d.y === y && d.open));
+    // door patches; fence patches too, once Itai has cut the fence there (the tile is open ground)
+    const opened = (x: number, y: number): boolean =>
+      s.doors.some((d) => d.x === x && d.y === y && d.open) || tileAt(s.grid, x, y) === '.';
+    for (const p of this.painted) p.syncDoors(opened);
     this.occluders = this.painted.flatMap((p) => p.occluders);
     for (let y = 0; y < rows; y++) {
       for (let x = 0; x < cols; x++) {
         const code = tileAt(s.grid, x, y);
         if (code === 'F') {
-          this.blocks.push(this.drawFence(s, x, y));
+          // a painted fence needs no drawn panel; only placeholder ground gets one
+          if (!this.painted.some((p) => p.coversTile(x, y))) this.blocks.push(this.drawFence(s, x, y));
           continue;
         }
         let style = BLOCKS[code];

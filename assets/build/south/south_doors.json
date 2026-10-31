@@ -1,1 +1,65 @@
-[]
+[
+  {
+    "x": 27,
+    "y": 27,
+    "image": "south_door_27_27.png",
+    "px": 491,
+    "py": 468,
+    "fence": true,
+    "source": "FENCE-01_south_out_1.jpg"
+  },
+  {
+    "x": 28,
+    "y": 27,
+    "image": "south_door_28_27.png",
+    "px": 540,
+    "py": 521,
+    "fence": true,
+    "source": "FENCE-01_south_out_1.jpg"
+  },
+  {
+    "x": 29,
+    "y": 27,
+    "image": "south_door_29_27.png",
+    "px": 620,
+    "py": 553,
+    "fence": true,
+    "source": "FENCE-01_south_out_1.jpg"
+  },
+  {
+    "x": 30,
+    "y": 27,
+    "image": "south_door_30_27.png",
+    "px": 684,
+    "py": 584,
+    "fence": true,
+    "source": "FENCE-01_south_out_1.jpg"
+  },
+  {
+    "x": 31,
+    "y": 27,
+    "image": "south_door_31_27.png",
+    "px": 749,
+    "py": 617,
+    "fence": true,
+    "source": "FENCE-01_south_out_1.jpg"
+  },
+  {
+    "x": 32,
+    "y": 27,
+    "image": "south_door_32_27.png",
+    "px": 813,
+    "py": 576,
+    "fence": true,
+    "source": "FENCE-01_south_out_1.jpg"
+  },
+  {
+    "x": 33,
+    "y": 27,
+    "image": "south_door_33_27.png",
+    "px": 875,
+    "py": 680,
+    "fence": true,
+    "source": "FENCE-01_south_out_1.jpg"
+  }
+]

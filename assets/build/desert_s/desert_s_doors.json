@@ -1,1 +1,38 @@
-[]
+[
+  {
+    "x": 10,
+    "y": 16,
+    "image": "desert_s_door_10_16.png",
+    "px": 1608,
+    "py": 532,
+    "fence": true,
+    "source": "FENCE-01_desert_s_out_1.jpg"
+  },
+  {
+    "x": 10,
+    "y": 17,
+    "image": "desert_s_door_10_17.png",
+    "px": 1544,
+    "py": 575,
+    "fence": true,
+    "source": "FENCE-01_desert_s_out_1.jpg"
+  },
+  {
+    "x": 10,
+    "y": 18,
+    "image": "desert_s_door_10_18.png",
+    "px": 1480,
+    "py": 608,
+    "fence": true,
+    "source": "FENCE-01_desert_s_out_1.jpg"
+  },
+  {
+    "x": 10,
+    "y": 19,
+    "image": "desert_s_door_10_19.png",
+    "px": 1395,
+    "py": 639,
+    "fence": true,
+    "source": "FENCE-01_desert_s_out_1.jpg"
+  }
+]
