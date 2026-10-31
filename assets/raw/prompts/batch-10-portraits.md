@@ -22,3 +22,15 @@ Paint over the first image as a hand-painted game character portrait, in the exa
 KIT per unit:
 
 - yoav: `an olive combat helmet with a night-vision mount on the front, olive ear protectors, an olive balaclava, an olive plate carrier, a short radio whip antenna rising from a small assault pack behind the shoulder, a tan bullpup carbine across the chest, tan gloves`
+- noa: `a combat helmet with a tan cloth cover, a radio headset with a boom microphone and no night-vision mount, an olive balaclava, a small hair bun at the back of the neck, an olive plate carrier, a tall radio whip antenna rising from a radio pack behind the shoulder, a black carbine across the chest, tan gloves`
+- itai: `an olive combat helmet with a night-vision mount on the front, olive ear protectors, an olive balaclava, an olive plate carrier, a tall heavy rucksack behind the shoulders with the end of a steel breaching bar sticking up behind his head, a black pump shotgun across the chest, tan gloves; a big broad-shouldered man`
+
+## Result, round 1
+
+Ran picked **A · face** (`PORT-01_yoav_face_2.jpg`): the only framing that reads on the card on a
+phone (`PORT-01_compare.jpg`). He also asked for a smaller name tape and no health dots (health
+now shows as a red bar over the portrait once an operator is hurt).
+
+## Result, round 2
+
+Noa `PORT-01_noa_face_3.jpg` and Itai `PORT-01_itai_face_3.jpg`: their heads match Yoav's size, so the three cards read as one set. In the game: `assets/build/portraits/{shadow,lure,sapper}.jpg`.

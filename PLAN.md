@@ -159,7 +159,8 @@ About 144 hours. Re-plan at each gate.
 - [x] HUD moved to the bottom corners (Ran, 31 Oct): squad bottom-left, rucksack bottom-right with the orders beside it; the map fills the screen (starts on the squad, no zoom past filling the screen, desert backdrop around the map, soft map edge); orders row (crawl, fire, silencer, drop, stop) on every screen with its keys; the desert is one non-repeating image and the paintings fade one tile past the map
 - [x] UI visual language: Ran picked A, the field kit (pouches, stitched canvas, name tapes; docs/ui-language.md). Font Barlow Condensed bundled; stencil icon set for the tools and orders (src/ui/kitIcons.ts)
 - [x] Backpack as a painted rucksack per operator with the painted tools strapped on it in canvas patches (Ran, 31 Oct); states: amber = active, dark with 0 = used up, dimmed = not available yet
-- [ ] Squad panel with portraits, minimap (portraits rendered from the 3D models, minimap = the painted map shrunk, Ran)
+- [x] Squad portraits (Ran picked A, the face framing): rendered from the unit rigs (tools/blender/render_portrait.py), painted over in Flow, on the cards with a smaller name tape; health shows only when hurt, as a red bar (no dots)
+- [ ] Minimap (the painted map shrunk, Ran)
 - [ ] Briefing screen with a painted mission map
 
 ### Phase 7. Audio and polish (16 h)
