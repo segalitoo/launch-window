@@ -18,6 +18,9 @@ const scene = new MapScene(
   test?.map ?? null,
 );
 
+// the minimap reads the scene's graded paintings and camera (missions only, not test maps)
+if (!test) hud.attachMinimap(scene);
+
 const game = new Phaser.Game({
   type: Phaser.AUTO,
   parent: 'stage',

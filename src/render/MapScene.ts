@@ -57,6 +57,12 @@ import {
 const CONE_RAYS = 28;
 const TAP_SLOP = 8; // px a pointer may move before a tap becomes a pan
 const MAX_ZOOM = 2.5;
+/** Zoom speed (Ran: zooming felt too slow). Mouse wheel: about 25% a notch. */
+const WHEEL_RATE = 0.0028;
+/** Trackpad pinch (wheel events with ctrlKey): small deltas, so a much higher rate. */
+const WHEEL_PINCH_RATE = 0.01;
+/** Touch pinch: zoom grows faster than the finger spread (1 = one to one). */
+const PINCH_GAIN = 1.4;
 /** Desert backdrop beyond the map edge the camera may show, in world px (Phase 6). */
 const BACKDROP_PAD = 160;
 /** On the start view the screen height shows about this many world px: zoomed in on the squad. */
@@ -312,7 +318,8 @@ export class MapScene extends Phaser.Scene {
       } else if (g.type === 'pinch' && this.pointers.size === 2) {
         const [a, b] = [...this.pointers.values()] as [Point, Point];
         const m = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-        cam.setZoom(Phaser.Math.Clamp((g.z0 * Math.hypot(a.x - b.x, a.y - b.y)) / Math.max(1, g.d0), this.minZoom, MAX_ZOOM));
+        const spread = Math.hypot(a.x - b.x, a.y - b.y) / Math.max(1, g.d0);
+        cam.setZoom(Phaser.Math.Clamp(g.z0 * Math.pow(spread, PINCH_GAIN), this.minZoom, MAX_ZOOM));
         cam.preRender();
         const w = cam.getWorldPoint(m.x, m.y);
         cam.scrollX += g.mid.x - w.x;
@@ -338,7 +345,12 @@ export class MapScene extends Phaser.Scene {
     });
     this.input.on('wheel', (p: Phaser.Input.Pointer, _o: unknown, _dx: number, dy: number) => {
       this.userMoved = true;
-      this.zoomAt(cam.zoom * Math.exp(-dy * 0.0015), p.x, p.y);
+      // A trackpad pinch arrives as many small wheel events with ctrlKey (1 to 5 units each),
+      // a mouse notch as one event of about 100: the same rate made pinching feel dead (Ran).
+      const e = p.event as WheelEvent | undefined;
+      const units = dy * (e?.deltaMode === 1 ? 16 : 1);
+      const rate = e?.ctrlKey ? WHEEL_PINCH_RATE : WHEEL_RATE;
+      this.zoomAt(cam.zoom * Math.exp(-units * rate), p.x, p.y);
     });
     this.input.mouse?.disableContextMenu();
     this.input.keyboard?.on('keydown', (e: KeyboardEvent) => {
@@ -347,6 +359,51 @@ export class MapScene extends Phaser.Scene {
   }
 
   /** A key press from the keyboard or the touch bar. Returns true when it was used. */
+  // ---------- minimap (src/ui/minimap.ts) ----------
+
+  /** The map's screen rectangle (world px), the area the minimap shows. */
+  mapRect(): { x: number; y: number; w: number; h: number } {
+    const { cols, rows } = this.game$.state.grid;
+    return mapBounds(cols, rows, MAP_TOP_MARGIN);
+  }
+
+  mapCorners(): Point[] {
+    const { cols, rows } = this.game$.state.grid;
+    return footprint(0, 0, cols, rows);
+  }
+
+  /** True once the paintings are graded, so the minimap can copy them. */
+  minimapReady(): boolean {
+    return this.painted.length > 0;
+  }
+
+  /** Draws the ground as the player sees it, the desert backdrop and the night-graded
+   *  paintings, into `ctx`, where world rectangle `r` fills the canvas. */
+  drawMinimapGround(ctx: CanvasRenderingContext2D, r: { x: number; y: number; w: number; h: number }): void {
+    const sx = ctx.canvas.width / r.w;
+    const sy = ctx.canvas.height / r.h;
+    const put = (key: string, x: number, y: number, w: number, h: number): void => {
+      if (!this.textures.exists(key)) return;
+      const src = this.textures.get(key).getSourceImage() as CanvasImageSource;
+      ctx.drawImage(src, (x - r.x) * sx, (y - r.y) * sy, w * sx, h * sy);
+    };
+    const b = this.viewBounds(this.game$.state.grid.cols, this.game$.state.grid.rows, 2 * BACKDROP_PAD);
+    put('backdrop_sand', b.x, b.y, b.w, b.h);
+    for (const p of this.painted) put(`${p.manifest.name}_bg`, p.rect.x, p.rect.y, p.rect.w, p.rect.h);
+  }
+
+  /** What the camera shows now, in world px. */
+  viewRect(): { x: number; y: number; w: number; h: number } {
+    const v = this.cameras.main.worldView;
+    return { x: v.x, y: v.y, w: v.width, h: v.height };
+  }
+
+  /** Centres the camera on a world point (the player tapped the minimap). */
+  jumpTo(x: number, y: number): void {
+    this.userMoved = true;
+    this.cameras.main.centerOn(x, y);
+  }
+
   press(k: string): boolean {
     if (k === 'r' && this.game$.state.over) {
       this.newGame();

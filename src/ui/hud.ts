@@ -9,6 +9,7 @@ import type { Controller } from '@/render/controller';
 import { packOf } from './backpack';
 import { squadOf } from './squad';
 import { ORDER_ICONS } from './kitIcons';
+import { Minimap, type MinimapLook, type MinimapSource } from './minimap';
 import { PlayLog } from './playlog';
 
 const fmt = (sec: number): string => {
@@ -61,6 +62,7 @@ export class Hud {
       `<div class="hud" data-look="kit">
         <div class="top">
           <div class="status" id="status"></div>
+          <button type="button" class="mapbtn" aria-label="Map (M)" hidden>Map</button>
           <button type="button" class="pause" aria-label="Pause (Space)">Pause</button>
         </div>
         <nav class="squad" aria-label="Squad"></nav>
@@ -142,6 +144,38 @@ export class Hud {
   /** Runs once the first frame has told the HUD whether the game is paused. */
   private checkPortrait: (() => void) | null;
 
+  private minimap: Minimap | null = null;
+  private pausedForMap = false;
+
+  /** The minimap, once the scene exists (src/main.ts). `?mm=A|B|C` picks the look to compare. */
+  attachMinimap(source: MinimapSource): void {
+    const q = new URLSearchParams(location.search).get('mm')?.toUpperCase();
+    const look: MinimapLook = q === 'A' || q === 'C' ? q : 'B';
+    const hud = this.status.closest<HTMLElement>('.hud')!;
+    this.minimap = new Minimap(hud, look, source, (open) => {
+      // C: an open map pauses the game; closing it resumes only if the map paused it
+      if (open && !this.paused) {
+        this.press(' ');
+        this.pausedForMap = true;
+      } else if (!open && this.pausedForMap) {
+        if (this.paused) this.press(' ');
+        this.pausedForMap = false;
+      }
+    });
+    if (look === 'C') {
+      const b = hud.querySelector<HTMLButtonElement>('.mapbtn')!;
+      b.hidden = false;
+      b.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        this.minimap!.setOpen(!this.minimap!.isOpen);
+      });
+      addEventListener('keydown', (e) => {
+        if (e.key.toLowerCase() === 'm') this.minimap!.setOpen(!this.minimap!.isOpen);
+        else if (e.key === 'Escape') this.minimap!.setOpen(false);
+      });
+    }
+  }
+
   /** One card per operator; built once, its state updated every frame. */
   private buildSquad(s: GameState, sel: UnitId): void {
     const cards = squadOf(s, sel);
@@ -204,6 +238,7 @@ export class Hud {
   onFrame(s: GameState, c: Controller): void {
     this.log.onFrame(s);
     const sel = c.sel;
+    this.minimap?.update(s, sel.id);
     const rigged = s.launchers.filter((l) => l.done).length;
     const parts = [
       s.aborted ? 'LAUNCH ABORTED' : `T-${fmt(s.timeLeft)}`,

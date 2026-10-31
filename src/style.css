@@ -208,3 +208,26 @@ html, body { margin: 0; height: 100%; background: var(--ink); color: var(--text)
 @media (max-height: 430px) { .hud { --cardh: 72px; } }
 @media (pointer: fine) and (min-height: 700px) { .hud[data-look="kit"] .squad .card .name { font-size: 11px; } }
 @media (pointer: fine) and (min-height: 700px) { .hud[data-look="kit"] { --cardh: 108px; } }
+
+/* minimap (Phase 6): under Pause in the top-right corner; three looks to compare (?mm=A|B|C) */
+.mm { position: absolute; top: calc(var(--edge-t) + 44px); right: var(--edge-r); width: var(--mmw, 156px); pointer-events: auto; touch-action: none; }
+.mm-frame { position: relative; cursor: crosshair; }
+.mm canvas { display: block; width: 100%; }
+.mm .mm-marks { position: absolute; inset: 0; height: 100%; }
+@media (max-height: 430px) { .hud { --mmw: 124px; } .mm { top: calc(var(--edge-t) + 38px); } }
+@media (pointer: fine) and (min-height: 700px) { .hud { --mmw: 200px; } }
+/* A: the map's own diamond, no frame (the clip is set from the map's corners) */
+.mm[data-look="A"] { filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.7)); }
+/* B: a folded field map in a canvas pouch, the kit's stitched panel */
+.mm[data-look="B"] .mm-frame { padding: 5px; background: repeating-linear-gradient(45deg, rgba(255,255,255,0.025) 0 2px, transparent 2px 4px), var(--canvas, #3b3f2b); border: 1px solid #191b12; border-radius: 3px; outline: 1px dashed var(--thread, rgba(214,200,160,0.38)); outline-offset: -3px; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5); }
+.mm[data-look="B"] canvas { border: 1px solid #191b12; }
+.mm[data-look="B"] .mm-marks { inset: 6px; width: calc(100% - 12px); height: calc(100% - 12px); }
+/* C: folded away; the Map button unfolds it large over a dimmed, paused game */
+.mm[data-look="C"] { position: fixed; inset: 0; width: auto; display: flex; align-items: center; justify-content: center; background: rgba(8, 10, 8, 0.6); z-index: 5; }
+.mm[data-look="C"][hidden] { display: none; }
+.mm[data-look="C"] .mm-frame { width: min(86vw, 150vh); padding: 8px; background: var(--canvas, #3b3f2b); border: 1px solid #191b12; border-radius: 4px; outline: 1px dashed var(--thread, rgba(214,200,160,0.38)); outline-offset: -4px; }
+.mm[data-look="C"] .mm-marks { inset: 8px; width: calc(100% - 16px); height: calc(100% - 16px); }
+.top .mapbtn { pointer-events: auto; min-width: 64px; min-height: 36px; margin-left: auto; }
+.top .mapbtn:not([hidden]) + .pause { margin-left: 6px; }
+@media (max-height: 430px) { .top .mapbtn { min-height: 32px; } }
+.hud[data-look="kit"] .mapbtn { background: repeating-linear-gradient(45deg, rgba(255,255,255,0.025) 0 2px, transparent 2px 4px), var(--canvas); border: 1px solid #191b12; border-radius: 3px; color: var(--khaki); outline: 1px dashed var(--thread); outline-offset: -4px; font-family: inherit; text-transform: uppercase; font-weight: 500; }
