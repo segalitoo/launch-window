@@ -38,10 +38,9 @@ const BAR: readonly (readonly [string, string, string])[] = [
 /** Phones only, held upright: the game asks to turn the phone and pauses. */
 const PORTRAIT = '(pointer: coarse) and (orientation: portrait)';
 
-/** Portrait for a squad card (Phase 6): painted over a render of the unit's 3D model
- * (tools/blender/render_portrait.py). `?portrait=face|bust|side` picks a framing to compare. */
-const FRAMING = new URLSearchParams(location.search).get('portrait');
-const portraitOf = (id: string): string => (FRAMING ? `/portraits/${id}_${FRAMING}.jpg` : `/portraits/${id}.jpg`);
+/** Portrait for a squad card (Phase 6, Ran picked the face framing): painted over a render of
+ * the unit's 3D model (tools/blender/render_portrait.py --framing face). */
+const portraitOf = (id: string): string => `/portraits/${id}.jpg`;
 
 export class Hud {
   private status: HTMLElement;
@@ -256,8 +255,11 @@ export class Hud {
       if (!q) continue;
       q.b.classList.toggle('on', card.selected);
       q.b.classList.toggle('down', !card.alive);
-      const hp = '●'.repeat(Math.max(0, card.hp)) + '○'.repeat(Math.max(0, card.maxHp - card.hp));
-      if (q.hp.textContent !== hp) q.hp.textContent = hp;
+      // health shows only once he is hurt: a red bar across the top of the portrait (Ran: no dots)
+      const left = card.alive && card.hp < card.maxHp ? `${(100 * Math.max(0, card.hp)) / card.maxHp}%` : '';
+      if (q.hp.style.width !== left) q.hp.style.width = left;
+      q.b.classList.toggle('hurt', left !== '');
+      q.b.title = `${card.name} (${card.key})${left ? `, wounded ${card.hp}/${card.maxHp}` : ''}`;
     }
     this.buttons.get('drop')!.disabled = !sel.carrying;
     const over = s.over;
