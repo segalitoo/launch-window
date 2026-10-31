@@ -72,7 +72,7 @@ prototype/      the original single-file prototype, read-only
 3. Scale: characters about 40 to 48 px tall at 100% zoom, on a large detailed map.
 4. Palette: muted earth tones. Paint in neutral daylight, grade to night in the engine.
 5. Light: one direction for every asset, from the top left. Shadows fall to the bottom right.
-6. Readability: sight cones, selection rings and icons draw on top of the art in flat colors.
+6. Readability: sight cones, selection rings and icons are flat colors. Sight cones lie on the ground, so walls, roofs and units in front cover them (Ran, 31 Oct); selection rings and icons draw on top of everything.
 
 ## Content rules
 

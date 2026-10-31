@@ -122,6 +122,8 @@ export class MapScene extends Phaser.Scene {
   private ground!: Phaser.GameObjects.Graphics;
   private blocks: Phaser.GameObjects.Graphics[] = [];
   private overlay!: Phaser.GameObjects.Graphics;
+  /** Sight cones and the dog's smell lie on the ground: walls, roofs and units cover them (Ran). */
+  private coneGfx!: Phaser.GameObjects.Graphics;
   /** Hiding spots (Phase 3 placeholder until the Phase 4 map art): over the painting, under the units. */
   private hideGfx!: Phaser.GameObjects.Graphics;
   /** Pistol shots on screen: a short tracer, sim time. */
@@ -192,6 +194,9 @@ export class MapScene extends Phaser.Scene {
     );
     if (this.areas.length) this.ambience = new Ambience(this, toTintHex(TUMBLEWEED_GRADE), this.openDesert(), rows);
     this.overlay = this.add.graphics().setDepth(OVERLAY_DEPTH);
+    // under every structure and unit (they sort from 0 up); not just above the ground paintings,
+    // where depths near -1e9 cannot be told apart (src/render/ambience.ts)
+    this.coneGfx = this.add.graphics().setDepth(-2.5);
     this.beams = this.add.graphics().setDepth(OVERLAY_DEPTH - 2).setBlendMode(Phaser.BlendModes.ADD);
     this.unitArt = new UnitSprites(this, toTintHex(UNIT_GRADE), OVERLAY_DEPTH - 1);
     this.guardArt = new GuardSprites(this, toTintHex(UNIT_GRADE));
@@ -640,6 +645,7 @@ export class MapScene extends Phaser.Scene {
     for (const p of this.painted) p.setLamps(lamps);
 
     const o = this.overlay.clear();
+    const cones = this.coneGfx.clear();
     this.shadows.clear();
     const sel = this.ctl.sel;
 
@@ -653,7 +659,7 @@ export class MapScene extends Phaser.Scene {
       const at = { x: c.x + 0.5, y: c.y + 0.5 };
       const color = s.alarm.active ? ALARM_COLOR : CONE_COLOR;
       if (lamps > 0) {
-        this.drawCone(o, s, at, c.ang, CAM_FOV, CAM_LEN, null, color, (0.14 + c.susp * 0.3) * lamps);
+        this.drawCone(cones, s, at, c.ang, CAM_FOV, CAM_LEN, null, color, (0.14 + c.susp * 0.3) * lamps);
         // two thin lines from the lens to the cone's edges: the cone hangs from the camera
         const lens = toScreen(at.x + Math.cos(c.ang) * 0.35, at.y + Math.sin(c.ang) * 0.35, CAM_HEIGHT + 2);
         o.lineStyle(1, color, 0.6 * lamps);
@@ -670,12 +676,12 @@ export class MapScene extends Phaser.Scene {
     for (const g of s.guards) {
       if (g.state === 'down') continue;
       if (g.role === 'dog') {
-        if (g.distract <= 0) this.drawSmell(o, s, g, !!g.seeing);
+        if (g.distract <= 0) this.drawSmell(cones, s, g, !!g.seeing);
         continue;
       }
       const color = s.alarm.active || g.state === 'combat' ? ALARM_COLOR : CONE_COLOR;
       const len = coneLength(s);
-      this.drawCone(o, s, g, g.ang, FOV, len, len * NEAR_FRACTION, color, 0.2 + g.susp * 0.25);
+      this.drawCone(cones, s, g, g.ang, FOV, len, len * NEAR_FRACTION, color, 0.2 + g.susp * 0.25);
     }
     // selected unit path and ring
     if (sel.alive) {
