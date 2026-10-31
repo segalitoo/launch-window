@@ -13,8 +13,35 @@ html, body { margin: 0; height: 100%; background: var(--ink); color: var(--text)
 #app { position: relative; height: 100dvh; }
 #stage { position: absolute; inset: 0; touch-action: none; }
 #stage canvas { display: block; }
-.hud { position: absolute; inset: 0; pointer-events: none; padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; }
-.status { align-self: flex-start; max-width: 100%; background: var(--panel); border: 1px solid var(--line); border-radius: 3px; padding: 6px 10px; }
+.hud {
+  /* Phase 6 layout (Ran: landscape, split edges): rails on the left and right edges, the map
+     clear in the middle. Safe areas keep the rails off a phone's notch and rounded corners. */
+  --gap: 8px;
+  --edge-l: max(12px, env(safe-area-inset-left));
+  --edge-r: max(12px, env(safe-area-inset-right));
+  --edge-t: max(10px, env(safe-area-inset-top));
+  --edge-b: max(10px, env(safe-area-inset-bottom));
+  --rail: 72px;
+  --bottom: 64px; /* height of the bottom row (squad cards, orders) */
+  position: absolute; inset: 0; pointer-events: none;
+  padding: calc(var(--edge-t) + 44px) var(--edge-r) calc(var(--edge-b) + var(--bottom) + var(--gap)) var(--edge-l);
+  display: flex; flex-direction: column; gap: var(--gap);
+}
+.top { position: absolute; top: var(--edge-t); left: var(--edge-l); right: var(--edge-r); display: flex; align-items: flex-start; gap: var(--gap); }
+.top .status { flex: 0 1 auto; min-width: 0; }
+.top .pause { margin-left: auto; pointer-events: auto; min-width: 72px; min-height: 36px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 4px; font: inherit; cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+.top .pause.on { border-color: var(--threat); color: var(--threat); }
+.status { background: var(--panel); border: 1px solid var(--line); border-radius: 3px; padding: 6px 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* bottom-left corner: one card per operator, in a row (Ran, Phase 6) */
+.squad { position: absolute; left: var(--edge-l); bottom: var(--edge-b); display: flex; flex-direction: row; align-items: flex-end; gap: var(--gap); pointer-events: auto; }
+.squad .card { position: relative; width: var(--rail); height: var(--bottom); min-height: 44px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 6px 4px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-left: 3px solid var(--who); border-radius: 4px; font: inherit; cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+.squad .card .name { color: var(--who); font-size: 12px; }
+.squad .card .hp { font-size: 9px; letter-spacing: 1px; color: var(--muted); }
+.squad .card .key { position: absolute; top: 2px; left: 5px; font-size: 10px; color: var(--muted); }
+.squad .card.on { border-color: var(--who); box-shadow: inset 0 0 0 1px var(--who); }
+.squad .card.down { opacity: 0.45; }
+/* bottom-right corner: the rucksack in the corner, the orders in a row beside it */
+.right { position: absolute; right: var(--edge-r); bottom: var(--edge-b); display: flex; flex-direction: row-reverse; align-items: flex-end; gap: var(--gap); }
 .status.alarm { border-color: var(--alarm); color: #ffd9d6; }
 .brief { align-self: flex-start; max-width: 60ch; background: var(--panel); border: 1px solid var(--line); border-left: 3px solid #ece4d3; border-radius: 3px; padding: 6px 10px; pointer-events: auto; }
 .brief a { color: var(--threat); }
@@ -23,15 +50,15 @@ html, body { margin: 0; height: 100%; background: var(--ink); color: var(--text)
 .toast.alarm { border-left-color: var(--alarm); }
 .toast.ok { border-left-color: var(--ok); }
 .toast.warn { border-left-color: var(--threat); }
-.hint { margin: auto 0 0; align-self: flex-start; max-width: 70ch; background: var(--panel); border: 1px solid var(--line); border-radius: 3px; padding: 6px 10px; color: var(--muted); }
-.bar { display: none; align-self: stretch; justify-content: center; gap: 6px; pointer-events: auto; padding-bottom: env(safe-area-inset-bottom); }
-.bar button { flex: 1 1 0; min-width: 0; padding: 0 2px; max-width: 88px; min-height: 44px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 4px; font: inherit; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+.hint { position: absolute; top: calc(var(--edge-t) + 44px); left: var(--edge-l); margin: 0; max-width: 54ch; background: var(--panel); border: 1px solid var(--line); border-radius: 3px; padding: 6px 10px; color: var(--muted); }
+.bar { display: flex; flex-direction: row; gap: 6px; pointer-events: auto; }
+.bar button { width: 58px; height: var(--bottom); min-height: 44px; padding: 0 2px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 4px; font: inherit; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 .bar button.on { border-color: var(--threat); color: var(--threat); }
 .bar button:disabled { color: var(--muted); opacity: 0.5; }
-.pack { align-self: center; display: flex; align-items: stretch; gap: 6px; pointer-events: auto; max-width: 100%; }
+.pack { display: flex; flex-direction: column; align-items: stretch; gap: 6px; pointer-events: auto; }
 .pack:empty { display: none; }
-.pack .who { writing-mode: vertical-rl; transform: rotate(180deg); display: flex; align-items: center; justify-content: center; padding: 4px 2px; background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--who); border-radius: 4px; color: var(--who); font-size: 11px; letter-spacing: 0.05em; }
-.pack .item { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; width: 64px; height: 60px; padding: 4px 2px 3px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 4px; font: inherit; cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+.pack .who { display: flex; align-items: center; justify-content: center; padding: 3px 2px; background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--who); border-radius: 4px; color: var(--who); font-size: 11px; letter-spacing: 0.05em; }
+.pack .item { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; width: var(--rail); height: 56px; padding: 4px 2px 3px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 4px; font: inherit; cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 .pack .item svg { width: 26px; height: 26px; }
 .pack .item .label { font-size: 10px; line-height: 1; }
 .pack .item .key { position: absolute; top: 3px; left: 5px; font-size: 10px; color: var(--muted); }
@@ -42,12 +69,11 @@ html, body { margin: 0; height: 100%; background: var(--ink); color: var(--text)
 .pack .item:not(:disabled):hover { border-color: var(--muted); }
 .touch-keys { display: none; }
 @media (pointer: coarse) {
-  .bar { display: flex; }
+  .bar button .key { display: none; }
   .keys { display: none; }
   .touch-keys { display: inline; }
-  .pack { align-self: stretch; justify-content: center; }
-  .pack .item { flex: 1 1 0; width: auto; min-width: 56px; max-width: 88px; }
-  .pack .item .key { display: none; }
+  .pack .item .key, .squad .card .key { display: none; }
+  .hint { display: none; }
 }
 .end { pointer-events: auto; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: flex; flex-direction: column; gap: 8px; width: max-content; max-width: calc(100% - 32px); }
 .end button { color: inherit; font: inherit; cursor: pointer; background: var(--panel); border: 1px solid var(--line); border-radius: 4px; min-height: 44px; }
@@ -55,7 +81,117 @@ html, body { margin: 0; height: 100%; background: var(--ink); color: var(--text)
 .end .log-actions { display: flex; gap: 8px; }
 .end .log-actions button { flex: 1; padding: 6px 12px; color: var(--muted); }
 [hidden] { display: none !important; }
+/* a phone held upright: ask to turn it (the HUD pauses the game) */
+.rotate { display: none; }
+@media (pointer: coarse) and (orientation: portrait) {
+  .rotate { display: flex; position: fixed; inset: 0; z-index: 10; align-items: center; justify-content: center; padding: 24px; background: var(--ink); pointer-events: auto; text-align: center; }
+  .rotate div { display: flex; flex-direction: column; gap: 8px; max-width: 32ch; color: var(--muted); }
+  .rotate b { color: var(--text); font-size: 16px; }
+}
+/* short screens (a phone on its side): tighter rails */
+@media (max-height: 430px) {
+  .hud { --rail: 64px; --gap: 6px; --bottom: 52px; }
+  .squad .card { min-height: 48px; }
+  .pack .item { height: 48px; }
+  .pack .item svg { width: 22px; height: 22px; }
+  .bar button { min-height: 40px; }
+  .top .pause { min-height: 32px; }
+  .status, .toast { font-size: 11px; }
+}
 @media (max-width: 600px) {
-  .hud { padding: 8px 16px; }
   .status, .hint, .toast, .brief { font-size: 11px; }
+}
+
+/* ===== Phase 6 visual language: the field kit (docs/ui-language.md; Ran picked A over night optics and dossier) ===== */
+@font-face { font-family: 'Barlow Condensed'; font-weight: 500; font-display: swap; src: url('/fonts/barlow-condensed-500.woff2') format('woff2'); }
+@font-face { font-family: 'Barlow Condensed'; font-weight: 700; font-display: swap; src: url('/fonts/barlow-condensed-700.woff2') format('woff2'); }
+.hud[data-look] :is(.status, .pause, .card, .item, .bar button, .toast, .who) { transition: none; }
+
+/* Field kit (Ran, Phase 6): the pouch. Olive canvas, a stitched seam, a flap that lifts when active. */
+.hud[data-look="kit"] { --canvas: #3b3f2b; --canvas-dk: #2a2d1f; --khaki: #cdbf94; --thread: rgba(214, 200, 160, 0.38); font-family: 'Barlow Condensed', sans-serif; letter-spacing: 0.03em; }
+.hud[data-look="kit"] :where(.status, .pause, .card, .item, .bar button, .toast, .hint) {
+  background: repeating-linear-gradient(45deg, rgba(255,255,255,0.025) 0 2px, transparent 2px 4px), var(--canvas);
+  border: 1px solid #191b12; border-radius: 3px; color: var(--khaki);
+  outline: 1px dashed var(--thread); outline-offset: -4px; font-family: inherit; text-transform: uppercase; font-weight: 500;
+}
+.hud[data-look="kit"] .status { font-size: 14px; }
+.hud[data-look="kit"] .item { padding-top: 10px; }
+.hud[data-look="kit"] .item::before { content: ''; position: absolute; left: 3px; right: 3px; top: 3px; height: 9px; background: var(--canvas-dk); border-bottom: 1px solid #191b12; border-radius: 2px 2px 0 0; }
+.hud[data-look="kit"] .item.on::before, .hud[data-look="kit"] .bar button.on::before { top: -3px; background: #6b5a2c; border-bottom: 2px solid #e0a43a; }
+.hud[data-look="kit"] :is(.item, .bar button).on { color: #f0c46a; outline-color: #e0a43a; }
+.hud[data-look="kit"] .bar button { position: relative; }
+.hud[data-look="kit"] .item:disabled { background: #1f2117; color: #6d6a58; outline-color: rgba(214,200,160,0.12); opacity: 1; }
+.hud[data-look="kit"] .item:disabled::before { top: -3px; background: #1f2117; }
+.hud[data-look="kit"] .item .count { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 15px; color: var(--khaki); }
+.hud[data-look="kit"] .pack .who, .hud[data-look="kit"] .card .name { background: #b8aa7c; color: #23251a; border: 1px solid #191b12; border-radius: 2px; padding: 1px 6px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
+.hud[data-look="kit"] .pack .who { border-left: 1px solid #191b12; }
+.hud[data-look="kit"] .card { border-left: 1px solid #191b12; }
+.hud[data-look="kit"] .card:not(.on) .name { background: #6f6a4f; color: #2a2c22; }
+.hud[data-look="kit"] .card.on { outline-color: var(--who); box-shadow: inset 0 0 0 1px var(--who); }
+.hud[data-look="kit"] .card.down .name { text-decoration: line-through 2px #c0392b; }
+.hud[data-look="kit"] .status.alarm { color: #ffb3a8; outline-color: var(--alarm); }
+
+/* big screens: larger rails */
+@media (pointer: fine) and (min-height: 700px) {
+  .hud[data-look="kit"] { --rail: 88px; }
+  .hud[data-look="kit"] .item { height: 68px; }
+  .hud[data-look="kit"] .item svg { width: 30px; height: 30px; }
+  .hud[data-look="kit"] .item .label, .hud[data-look="kit"] .card .name { font-size: 13px; }
+  .hud[data-look="kit"] .card { min-height: 66px; }
+  .hud[data-look="kit"] .status { font-size: 15px; }
+}
+/* order buttons carry a stencil icon above the label, like the backpack pouches */
+.bar button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; }
+.bar button svg { width: 20px; height: 20px; }
+.bar button .label { font-size: 10px; line-height: 1; }
+.bar button .key { position: absolute; top: 2px; left: 4px; font-size: 9px; color: var(--muted); }
+@media (max-height: 430px) { .bar button svg { width: 18px; height: 18px; } }
+.hud[data-look="kit"] .rotate { font-family: 'Barlow Condensed', sans-serif; letter-spacing: 0.03em; }
+.hud[data-look="kit"] .rotate b { color: #cdbf94; font-size: 20px; text-transform: uppercase; letter-spacing: 0.08em; }
+
+/* The rucksack (Ran, Phase 6): each operator's own painted pack fills the backpack column and
+   his tools sit strapped on its front. Tools keep the kit states: amber ring = active, darkened
+   with 0 = used up. Art: assets/build/kit (tools/cut_items.py, batch-09-kit.md). */
+.hud[data-look="kit"] { --packw: 150px; --packh: min(300px, calc(100dvh - var(--edge-t) - var(--edge-b) - 60px)); }
+.hud[data-look="kit"] .pack {
+  position: relative; width: var(--packw); max-height: var(--packh); box-sizing: border-box;
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: center; justify-items: center; gap: 4px;
+  padding: 24% 6% 10%;
+  background: var(--pack) center / 100% 100% no-repeat;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.6));
+}
+.hud[data-look="kit"] .pack[data-n="1"] { grid-template-columns: 1fr; }
+/* each box takes its pack's own shape, so the name tape sits on the top flap */
+.hud[data-look="kit"] .pack[data-who="shadow"] { aspect-ratio: 0.783; }
+.hud[data-look="kit"] .pack[data-who="lure"] { aspect-ratio: 0.6; }
+.hud[data-look="kit"] .pack[data-who="sapper"] { aspect-ratio: 0.731; }
+.hud[data-look="kit"] .pack[data-n="3"] .item:last-child { grid-column: 1 / -1; }
+.hud[data-look="kit"] .pack .who { position: absolute; top: 6%; left: 50%; transform: translateX(-50%); z-index: 1; white-space: nowrap; }
+.hud[data-look="kit"] .pack .item {
+  width: 52px; height: 52px; padding: 3px;
+  /* a canvas patch sewn on the pack: light, so dark kit (rope, detonator) reads on it */
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(0, 0, 0, 0.06)), #bcae84;
+  border: 1px solid #23251a; border-radius: 4px;
+  outline: 1px dashed rgba(35, 37, 26, 0.55); outline-offset: -4px; box-shadow: 0 2px 3px rgba(0, 0, 0, 0.5);
+}
+.hud[data-look="kit"] .pack .item::before { display: none; }
+.hud[data-look="kit"] .pack .item img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(1px 1px 0.5px rgba(0, 0, 0, 0.45)); pointer-events: none; }
+.hud[data-look="kit"] .pack .item .label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.hud[data-look="kit"] .pack .item .count { top: -6px; right: -6px; min-width: 17px; height: 17px; line-height: 17px; padding: 0 3px; border-radius: 3px; background: #23251a; color: #e8dcb4; font-size: 12px; text-align: center; }
+.hud[data-look="kit"] .pack .item .count:empty { display: none; }
+.hud[data-look="kit"] .pack .item .key { top: auto; bottom: 1px; left: 4px; color: #23251a; text-shadow: none; }
+.hud[data-look="kit"] .pack .item.on { background: linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(0, 0, 0, 0.05)), #e0b45c; border: 2px solid #e0a43a; outline-color: rgba(60, 40, 8, 0.6); box-shadow: 0 0 10px rgba(224, 164, 58, 0.8); }
+.hud[data-look="kit"] .pack .item:disabled { opacity: 1; background: #8c8468; }
+.hud[data-look="kit"] .pack .item:disabled img { filter: grayscale(0.6) brightness(0.8); opacity: 0.7; }
+.hud[data-look="kit"] .pack .item.spent { background: #2e2f24; outline-color: rgba(205, 191, 148, 0.15); }
+.hud[data-look="kit"] .pack .item.spent img { filter: grayscale(1) brightness(0.35); opacity: 1; }
+.hud[data-look="kit"] .pack .item.spent .count { background: #5b5848; color: #1b1c16; }
+@media (max-height: 430px) {
+  .hud[data-look="kit"] { --packw: 124px; }
+  .hud[data-look="kit"] .pack .item { width: 48px; height: 48px; }
+  .bar button { width: 52px; }
+}
+@media (pointer: fine) and (min-height: 700px) {
+  .hud[data-look="kit"] { --packw: 190px; --packh: 400px; }
+  .hud[data-look="kit"] .pack .item { width: 72px; height: 72px; }
 }

@@ -179,13 +179,16 @@ export class PaintedArea {
         bc.fillStyle = g;
         bc.fillRect(0, 0, W, H);
       }
-      // clip to the map: the painting's rectangle reaches past the map edge into the void
+      // clip one tile past the map: the region masks fade the paintings out across that tile
+      // into the desert backdrop around the map (Phase 6), so nothing ends in a hard line
       bc.globalCompositeOperation = 'destination-in';
+      bc.filter = 'blur(6px)';
       bc.fillStyle = '#000';
       bc.beginPath();
-      for (const p of footprint(0, 0, cols, rows)) bc.lineTo((p.x - ox) * ss, (p.y - oy) * ss);
+      for (const p of footprint(-1, -1, cols + 2, rows + 2)) bc.lineTo((p.x - ox) * ss, (p.y - oy) * ss);
       bc.closePath();
       bc.fill();
+      bc.filter = 'none';
       bc.globalCompositeOperation = 'source-over';
       tex.refresh();
     };

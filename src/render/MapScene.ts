@@ -56,6 +56,10 @@ import {
 const CONE_RAYS = 28;
 const TAP_SLOP = 8; // px a pointer may move before a tap becomes a pan
 const MAX_ZOOM = 2.5;
+/** Desert backdrop beyond the map edge the camera may show, in world px (Phase 6). */
+const BACKDROP_PAD = 160;
+/** On the start view the screen height shows about this many world px: zoomed in on the squad. */
+const START_VIEW_H = 480;
 const OVERLAY_DEPTH = 1e9;
 /** Tie marks and the tie bar: a pale rope colour, apart from the squad and alarm colours. */
 const ROPE_COLOR = 0xd8c9a3;
@@ -151,6 +155,8 @@ export class MapScene extends Phaser.Scene {
 
   preload(): void {
     for (const name of this.areas) PaintedArea.preload(this, name);
+    // open desert around the base, so the screen never shows black (Phase 6, tools/make_backdrop.py)
+    if (this.areas.length) this.load.image('backdrop_sand', 'backdrop_sand.jpg');
     UnitSprites.preload(this);
     GuardSprites.preload(this);
   }
@@ -159,6 +165,11 @@ export class MapScene extends Phaser.Scene {
     this.newGame();
     this.ground = this.add.graphics().setDepth(-OVERLAY_DEPTH);
     const { cols, rows } = this.game$.state.grid;
+    if (this.textures.exists('backdrop_sand')) {
+      const e = this.viewBounds(cols, rows, 2 * BACKDROP_PAD);
+      // one large non-repeating image, stretched over the map plus the pan margin
+      this.add.image(e.x, e.y, 'backdrop_sand').setOrigin(0).setDisplaySize(e.w, e.h).setDepth(-OVERLAY_DEPTH - 1);
+    }
     // the area drawn later owns a tile it shares with one under it (Phase 4 overlaps)
     const regions = this.areas.map((name) => (this.cache.json.get(`${name}_meta`) as { region?: number[] }).region);
     const inside = (r: number[] | undefined, x: number, y: number): boolean => !!r && x >= r[0]! && x <= r[2]! && y >= r[1]! && y <= r[3]!;
@@ -190,9 +201,31 @@ export class MapScene extends Phaser.Scene {
 
   // ---------- camera ----------
 
+  /** The map's screen rectangle grown by `pad` world px on each side. */
+  private viewBounds(cols: number, rows: number, pad: number): { x: number; y: number; w: number; h: number } {
+    const b = mapBounds(cols, rows, MAP_TOP_MARGIN);
+    return { x: b.x - pad, y: b.y - pad, w: b.w + 2 * pad, h: b.h + 2 * pad };
+  }
+
   private fitCamera(center: boolean): void {
     const s = this.game$.state;
     const cam = this.cameras.main;
+    if (this.areas.length) {
+      // the mission (Phase 6, Ran: no black around the map): the view always covers the screen
+      // with map or the desert backdrop around it. It can never zoom out past filling the screen,
+      // panning stops a little past the map's edge, and it starts zoomed in on the squad.
+      const e = this.viewBounds(s.grid.cols, s.grid.rows, BACKDROP_PAD);
+      const cover = Math.max(cam.width / e.w, cam.height / e.h);
+      this.minZoom = cover;
+      cam.setBounds(e.x, e.y, e.w, e.h);
+      if (center) {
+        cam.setZoom(Phaser.Math.Clamp(cam.height / START_VIEW_H, cover, 1));
+        const alive = s.squad.filter((u) => u.alive);
+        const p = toScreen(alive.reduce((a, u) => a + u.x, 0) / alive.length, alive.reduce((a, u) => a + u.y, 0) / alive.length);
+        cam.centerOn(p.x, p.y);
+      } else cam.setZoom(Phaser.Math.Clamp(cam.zoom, this.minZoom, MAX_ZOOM));
+      return;
+    }
     const b = mapBounds(s.grid.cols, s.grid.rows, MAP_TOP_MARGIN);
     const fit = Math.min(cam.width / b.w, cam.height / b.h);
     this.minZoom = Math.max(0.15, fit * 0.9);
