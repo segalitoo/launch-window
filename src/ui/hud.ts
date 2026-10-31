@@ -9,6 +9,7 @@ import type { Controller } from '@/render/controller';
 import { packOf } from './backpack';
 import { squadOf } from './squad';
 import { ORDER_ICONS } from './kitIcons';
+import { Briefing, type BriefingLook } from './briefing';
 import { Minimap, type MinimapSource } from './minimap';
 import { PlayLog } from './playlog';
 
@@ -142,9 +143,26 @@ export class Hud {
 
   private minimap: Minimap | null = null;
 
-  /** The minimap, once the scene exists (src/main.ts). */
+  private briefing: Briefing | null = null;
+  private briefingPending = false;
+  private source: MinimapSource | null = null;
+
+  /** The minimap and the briefing, once the scene exists (src/main.ts). */
   attachMinimap(source: MinimapSource): void {
+    this.source = source;
     this.minimap = new Minimap(this.status.closest<HTMLElement>('.hud')!, source);
+    this.briefingPending = new URLSearchParams(location.search).get('brief') !== 'off';
+  }
+
+  /** The briefing opens on the first frame, pausing the game; Start resumes it. */
+  private openBriefing(s: GameState): void {
+    this.briefingPending = false;
+    const look: BriefingLook = new URLSearchParams(location.search).get('brief')?.toUpperCase() === 'C' ? 'C' : 'A';
+    if (!this.paused) this.press(' ');
+    this.briefing = new Briefing(this.status.closest<HTMLElement>('.hud')!, s, look, this.source!, () => {
+      this.briefing = null;
+      if (this.paused) this.press(' ');
+    });
   }
 
   /** One card per operator; built once, its state updated every frame. */
@@ -210,6 +228,8 @@ export class Hud {
     this.log.onFrame(s);
     const sel = c.sel;
     this.minimap?.update(s, sel.id);
+    if (this.briefingPending && s.t === 0) this.openBriefing(s);
+    this.briefing?.update(s);
     const rigged = s.launchers.filter((l) => l.done).length;
     const parts = [
       s.aborted ? 'LAUNCH ABORTED' : `T-${fmt(s.timeLeft)}`,
