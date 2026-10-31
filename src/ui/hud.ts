@@ -38,6 +38,11 @@ const BAR: readonly (readonly [string, string, string])[] = [
 /** Phones only, held upright: the game asks to turn the phone and pauses. */
 const PORTRAIT = '(pointer: coarse) and (orientation: portrait)';
 
+/** Portrait for a squad card (Phase 6): painted over a render of the unit's 3D model
+ * (tools/blender/render_portrait.py). `?portrait=face|bust|side` picks a framing to compare. */
+const FRAMING = new URLSearchParams(location.search).get('portrait');
+const portraitOf = (id: string): string => (FRAMING ? `/portraits/${id}_${FRAMING}.jpg` : `/portraits/${id}.jpg`);
+
 export class Hud {
   private status: HTMLElement;
   private toasts: HTMLElement;
@@ -144,6 +149,7 @@ export class Hud {
     this.squad.innerHTML = cards
       .map(
         (c) => `<button type="button" class="card" data-id="${c.id}" style="--who:${c.color}" title="${c.name} (${c.key})">
+          <img class="face" src="${portraitOf(c.id)}" alt="" draggable="false" onerror="this.remove()">
           <span class="key">${c.key}</span><span class="name">${c.name}</span><span class="hp"></span></button>`,
       )
       .join('');

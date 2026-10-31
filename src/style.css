@@ -195,3 +195,13 @@ html, body { margin: 0; height: 100%; background: var(--ink); color: var(--text)
   .hud[data-look="kit"] { --packw: 190px; --packh: 400px; }
   .hud[data-look="kit"] .pack .item { width: 72px; height: 72px; }
 }
+
+/* portraits (Phase 6): the painted face fills the card, the name tape sits over its bottom edge */
+.squad .card { height: var(--cardh, 86px); justify-content: flex-end; overflow: hidden; padding: 4px; }
+.squad .card .face { position: absolute; top: 0; left: 0; width: 100%; height: calc(100% - 22px); object-fit: cover; object-position: 50% 20%; pointer-events: none; }
+.squad .card .name, .squad .card .hp { position: relative; }
+.squad .card .hp { background: rgba(20, 21, 15, 0.7); border-radius: 2px; padding: 0 3px; }
+.hud[data-look="kit"] .squad .card:not(.on) .face { filter: brightness(0.6) saturate(0.7); }
+.hud[data-look="kit"] .squad .card.down .face { filter: grayscale(1) brightness(0.4); }
+@media (max-height: 430px) { .hud { --cardh: 76px; } }
+@media (pointer: fine) and (min-height: 700px) { .hud[data-look="kit"] { --cardh: 108px; } }
