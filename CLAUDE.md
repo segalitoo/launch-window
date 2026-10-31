@@ -37,7 +37,7 @@ The live plan is a Claude doc: https://claude.ai/code/artifact/b1c9e4e6-6e2d-484
 - Stack: TypeScript (strict), Phaser 4 (4.2.x), Vite, Vitest, Tiled for map data, Vercel preview links.
 - Time: 8 hours a week, as two 4-hour sessions.
 - Scope: one mission, Operation Night Lantern, to full quality. New ideas go to the backlog in `PLAN.md`.
-- Phones play in landscape only; upright, the game pauses and asks to turn the phone (Ran, 26 Oct). HUD: split edges, the squad rail on the left, the backpack and orders on the right.
+- Phones play in landscape only; upright, the game pauses and asks to turn the phone (Ran, 26 Oct). HUD at the bottom corners (Ran, 31 Oct): squad cards bottom-left; each operator's painted rucksack with his tools bottom-right, the orders beside it. The camera never shows black: it starts zoomed in on the squad, cannot zoom out past filling the screen, and a desert backdrop surrounds the map.
 
 ## Architecture rules
 
@@ -105,6 +105,7 @@ Keep this list current. Node 22 (`.nvmrc`); Vercel builds with Node 22.
 - `python3 tools/grade_night.py assets/raw/blockout/yard_B_day.png --hud` preview the engine's night grade and the overlay
 - `python3 tools/door_patch.py yard 16 27 231 300 791 615 <crop.png> <edited.jpg>` turn an image-model edit of a door (opened) into an RGBA patch the engine paints in when the sim opens that door (see the file header and `assets/raw/prompts/gate-open.md`)
 - `python3 tools/cut_items.py assets/raw/gen/KIT-01_tools_2.jpg assets/build/kit tie,decoy,smoke,bino,uniform,wire,charge,detonate --rows 2 --height 128` cut painted items off a plain grey sheet into RGBA PNGs (HUD rucksacks and tools; the packs: `KIT-01_packs_3.jpg ... pack_shadow,pack_lure,pack_sapper --height 360`; prompts in `assets/raw/prompts/batch-09-kit.md`)
+- `python3 tools/make_backdrop.py assets/build/desert_n/desert_n_day.jpg 650 130 1550 500 assets/build/backdrop_sand.jpg` the seamless desert drawn around the map, cut from an approved painting with the night tint baked in
 - `python3 tools/check_align.py <plate.png> <painted.jpg>` measure how far a painting drifted from its blockout, and write a red-edge overlay
 - `python3 tools/import_paint.py <plate.json> <painted.jpg>` put a painting back on the iso grid (writes `_day.png` and a sidecar)
 - `node tools/proto-check/build.mjs <dir>` build an instrumented prototype copy for timing cross-checks (see the file header)

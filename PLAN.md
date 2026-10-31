@@ -156,6 +156,7 @@ About 144 hours. Re-plan at each gate.
 ### Phase 6. UI (8 h)
 
 - [x] Landscape layout on phones (Ran, 26 Oct): split edges, squad rail left, backpack and orders right, pause top right; upright shows a turn-your-phone screen and pauses
+- [x] HUD moved to the bottom corners (Ran, 31 Oct): squad bottom-left, rucksack bottom-right with the orders beside it; the map fills the screen (starts on the squad, no zoom past filling the screen, desert backdrop around the map, soft map edge)
 - [x] UI visual language: Ran picked A, the field kit (pouches, stitched canvas, name tapes; docs/ui-language.md). Font Barlow Condensed bundled; stencil icon set for the tools and orders (src/ui/kitIcons.ts)
 - [x] Backpack as a painted rucksack per operator with the painted tools strapped on it in canvas patches (Ran, 31 Oct); states: amber = active, dark with 0 = used up, dimmed = not available yet
 - [ ] Squad panel with portraits, minimap (portraits rendered from the 3D models, minimap = the painted map shrunk, Ran)

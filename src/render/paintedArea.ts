@@ -179,13 +179,17 @@ export class PaintedArea {
         bc.fillStyle = g;
         bc.fillRect(0, 0, W, H);
       }
-      // clip to the map: the painting's rectangle reaches past the map edge into the void
+      // clip to the map: the painting's rectangle reaches past the map edge. The edge is
+      // softened so it melts into the desert backdrop around the map (Phase 6); a browser
+      // without canvas filters gets a hard edge.
       bc.globalCompositeOperation = 'destination-in';
+      bc.filter = 'blur(10px)';
       bc.fillStyle = '#000';
       bc.beginPath();
       for (const p of footprint(0, 0, cols, rows)) bc.lineTo((p.x - ox) * ss, (p.y - oy) * ss);
       bc.closePath();
       bc.fill();
+      bc.filter = 'none';
       bc.globalCompositeOperation = 'source-over';
       tex.refresh();
     };

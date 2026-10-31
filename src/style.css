@@ -22,8 +22,9 @@ html, body { margin: 0; height: 100%; background: var(--ink); color: var(--text)
   --edge-t: max(10px, env(safe-area-inset-top));
   --edge-b: max(10px, env(safe-area-inset-bottom));
   --rail: 72px;
+  --bottom: 64px; /* height of the bottom row (squad cards, orders) */
   position: absolute; inset: 0; pointer-events: none;
-  padding: var(--edge-t) calc(var(--edge-r) + 2 * var(--rail) + 3 * var(--gap)) var(--edge-b) calc(var(--edge-l) + var(--rail) + 2 * var(--gap));
+  padding: calc(var(--edge-t) + 44px) var(--edge-r) calc(var(--edge-b) + var(--bottom) + var(--gap)) var(--edge-l);
   display: flex; flex-direction: column; gap: var(--gap);
 }
 .top { position: absolute; top: var(--edge-t); left: var(--edge-l); right: var(--edge-r); display: flex; align-items: flex-start; gap: var(--gap); }
@@ -31,16 +32,16 @@ html, body { margin: 0; height: 100%; background: var(--ink); color: var(--text)
 .top .pause { margin-left: auto; pointer-events: auto; min-width: 72px; min-height: 36px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 4px; font: inherit; cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 .top .pause.on { border-color: var(--threat); color: var(--threat); }
 .status { background: var(--panel); border: 1px solid var(--line); border-radius: 3px; padding: 6px 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* squad rail, left edge: one card per operator */
-.squad { position: absolute; left: var(--edge-l); top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: var(--gap); pointer-events: auto; }
-.squad .card { position: relative; width: var(--rail); min-height: 56px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 6px 4px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-left: 3px solid var(--who); border-radius: 4px; font: inherit; cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+/* bottom-left corner: one card per operator, in a row (Ran, Phase 6) */
+.squad { position: absolute; left: var(--edge-l); bottom: var(--edge-b); display: flex; flex-direction: row; align-items: flex-end; gap: var(--gap); pointer-events: auto; }
+.squad .card { position: relative; width: var(--rail); height: var(--bottom); min-height: 44px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 6px 4px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-left: 3px solid var(--who); border-radius: 4px; font: inherit; cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 .squad .card .name { color: var(--who); font-size: 12px; }
 .squad .card .hp { font-size: 9px; letter-spacing: 1px; color: var(--muted); }
 .squad .card .key { position: absolute; top: 2px; left: 5px; font-size: 10px; color: var(--muted); }
 .squad .card.on { border-color: var(--who); box-shadow: inset 0 0 0 1px var(--who); }
 .squad .card.down { opacity: 0.45; }
-/* right edge: the backpack, then the orders, side by side */
-.right { position: absolute; right: var(--edge-r); top: calc(var(--edge-t) + 44px); bottom: var(--edge-b); display: flex; flex-direction: row-reverse; align-items: center; gap: var(--gap); }
+/* bottom-right corner: the rucksack in the corner, the orders in a row beside it */
+.right { position: absolute; right: var(--edge-r); bottom: var(--edge-b); display: flex; flex-direction: row-reverse; align-items: flex-end; gap: var(--gap); }
 .status.alarm { border-color: var(--alarm); color: #ffd9d6; }
 .brief { align-self: flex-start; max-width: 60ch; background: var(--panel); border: 1px solid var(--line); border-left: 3px solid #ece4d3; border-radius: 3px; padding: 6px 10px; pointer-events: auto; }
 .brief a { color: var(--threat); }
@@ -49,9 +50,9 @@ html, body { margin: 0; height: 100%; background: var(--ink); color: var(--text)
 .toast.alarm { border-left-color: var(--alarm); }
 .toast.ok { border-left-color: var(--ok); }
 .toast.warn { border-left-color: var(--threat); }
-.hint { margin: auto 0 0; align-self: center; max-width: 70ch; background: var(--panel); border: 1px solid var(--line); border-radius: 3px; padding: 6px 10px; color: var(--muted); }
-.bar { display: none; flex-direction: column; gap: 6px; pointer-events: auto; }
-.bar button { width: var(--rail); min-height: 44px; padding: 0 2px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 4px; font: inherit; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+.hint { position: absolute; top: calc(var(--edge-t) + 44px); left: var(--edge-l); margin: 0; max-width: 54ch; background: var(--panel); border: 1px solid var(--line); border-radius: 3px; padding: 6px 10px; color: var(--muted); }
+.bar { display: none; flex-direction: row; gap: 6px; pointer-events: auto; }
+.bar button { width: 58px; height: var(--bottom); min-height: 44px; padding: 0 2px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 4px; font: inherit; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 .bar button.on { border-color: var(--threat); color: var(--threat); }
 .bar button:disabled { color: var(--muted); opacity: 0.5; }
 .pack { display: flex; flex-direction: column; align-items: stretch; gap: 6px; pointer-events: auto; }
@@ -89,7 +90,7 @@ html, body { margin: 0; height: 100%; background: var(--ink); color: var(--text)
 }
 /* short screens (a phone on its side): tighter rails */
 @media (max-height: 430px) {
-  .hud { --rail: 64px; --gap: 6px; }
+  .hud { --rail: 64px; --gap: 6px; --bottom: 52px; }
   .squad .card { min-height: 48px; }
   .pack .item { height: 48px; }
   .pack .item svg { width: 22px; height: 22px; }
@@ -150,7 +151,7 @@ html, body { margin: 0; height: 100%; background: var(--ink); color: var(--text)
 /* The rucksack (Ran, Phase 6): each operator's own painted pack fills the backpack column and
    his tools sit strapped on its front. Tools keep the kit states: amber ring = active, darkened
    with 0 = used up. Art: assets/build/kit (tools/cut_items.py, batch-09-kit.md). */
-.hud[data-look="kit"] { --packw: 150px; --packh: min(300px, calc(100dvh - var(--edge-t) - var(--edge-b) - 60px)); padding-right: calc(var(--edge-r) + var(--rail) + var(--packw) + 3 * var(--gap)); }
+.hud[data-look="kit"] { --packw: 150px; --packh: min(300px, calc(100dvh - var(--edge-t) - var(--edge-b) - 60px)); }
 .hud[data-look="kit"] .pack {
   position: relative; width: var(--packw); max-height: var(--packh); box-sizing: border-box;
   display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: center; justify-items: center; gap: 4px;
@@ -185,8 +186,9 @@ html, body { margin: 0; height: 100%; background: var(--ink); color: var(--text)
 .hud[data-look="kit"] .pack .item.spent img { filter: grayscale(1) brightness(0.35); opacity: 1; }
 .hud[data-look="kit"] .pack .item.spent .count { background: #5b5848; color: #1b1c16; }
 @media (max-height: 430px) {
-  .hud[data-look="kit"] { --packw: 140px; }
-  .hud[data-look="kit"] .pack .item { width: 54px; height: 54px; }
+  .hud[data-look="kit"] { --packw: 124px; }
+  .hud[data-look="kit"] .pack .item { width: 48px; height: 48px; }
+  .bar button { width: 52px; }
 }
 @media (pointer: fine) and (min-height: 700px) {
   .hud[data-look="kit"] { --packw: 190px; --packh: 400px; }
