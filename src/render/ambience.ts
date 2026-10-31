@@ -13,10 +13,10 @@ const WIND = (() => {
 })();
 
 // sand streaks
-const STREAKS_PER_MPX = 220; // per million screen px of view, at zoom 1
-const STREAK_MAX = 260;
+const STREAKS_PER_MPX = 70; // per million screen px of view, at zoom 1 (Ran: 220 was distracting)
+const STREAK_MAX = 90;
 const STREAK_COLOR = 0xc9d3e8;
-const STREAK_ALPHA = 0.3;
+const STREAK_ALPHA = 0.18;
 
 // tumbleweed (tools/blender/render_tumbleweed.py): 12 frames, one full turn
 export const TUMBLEWEED_KEY = 'tumbleweed';
@@ -25,7 +25,8 @@ const TW_FRAME = 96; // px, rendered at 2x
 const TW_FRAMES = 12;
 const TW_ANCHOR_Y = 76 / 96; // the ground contact in the frame
 const TW_SPEED = 1.3; // tiles a second
-const TW_TURN_TILES = 1.96; // one turn: circumference 3.14 m over 1.6 m tiles
+const TW_SCALE = 0.85; // Ran: 15% smaller than the 1 m render
+const TW_TURN_TILES = 1.96 * TW_SCALE; // one turn: circumference over 1.6 m tiles
 const TW_GAP: [number, number] = [18, 36]; // seconds between two
 const TW_FIRST = 6; // seconds before the first one
 
@@ -170,7 +171,7 @@ export class Ambience {
       const frame = Math.floor((w.dist / TW_TURN_TILES) * TW_FRAMES) % TW_FRAMES;
       w.sprite.setFrame(frame).setPosition(p.x, p.y - lift).setDepth(depthOf(w.x, w.y, 1));
       sh.fillStyle(0x0a0e18, 0.28 - lift * 0.015);
-      sh.fillEllipse(p.x + 2, p.y + 1, 22 - lift * 0.6, 8 - lift * 0.25);
+      sh.fillEllipse(p.x + 2, p.y + 1, (22 - lift * 0.6) * TW_SCALE, (8 - lift * 0.25) * TW_SCALE);
     }
   }
 
@@ -189,7 +190,7 @@ export class Ambience {
       const sprite = this.scene.add
         .sprite(0, 0, TUMBLEWEED_KEY, 0)
         .setOrigin(0.5, TW_ANCHOR_Y)
-        .setScale(0.5)
+        .setScale(0.5 * TW_SCALE)
         .setTint(this.tint);
       this.weeds.push({ sprite, x, y: y0, dist: Math.random() * TW_TURN_TILES, hop: 0, hopLen: 0.8 });
       return;
