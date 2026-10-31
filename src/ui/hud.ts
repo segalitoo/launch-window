@@ -167,11 +167,15 @@ export class Hud {
     this.packOwner = sel.id;
     this.packButtons.clear();
     const items = packOf(sel, { mode: c.mode });
+    // the operator's own rucksack, the tools strapped on its front (Phase 6, Ran)
     this.pack.style.setProperty('--who', sel.color);
+    this.pack.style.setProperty('--pack', `url(/kit/pack_${sel.id}.png)`);
+    this.pack.dataset.who = sel.id;
+    this.pack.dataset.n = String(items.length);
     this.pack.innerHTML = `<span class="who">${sel.name}</span>${items
       .map(
-        (i) => `<button type="button" class="item" data-id="${i.id}" title="${i.label} (${i.key.toUpperCase()})">
-          ${i.icon}<span class="label">${i.label}</span><span class="key">${i.key.toUpperCase()}</span><span class="count"></span></button>`,
+        (i) => `<button type="button" class="item" data-id="${i.id}" title="${i.label} (${i.key.toUpperCase()})" aria-label="${i.label}">
+          <img src="/kit/${i.id}.png" alt="" draggable="false"><span class="label">${i.label}</span><span class="key">${i.key.toUpperCase()}</span><span class="count"></span></button>`,
       )
       .join('')}`;
     for (const i of items) {
@@ -227,6 +231,8 @@ export class Hud {
       const p = this.packButtons.get(i.id);
       if (!p) continue;
       p.b.disabled = i.disabled || !sel.alive;
+      // used up (count 0) goes dark; unavailable for now (no charge planted yet) is only dimmed
+      p.b.classList.toggle('spent', i.count === 0);
       p.b.classList.toggle('on', i.on);
       const n = i.count === null ? '' : String(i.count);
       if (p.count.textContent !== n) p.count.textContent = n;
