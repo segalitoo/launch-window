@@ -51,7 +51,7 @@ html, body { margin: 0; height: 100%; background: var(--ink); color: var(--text)
 .toast.ok { border-left-color: var(--ok); }
 .toast.warn { border-left-color: var(--threat); }
 .hint { position: absolute; top: calc(var(--edge-t) + 44px); left: var(--edge-l); margin: 0; max-width: 54ch; background: var(--panel); border: 1px solid var(--line); border-radius: 3px; padding: 6px 10px; color: var(--muted); }
-.bar { display: none; flex-direction: row; gap: 6px; pointer-events: auto; }
+.bar { display: flex; flex-direction: row; gap: 6px; pointer-events: auto; }
 .bar button { width: 58px; height: var(--bottom); min-height: 44px; padding: 0 2px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 4px; font: inherit; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 .bar button.on { border-color: var(--threat); color: var(--threat); }
 .bar button:disabled { color: var(--muted); opacity: 0.5; }
@@ -69,7 +69,7 @@ html, body { margin: 0; height: 100%; background: var(--ink); color: var(--text)
 .pack .item:not(:disabled):hover { border-color: var(--muted); }
 .touch-keys { display: none; }
 @media (pointer: coarse) {
-  .bar { display: flex; }
+  .bar button .key { display: none; }
   .keys { display: none; }
   .touch-keys { display: inline; }
   .pack .item .key, .squad .card .key { display: none; }
@@ -144,6 +144,7 @@ html, body { margin: 0; height: 100%; background: var(--ink); color: var(--text)
 .bar button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; }
 .bar button svg { width: 20px; height: 20px; }
 .bar button .label { font-size: 10px; line-height: 1; }
+.bar button .key { position: absolute; top: 2px; left: 4px; font-size: 9px; color: var(--muted); }
 @media (max-height: 430px) { .bar button svg { width: 18px; height: 18px; } }
 .hud[data-look="kit"] .rotate { font-family: 'Barlow Condensed', sans-serif; letter-spacing: 0.03em; }
 .hud[data-look="kit"] .rotate b { color: #cdbf94; font-size: 20px; text-transform: uppercase; letter-spacing: 0.08em; }

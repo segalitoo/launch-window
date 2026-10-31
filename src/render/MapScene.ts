@@ -167,8 +167,8 @@ export class MapScene extends Phaser.Scene {
     const { cols, rows } = this.game$.state.grid;
     if (this.textures.exists('backdrop_sand')) {
       const e = this.viewBounds(cols, rows, 2 * BACKDROP_PAD);
-      // the texture is painting px (2x supersampled), so it tiles at half scale
-      this.add.tileSprite(e.x, e.y, e.w * 2, e.h * 2, 'backdrop_sand').setOrigin(0).setScale(0.5).setDepth(-OVERLAY_DEPTH - 1);
+      // one large non-repeating image, stretched over the map plus the pan margin
+      this.add.image(e.x, e.y, 'backdrop_sand').setOrigin(0).setDisplaySize(e.w, e.h).setDepth(-OVERLAY_DEPTH - 1);
     }
     // the area drawn later owns a tile it shares with one under it (Phase 4 overlaps)
     const regions = this.areas.map((name) => (this.cache.json.get(`${name}_meta`) as { region?: number[] }).region);

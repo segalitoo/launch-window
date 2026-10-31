@@ -45,6 +45,9 @@ GROW_PX = 2  # mask grows 2 px at 2x (1 px at 100% zoom), so no sliver of a hidd
 PAD = 2
 
 
+MAP_COLS, MAP_ROWS = 46, 30  # the mission map (maps/night-lantern.tmj)
+
+
 def region_mask(manifest, fade):
     """Alpha of the painting by ground tile: 1 inside the region, fading to 0 over `fade`
     tiles (west, north, east, south) at its edges. Half size, like the light map.
@@ -60,6 +63,17 @@ def region_mask(manifest, fade):
     Y = (py * 2 + 1 - oy) / ss
     tx = (X / 32 + Y / 16) / 2
     ty = (Y / 16 - X / 32) / 2
+    # a side on the map's border runs one tile past it and fades out there, into the desert
+    # backdrop around the map (Phase 6): the playable tiles stay fully painted
+    fade = list(fade)
+    if x0 == 0:
+        x0, fade[0] = -1, 1
+    if y0 == 0:
+        y0, fade[1] = -1, 1
+    if x1 == MAP_COLS - 1:
+        x1, fade[2] = MAP_COLS, 1
+    if y1 == MAP_ROWS - 1:
+        y1, fade[3] = MAP_ROWS, 1
     a = np.ones((h, w), np.float32)
     for d, f in ((tx - x0, fade[0]), (ty - y0, fade[1]), (x1 + 1 - tx, fade[2]), (y1 + 1 - ty, fade[3])):
         a = np.minimum(a, np.clip(d / f, 0, 1) if f > 0 else (d >= 0).astype(np.float32))
@@ -110,7 +124,7 @@ def main():
         # every tile the area owns must lie inside the painting's unfaded part (the engine
         # feathers the image edge by FEATHER px): else the placeholder shows through
         x0, y0, x1, y1 = plate["region"]
-        cols, rows = 46, 30  # outside the map nothing is drawn
+        cols, rows = MAP_COLS, MAP_ROWS  # outside the map nothing is drawn
         bad = []
         for cx, cy in ((x0, y0), (x1 + 1, y0), (x1 + 1, y1 + 1), (x0, y1 + 1)):
             cx, cy = min(cx, cols), min(cy, rows)

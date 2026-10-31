@@ -67,7 +67,7 @@ export class Hud {
         <span class="touch-keys">Drag to pan, pinch to zoom.</span></p>
         <div class="right">
           <nav class="pack" aria-label="Backpack"></nav>
-          <nav class="bar" aria-label="Orders">${BAR.map(([id, , label]) => `<button type="button" data-id="${id}">${ORDER_ICONS[id] ?? ''}<span class="label">${label}</span></button>`).join('')}</nav>
+          <nav class="bar" aria-label="Orders">${BAR.map(([id, key, label]) => `<button type="button" data-id="${id}" title="${label} (${key.toUpperCase()})"><span class="key">${key.toUpperCase()}</span>${ORDER_ICONS[id] ?? ''}<span class="label">${label}</span></button>`).join('')}</nav>
         </div>
         <div class="rotate" role="alert"><div><b>Turn your phone sideways</b>Launch Window plays in landscape. The game is paused.</div></div>
         <div class="end" id="end" hidden>
